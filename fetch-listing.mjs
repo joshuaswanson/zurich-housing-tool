@@ -269,6 +269,12 @@ function summarize(data) {
   else if (data.until) avail.push("permanent");
   if (avail.length) lines.push(avail.join(" "));
 
+  // Flatfox fields
+  if (data.particulars) lines.push(`Type: ${data.particulars}`);
+  if (data.livingspace) lines.push(`Size: ${data.livingspace}`);
+  if (data.facilities) lines.push(`Facilities: ${data.facilities}`);
+
+  // wgzimmer fields
   if (data.nearby) lines.push(`Near: ${data.nearby.replace(/\n/g, "; ")}`);
   if (data.room)
     lines.push(`Room: ${data.room.replace(/\n/g, " ").substring(0, 200)}`);
@@ -278,6 +284,13 @@ function summarize(data) {
     );
   if (data.weAre)
     lines.push(`WG: ${data.weAre.replace(/\n/g, " ").substring(0, 200)}`);
+
+  // Flatfox description (covers what wgzimmer splits into room/lookingFor/weAre)
+  if (data.description)
+    lines.push(
+      `Desc: ${data.description.replace(/\n/g, " ").substring(0, 300)}`,
+    );
+
   lines.push(data.url || "");
   return lines.join("\n");
 }

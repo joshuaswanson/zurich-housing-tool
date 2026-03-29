@@ -144,6 +144,7 @@ function isShortSublet(listing) {
 
 const trackedIds = new Set();
 const trackedPks = new Set();
+const trackedAddresses = new Set();
 if (notTracked && fs.existsSync(TRACKER_FILE)) {
   const tracker = JSON.parse(fs.readFileSync(TRACKER_FILE, "utf8"));
   for (const cat of ["applied", "excluded", "rejected", "shortlisted"]) {
@@ -152,6 +153,28 @@ if (notTracked && fs.existsSync(TRACKER_FILE)) {
       if (uuid) trackedIds.add(uuid);
       const pk = e.url.match(/\/(\d{5,})\/?/)?.[1];
       if (pk) trackedPks.add(pk);
+      // Collect addresses for same-address dedup
+      if (e.address) {
+        const normalized = e.address
+          .replace(/\s*\(.*\)/, "")
+          .trim()
+          .toLowerCase();
+        trackedAddresses.add(normalized);
+      }
+    }
+  }
+  // Also check cached listing details for addresses
+  if (fs.existsSync(LISTINGS_DIR)) {
+    for (const id of [
+      ...trackedIds,
+      ...Array.from(trackedPks).map((p) => `flatfox-${p}`),
+    ]) {
+      const file = path.join(LISTINGS_DIR, id + ".json");
+      if (fs.existsSync(file)) {
+        const data = JSON.parse(fs.readFileSync(file, "utf8"));
+        if (data.address)
+          trackedAddresses.add(data.address.trim().toLowerCase());
+      }
     }
   }
 }
@@ -194,6 +217,19 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
 
     if (maxPrice && l.price > maxPrice) continue;
     if (notTracked && trackedIds.has(id)) continue;
+
+    // Same-address dedup
+    if (notTracked && trackedAddresses.size > 0 && id) {
+      const cachedPath = path.join(LISTINGS_DIR, id + ".json");
+      if (fs.existsSync(cachedPath)) {
+        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
+        if (
+          cached.address &&
+          trackedAddresses.has(cached.address.trim().toLowerCase())
+        )
+          continue;
+      }
+    }
 
     // Gender filter (default on)
     if (!includeGendered) {
@@ -272,6 +308,19 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
 
     const ffUrl = `https://flatfox.ch/en/flat/8001-zurich/${p.pk}/`;
     const ffCacheKey = `flatfox-${p.pk}`;
+
+    // Same-address dedup: skip if we already applied to this address
+    if (notTracked && trackedAddresses.size > 0) {
+      const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
+      if (fs.existsSync(cachedPath)) {
+        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
+        if (
+          cached.address &&
+          trackedAddresses.has(cached.address.trim().toLowerCase())
+        )
+          continue;
+      }
+    }
 
     // Gender filter
     if (!includeGendered) {

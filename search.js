@@ -24,6 +24,7 @@ import {
   ETH_ZENTRUM,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
+  RONORP_CACHE_FILE,
   LISTINGS_DIR,
   TRACKER_FILE,
   distKm,
@@ -349,6 +350,42 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
       label: `${km.toFixed(2)} km (~${Math.round(km * 12)} min walk)`,
       desc: "",
       url: ffUrl,
+    });
+  }
+}
+
+// ── ronorp ────────────────────────────────────────────────────────────────────
+
+if (fs.existsSync(RONORP_CACHE_FILE)) {
+  const listings = JSON.parse(fs.readFileSync(RONORP_CACHE_FILE, "utf8"));
+
+  for (const l of listings) {
+    if (!l.price || !l.isOffer) continue;
+    if (maxPrice && l.price > maxPrice) continue;
+
+    const slug = l.url.split("/").pop();
+    if (notTracked) {
+      // Check by URL slug
+      const isTracked = [...trackedIds, ...trackedPks].some(
+        (id) => slug.includes(id) || id.includes(slug),
+      );
+      if (isTracked) continue;
+      // Address dedup
+      if (l.address && trackedAddresses.has(l.address.trim().toLowerCase()))
+        continue;
+    }
+
+    const text = l.description || "";
+    if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
+    if (!includeGendered && isGenderRestricted(text)) continue;
+
+    allResults.push({
+      source: "ronorp",
+      price: l.price,
+      dist: null,
+      label: `${l.address || "Zürich"} | ${text.substring(0, 80)}`,
+      desc: "",
+      url: l.url,
     });
   }
 }

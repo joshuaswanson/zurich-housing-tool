@@ -23,6 +23,7 @@ import {
   WGZIMMER_CACHE_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
+  RONORP_CACHE_FILE,
   ensureDataDir,
   loadSeen,
   saveSeen,
@@ -32,6 +33,7 @@ import {
   timestamp,
 } from "./lib.js";
 import { scrapeWgzimmer } from "./wgzimmer-scrape.mjs";
+import { scrapeRonorp } from "./ronorp-scrape.mjs";
 
 const WGZIMMER_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -214,6 +216,29 @@ export async function refresh() {
     }
   } catch (e) {
     console.log(` blocked (${e.message.substring(0, 50)})`);
+  }
+
+  // ronorp
+  process.stdout.write("  Scanning ronorp.net...");
+  try {
+    const rn = await scrapeRonorp();
+    ensureDataDir();
+    fs.writeFileSync(RONORP_CACHE_FILE, JSON.stringify(rn, null, 2));
+    const rnFormatted = rn
+      .filter((l) => l.price && l.price <= MAX_PRICE)
+      .map((l) => ({
+        id: `ronorp-${l.url.split("/").pop()}`,
+        source: "ronorp",
+        price: l.price,
+        title: l.description?.substring(0, 80) || "",
+        url: l.url,
+        distKm: null,
+        walkMin: null,
+      }));
+    console.log(` ${rnFormatted.length} listings found`);
+    allListings.push(...rnFormatted);
+  } catch (e) {
+    console.log(` error (${e.message.substring(0, 50)})`);
   }
 
   // Update seen.json

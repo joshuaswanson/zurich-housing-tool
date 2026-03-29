@@ -21,6 +21,7 @@ export const WGZIMMER_LISTINGS_FILE = path.join(
   "wgzimmer_listings.json",
 );
 export const FLATFOX_CACHE_FILE = path.join(DATA_DIR, "flatfox_cache.json");
+export const RONORP_CACHE_FILE = path.join(DATA_DIR, "ronorp_cache.json");
 export const TRACKER_FILE = path.join(__dirname, "tracker.json");
 
 export const FLATFOX_BOUNDS = {

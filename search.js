@@ -197,6 +197,33 @@ if (noWoko && fs.existsSync(LISTINGS_DIR)) {
   }
 }
 
+// ── Corporate spam detection ────────────────────────────────────────────────
+
+const SPAM_PATTERNS = [
+  /A\/NTERIM/i,
+  /NextGen Properties/i,
+  /next\.genproperties/i,
+  /nextgenproperties/i,
+  /different Address than this ad/i,
+  /Properties are at a different/i,
+  /Co-Living Anbieter/i,
+];
+
+const spamIds = new Set();
+if (fs.existsSync(LISTINGS_DIR)) {
+  for (const f of fs
+    .readdirSync(LISTINGS_DIR)
+    .filter((f) => f.endsWith(".json"))) {
+    const data = JSON.parse(
+      fs.readFileSync(path.join(LISTINGS_DIR, f), "utf8"),
+    );
+    const text = JSON.stringify(data);
+    if (SPAM_PATTERNS.some((p) => p.test(text))) {
+      spamIds.add(f.replace(".json", ""));
+    }
+  }
+}
+
 // ── Near-ETH patterns ────────────────────────────────────────────────────────
 
 const NEAR_ETH_PATTERN =
@@ -338,10 +365,9 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
       }
     }
 
-    // Check cached details for WOKO
-    if (noWoko) {
-      if (wokoIds.has(ffCacheKey)) continue;
-    }
+    // Check cached details for WOKO or spam
+    if (noWoko && wokoIds.has(ffCacheKey)) continue;
+    if (spamIds.has(ffCacheKey)) continue;
 
     allResults.push({
       source: "flatfox",

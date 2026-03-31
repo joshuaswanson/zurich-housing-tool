@@ -55,6 +55,7 @@ if (hasFlag("--help") || hasFlag("-h")) {
   --include-short       Include short sublets <2 months (filtered by default)
   --sort distance|price Sort order (default: price)
   --limit N             Max results (default 20)
+  --keyword <pattern>   Filter by keyword/regex in description/neighborhood (e.g. "Altstadt|Niederdorf|8001")
   --fetch N             Fetch details for top N uncached results`);
   process.exit(0);
 }
@@ -67,6 +68,9 @@ const notTracked = hasFlag("--not-tracked");
 const includeGendered = hasFlag("--include-gendered");
 const includeShort = hasFlag("--include-short");
 const sortBy = getArg("--sort") || "price";
+const keyword = getArg("--keyword")
+  ? new RegExp(getArg("--keyword"), "i")
+  : null;
 const limit = getArg("--limit") ? parseInt(getArg("--limit")) : 20;
 const maxDist = getArg("--max-dist") ? parseFloat(getArg("--max-dist")) : null;
 const fetchCount = getArg("--fetch") ? parseInt(getArg("--fetch")) : 0;
@@ -245,6 +249,7 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
 
     if (maxPrice && l.price > maxPrice) continue;
     if (notTracked && trackedIds.has(id)) continue;
+    if (keyword && !keyword.test(text)) continue;
 
     // Same-address dedup
     if (notTracked && trackedAddresses.size > 0 && id) {
@@ -337,6 +342,18 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
     const ffUrl = `https://flatfox.ch/en/flat/8001-zurich/${p.pk}/`;
     const ffCacheKey = `flatfox-${p.pk}`;
 
+    // Keyword filter (check cached details if available)
+    if (keyword) {
+      const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
+      if (fs.existsSync(cachedPath)) {
+        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
+        const detailText = JSON.stringify(cached);
+        if (!keyword.test(detailText)) continue;
+      } else {
+        continue; // Can't filter uncached flatfox by keyword
+      }
+    }
+
     // Same-address dedup: skip if we already applied to this address
     if (notTracked && trackedAddresses.size > 0) {
       const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
@@ -402,6 +419,7 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
     }
 
     const text = l.description || "";
+    if (keyword && !keyword.test(text)) continue;
     if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
     if (!includeGendered && isGenderRestricted(text)) continue;
 

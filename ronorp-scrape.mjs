@@ -52,10 +52,10 @@ export async function scrapeRonorp() {
         );
         const address = addrMatch ? addrMatch[1].trim() : null;
 
-        // Check if it's an offer (Biete) not a search (Gesuch/Suche)
+        // Check if it's someone searching (not offering) a room
         const isSearch =
-          /\bSuche\b|\bGesucht\b|\bGesuch\b|\bLooking for\b|\bgesucht\b/i.test(
-            text.substring(0, 200),
+          /\bSuche\b.*\b(?:Wohnung|Zimmer|WG)\b|\b(?:Wohnung|Zimmer|WG)\b.*\bgesucht\b|\bGesuch\b|\bLooking for a (?:room|flat|apartment)\b|\bich suche\b|\bwir suchen eine Wohnung\b/i.test(
+            text,
           );
 
         results.push({

@@ -30,6 +30,7 @@ import {
   distKm,
   cacheKeyFromUrl,
   ensureDataDir,
+  geocodeAddress,
 } from "./lib.js";
 
 // ── Arg parsing ──────────────────────────────────────────────────────────────
@@ -239,6 +240,8 @@ const allResults = [];
 
 // ── wgzimmer ─────────────────────────────────────────────────────────────────
 
+const pendingGeocode = []; // { addr, resultIndex }
+
 if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
   const listings = JSON.parse(fs.readFileSync(WGZIMMER_LISTINGS_FILE, "utf8"));
 
@@ -292,17 +295,6 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
       if (/WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
     }
 
-    if (nearETH) {
-      const inHood = NEAR_ETH_PATTERN.test(text);
-      const walkMatch = text.match(ETH_WALK_PATTERN);
-      let closeWalk = false;
-      if (walkMatch) {
-        const mins = parseInt(walkMatch[1] || walkMatch[2] || walkMatch[3]);
-        if (mins <= 15) closeWalk = true;
-      }
-      if (!inHood && !closeWalk) continue;
-    }
-
     if (permanent) {
       const until = (l.until || "").toLowerCase();
       if (
@@ -311,6 +303,32 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
         until !== "?"
       )
         continue;
+    }
+
+    // Calculate distance from cached listing address if available
+    let dist = null;
+    if (id) {
+      const cachedPath = path.join(LISTINGS_DIR, id + ".json");
+      if (fs.existsSync(cachedPath)) {
+        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
+        if (cached.address) {
+          const addr = cached.address + (cached.city ? ", " + cached.city : "");
+          pendingGeocode.push({ addr, resultIndex: allResults.length });
+        }
+      }
+    }
+
+    // nearETH: if we have no geocode yet, fall back to text pattern matching
+    // (actual distance filtering happens after geocoding below)
+    if (nearETH && !id) {
+      const inHood = NEAR_ETH_PATTERN.test(text);
+      const walkMatch = text.match(ETH_WALK_PATTERN);
+      let closeWalk = false;
+      if (walkMatch) {
+        const mins = parseInt(walkMatch[1] || walkMatch[2] || walkMatch[3]);
+        if (mins <= 15) closeWalk = true;
+      }
+      if (!inHood && !closeWalk) continue;
     }
 
     allResults.push({
@@ -433,6 +451,35 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
     });
   }
 }
+
+// ── Geocode wgzimmer addresses for distance calculation ─────────────────────
+
+await (async () => {
+  const distLimit = maxDist || (nearETH ? 1.5 : null);
+  if (pendingGeocode.length > 0) {
+    for (const { addr, resultIndex } of pendingGeocode) {
+      if (resultIndex >= allResults.length) continue;
+      const coords = await geocodeAddress(addr);
+      if (coords) {
+        const km = distKm(ETH_ZENTRUM, coords);
+        allResults[resultIndex].dist = km;
+        allResults[resultIndex].label =
+          `${km.toFixed(1)} km (~${Math.round(km * 12)} min walk) | ` +
+          allResults[resultIndex].label;
+      }
+    }
+  }
+
+  // Now filter by distance if --near-eth or --max-dist
+  if (distLimit) {
+    for (let i = allResults.length - 1; i >= 0; i--) {
+      const r = allResults[i];
+      if (r.source === "wgzimmer" && r.dist !== null && r.dist > distLimit) {
+        allResults.splice(i, 1);
+      }
+    }
+  }
+})();
 
 // ── Sort & print ─────────────────────────────────────────────────────────────
 

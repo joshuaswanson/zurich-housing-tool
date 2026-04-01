@@ -77,6 +77,56 @@ export function timestamp() {
   return new Date().toLocaleString("de-CH", { timeZone: "Europe/Zurich" });
 }
 
+// ── Geocoding ─────────────────────────────────────────────────────────────
+
+const GEOCODE_CACHE_FILE = path.join(DATA_DIR, "geocode_cache.json");
+
+function loadGeocodeCache() {
+  if (fs.existsSync(GEOCODE_CACHE_FILE))
+    return JSON.parse(fs.readFileSync(GEOCODE_CACHE_FILE, "utf8"));
+  return {};
+}
+
+function saveGeocodeCache(cache) {
+  ensureDataDir();
+  fs.writeFileSync(GEOCODE_CACHE_FILE, JSON.stringify(cache, null, 2));
+}
+
+/**
+ * Geocode an address to { lat, lng } using Nominatim (OpenStreetMap).
+ * Results are permanently cached to avoid rate limiting.
+ * Returns null if geocoding fails.
+ */
+export async function geocodeAddress(address) {
+  if (!address) return null;
+
+  const cache = loadGeocodeCache();
+  const key = address.trim().toLowerCase();
+  if (cache[key]) return cache[key];
+
+  try {
+    const query = encodeURIComponent(address + ", Zürich, Schweiz");
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
+      { headers: { "User-Agent": "zurich-housing-monitor/1.0" } },
+    );
+    const results = await resp.json();
+    if (results.length > 0) {
+      const coords = {
+        lat: parseFloat(results[0].lat),
+        lng: parseFloat(results[0].lon),
+      };
+      cache[key] = coords;
+      saveGeocodeCache(cache);
+      return coords;
+    }
+  } catch {}
+
+  cache[key] = null;
+  saveGeocodeCache(cache);
+  return null;
+}
+
 /** Extract a cache key from a listing URL */
 export function cacheKeyFromUrl(url) {
   if (url.includes("flatfox.ch")) {

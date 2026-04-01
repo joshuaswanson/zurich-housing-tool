@@ -78,9 +78,11 @@ export async function fetchFlatfoxListing(page, url) {
     if (titleMatch) {
       data.address = titleMatch[1].trim();
     }
-    const grossMatch = text.match(/Gross rent[^:]*:[^\d]*CHF\s*([\d\u2019']+)/);
-    if (grossMatch) {
-      data.rent = parseInt(grossMatch[1].replace(/['\u2019]/g, ""));
+    const rentMatch = text.match(
+      /(?:Gross|Net) rent[^:]*:[^\d]*CHF\s*([\d\u2019']+)/,
+    );
+    if (rentMatch) {
+      data.rent = parseInt(rentMatch[1].replace(/['\u2019]/g, ""));
     } else if (titleMatch) {
       data.rent = parseInt(titleMatch[2].replace(/['\u2019]/g, ""));
     }

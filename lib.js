@@ -7,9 +7,27 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// ── Constants ──────────────────────────────────────────────────────────────
-export const ETH_ZENTRUM = { lat: 47.3764, lng: 8.5483 };
-export const MAX_PRICE = 1500;
+// ── Config loading ────────────────────────────────────────────────────────
+
+const CONFIG_FILE = path.join(__dirname, "config.json");
+const CONFIG_EXAMPLE_FILE = path.join(__dirname, "config.example.json");
+
+/**
+ * Load config.json, falling back to config.example.json if it doesn't exist.
+ * Returns the parsed config object.
+ */
+export function loadConfig() {
+  const file = fs.existsSync(CONFIG_FILE) ? CONFIG_FILE : CONFIG_EXAMPLE_FILE;
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+const config = loadConfig();
+
+// ── Constants (derived from config) ───────────────────────────────────────
+export { config };
+
+export const ETH_ZENTRUM = { lat: config.target.lat, lng: config.target.lng };
+export const MAX_PRICE = config.search.maxPrice || 2000;
 export const MAX_DISTANCE_KM = 5;
 
 export const DATA_DIR = path.join(__dirname, "data");
@@ -24,11 +42,15 @@ export const FLATFOX_CACHE_FILE = path.join(DATA_DIR, "flatfox_cache.json");
 export const RONORP_CACHE_FILE = path.join(DATA_DIR, "ronorp_cache.json");
 export const TRACKER_FILE = path.join(__dirname, "tracker.json");
 
+/**
+ * Flatfox bounding box: derived from target coordinates with reasonable padding.
+ * Covers roughly a 5 km radius around the target.
+ */
 export const FLATFOX_BOUNDS = {
-  north: 47.42,
-  south: 47.33,
-  east: 8.6,
-  west: 8.46,
+  north: config.target.lat + 0.044,
+  south: config.target.lat - 0.046,
+  east: config.target.lng + 0.052,
+  west: config.target.lng - 0.088,
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────

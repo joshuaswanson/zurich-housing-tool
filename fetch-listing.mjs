@@ -15,6 +15,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import {
+  config,
   LISTINGS_DIR,
   TRACKER_FILE,
   ensureDataDir,
@@ -22,6 +23,11 @@ import {
 } from "./lib.js";
 
 ensureDataDir();
+
+// ── Config-driven exclude settings ─────────────────────────────────────────
+
+const cfgExclude = config.exclude || {};
+const overAgeLimit = cfgExclude.overAge || 28;
 
 // ── Cache helpers (exported for programmatic use) ───────────────────────────
 
@@ -187,6 +193,7 @@ export async function fetchWgzimmerListing(page, url) {
 
 // ── Auto-exclude patterns ──────────────────────────────────────────────────
 
+// Hardcoded spam patterns (always active for robustness)
 const SPAM_PATTERNS = [
   { pattern: /A\/NTERIM/i, reason: "Auto-excluded: A/NTERIM spam" },
   {
@@ -219,24 +226,44 @@ const SPAM_PATTERNS = [
   },
 ];
 
+// Add patterns from config spam list (in addition to hardcoded ones)
+const configSpamList = cfgExclude.spam || [];
+for (const term of configSpamList) {
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const alreadyCovered = SPAM_PATTERNS.some((s) => s.pattern.test(term));
+  if (!alreadyCovered) {
+    SPAM_PATTERNS.push({
+      pattern: new RegExp(escaped, "i"),
+      reason: `Auto-excluded: ${term} (config spam)`,
+    });
+  }
+}
+
+// Hardcoded WOKO patterns (always active for robustness)
 const WOKO_PATTERNS = [
   { pattern: /\bWOKO\b/, reason: "Auto-excluded: WOKO property" },
   { pattern: /\bJUWO\b/, reason: "Auto-excluded: JUWO property" },
   {
-    pattern: /\bunder 28\b/i,
-    reason: "Auto-excluded: WOKO/JUWO age restriction",
+    pattern: new RegExp(`\\bunder ${overAgeLimit}\\b`, "i"),
+    reason: `Auto-excluded: WOKO/JUWO age restriction (under ${overAgeLimit})`,
   },
   {
-    pattern: /\bunter 28\b/i,
-    reason: "Auto-excluded: WOKO/JUWO age restriction",
+    pattern: new RegExp(`\\bunter ${overAgeLimit}\\b`, "i"),
+    reason: `Auto-excluded: WOKO/JUWO age restriction (unter ${overAgeLimit})`,
   },
   { pattern: /WOKO-Kriterien/i, reason: "Auto-excluded: WOKO property" },
   { pattern: /JUWO-Kriterien/i, reason: "Auto-excluded: JUWO property" },
 ];
 
+// Only auto-exclude WOKO if config says so
+const excludeWoko = cfgExclude.woko !== false;
+
 function autoExcludeIfSpam(url, data) {
   const text = JSON.stringify(data);
-  for (const { pattern, reason } of [...SPAM_PATTERNS, ...WOKO_PATTERNS]) {
+  const patternsToCheck = excludeWoko
+    ? [...SPAM_PATTERNS, ...WOKO_PATTERNS]
+    : SPAM_PATTERNS;
+  for (const { pattern, reason } of patternsToCheck) {
     if (pattern.test(text)) {
       try {
         const tracker = fs.existsSync(TRACKER_FILE)

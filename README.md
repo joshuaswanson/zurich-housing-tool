@@ -102,23 +102,45 @@ npm run search      # node search.js
 npm run track       # node track.js
 ```
 
+## Configuration
+
+Copy `config.example.json` to `config.json` and customize:
+
+```json
+{
+  "target": { "lat": 47.3764, "lng": 8.5483, "label": "ETH Zentrum" },
+  "search": { "maxPrice": 2000, "region": "zurich-stadt", "minDuration": 60 },
+  "exclude": {
+    "woko": true,
+    "genderRestricted": true,
+    "shortSublets": true,
+    "overAge": 28,
+    "spam": ["A/NTERIM", "NextGen Properties"]
+  }
+}
+```
+
+- **target**: coordinates and label for distance calculations
+- **search**: max price, wgzimmer region, minimum sublet duration in days
+- **exclude**: toggle filters, set age limit, add spam company names
+
+`config.json` is gitignored. `config.example.json` is committed as a template.
+
 ## File structure
 
 ```
-lib.js                Shared utilities (distance, paths, cache helpers)
+lib.js                Shared utilities (config, distance, paths, cache helpers)
 monitor.js            Data acquisition (flatfox API + wgzimmer scrape)
 wgzimmer-scrape.mjs   CloakBrowser-based wgzimmer scraper (exports scrapeWgzimmer)
-fetch-listing.mjs     Fetch & cache full listing details (exports fetch functions)
+ronorp-scrape.mjs     CloakBrowser-based ronorp.net scraper
+fetch-listing.mjs     Fetch & cache full listing details, auto-exclude WOKO/spam
 search.js             Search & filter cached listings with smart defaults
-track.js              Application tracker (applied/shortlisted/excluded/rejected)
-tracker.json          Tracker state
+track.js              Application tracker with dashboard
+config.json           Your personal config (gitignored)
+config.example.json   Config template (committed)
+tracker.json          Tracker state (gitignored)
 package.json          ESM ("type": "module")
-data/
-  flatfox_cache.json      Flatfox pin data (written by monitor refresh)
-  wgzimmer_cache.json     Wgzimmer search results cache (30 min TTL)
-  wgzimmer_listings.json  Raw scraped wgzimmer data
-  seen.json               Seen listings (for watch mode dedup)
-  listings/               Permanently cached individual listing details
+data/                 All cached data (gitignored)
 ```
 
 ## How it works
@@ -131,6 +153,14 @@ data/
 
 - **Short sublet filter**: Parses available-from and until dates to hide listings shorter than 2 months.
 
-- **Auto-populate tracker**: When tracking a URL, price and address are looked up from the listing detail cache. Use `backfill` to update older entries retroactively.
+- **Auto-populate tracker**: When tracking a URL, price and address are looked up from the listing detail cache. Backfill runs silently on every command.
+
+- **Auto-exclude**: Fetched listings are automatically checked for WOKO/JUWO and spam patterns and excluded from future searches.
+
+- **Geocoding**: Listing addresses are geocoded via Nominatim (OpenStreetMap) on fetch and cached permanently for distance calculations.
+
+- **Description dedup**: Listings with near-identical descriptions (e.g. same person posting multiple times) are deduplicated.
+
+- **Config-driven**: All preferences (target location, price, filters, spam list) live in `config.json`. See Configuration section above.
 
 - All modules use **ESM** (`"type": "module"` in package.json). CloakBrowser is ESM-only.

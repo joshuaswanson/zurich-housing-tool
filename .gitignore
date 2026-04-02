@@ -1,3 +1,5 @@
 node_modules/
 data/
 .claude/
+tracker.json
+config.json

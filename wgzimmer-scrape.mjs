@@ -1,7 +1,7 @@
 /**
  * wgzimmer.ch scraper using CloakBrowser (headless, bypasses reCAPTCHA v3).
  *
- * Exports: scrapeWgzimmer(maxPrice) for programmatic use.
+ * Exports: scrapeWgzimmer(maxPrice, region) for programmatic use.
  * Standalone: node wgzimmer-scrape.mjs [maxPrice]
  */
 import { launch } from "cloakbrowser";
@@ -10,9 +10,11 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Scrape wgzimmer.ch for Zurich listings up to maxPrice.
+ * @param {number} maxPrice - Maximum rent in CHF
+ * @param {string} region - wgzimmer region selector value (default: "zurich-stadt")
  * Returns an array of raw listing objects.
  */
-export async function scrapeWgzimmer(maxPrice = 1500) {
+export async function scrapeWgzimmer(maxPrice = 1500, region = "zurich-stadt") {
   const browser = await launch({ headless: true, humanize: true });
   try {
     const page = await browser.newPage();
@@ -38,7 +40,7 @@ export async function scrapeWgzimmer(maxPrice = 1500) {
     await delay(1000);
 
     // Fill form
-    await page.selectOption("#selector-state", "zurich-stadt");
+    await page.selectOption("#selector-state", region);
     await page.selectOption('select[name="priceMax"]', String(maxPrice));
     await delay(1000);
 

@@ -22,7 +22,9 @@
 import fs from "fs";
 import path from "path";
 import {
+  config,
   ETH_ZENTRUM,
+  MAX_PRICE,
   SEEN_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
@@ -34,6 +36,11 @@ import {
   ensureDataDir,
   geocodeAddress,
 } from "./lib.js";
+
+// ── Config defaults ─────────────────────────────────────────────────────────
+
+const cfgExclude = config.exclude || {};
+const cfgSearch = config.search || {};
 
 // ── Arg parsing ──────────────────────────────────────────────────────────────
 
@@ -64,11 +71,21 @@ if (hasFlag("--help") || hasFlag("-h")) {
 }
 
 const maxPrice = getArg("--max-price") ? parseInt(getArg("--max-price")) : null;
-const noWoko = hasFlag("--no-woko");
+
+// CLI flags override config defaults
+const noWoko = hasFlag("--no-woko") || cfgExclude.woko === true;
 const permanent = hasFlag("--permanent");
 const notTracked = hasFlag("--not-tracked");
-const includeGendered = hasFlag("--include-gendered");
-const includeShort = hasFlag("--include-short");
+const includeGendered =
+  hasFlag("--include-gendered") ||
+  (cfgExclude.genderRestricted === false && !hasFlag("--include-gendered"));
+const excludeGendered =
+  !hasFlag("--include-gendered") && cfgExclude.genderRestricted !== false;
+const includeShort =
+  hasFlag("--include-short") ||
+  (cfgExclude.shortSublets === false && !hasFlag("--include-short"));
+const excludeShort =
+  !hasFlag("--include-short") && cfgExclude.shortSublets !== false;
 const sortBy = getArg("--sort") || "price";
 const keyword = getArg("--keyword")
   ? new RegExp(getArg("--keyword"), "i")
@@ -76,6 +93,9 @@ const keyword = getArg("--keyword")
 const limit = getArg("--limit") ? parseInt(getArg("--limit")) : 20;
 const maxDist = getArg("--max-dist") ? parseFloat(getArg("--max-dist")) : null;
 const fetchCount = getArg("--fetch") ? parseInt(getArg("--fetch")) : 0;
+
+// Min duration from config (days). Short sublet threshold.
+const minDurationDays = cfgSearch.minDuration || 60;
 
 // --new flag: only show listings first seen within N hours
 const newFlag = hasFlag("--new");
@@ -142,7 +162,7 @@ function isShortSublet(listing) {
   const diffMs = untilDate - fromDate;
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
-  return diffDays > 0 && diffDays < 60;
+  return diffDays > 0 && diffDays < minDurationDays;
 }
 
 // ── Load seen.json for --new filter ──────────────────────────────────────────
@@ -221,6 +241,7 @@ if (noWoko && fs.existsSync(LISTINGS_DIR)) {
 
 // ── Corporate spam detection ────────────────────────────────────────────────
 
+// Hardcoded patterns (always active for robustness)
 const SPAM_PATTERNS = [
   /A\/NTERIM/i,
   /NextGen Properties/i,
@@ -230,6 +251,17 @@ const SPAM_PATTERNS = [
   /Properties are at a different/i,
   /Co-Living Anbieter/i,
 ];
+
+// Add patterns from config spam list (in addition to hardcoded ones)
+const configSpamList = cfgExclude.spam || [];
+for (const term of configSpamList) {
+  // Escape regex special chars for literal matching, then add as pattern
+  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const alreadyCovered = SPAM_PATTERNS.some((p) => p.test(term));
+  if (!alreadyCovered) {
+    SPAM_PATTERNS.push(new RegExp(escaped, "i"));
+  }
+}
 
 const spamIds = new Set();
 if (fs.existsSync(LISTINGS_DIR)) {
@@ -316,8 +348,8 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
     // Description dedup
     if (id && isDuplicateDescription(l.url)) continue;
 
-    // Gender filter (default on)
-    if (!includeGendered) {
+    // Gender filter (default from config)
+    if (excludeGendered) {
       let genderText = text;
       if (id) {
         const cachedPath = path.join(LISTINGS_DIR, id + ".json");
@@ -335,8 +367,8 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
       if (isGenderRestricted(genderText)) continue;
     }
 
-    // Short sublet filter (default on)
-    if (!includeShort && isShortSublet(l)) continue;
+    // Short sublet filter (default from config)
+    if (excludeShort && isShortSublet(l)) continue;
 
     if (noWoko) {
       if (id && wokoIds.has(id)) continue;
@@ -384,7 +416,7 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
 
 if (fs.existsSync(FLATFOX_CACHE_FILE)) {
   const distLimit = maxDist || 5.0;
-  const priceLimit = maxPrice || 2000;
+  const priceLimit = maxPrice || MAX_PRICE;
 
   const pins = JSON.parse(fs.readFileSync(FLATFOX_CACHE_FILE, "utf8"));
 
@@ -431,7 +463,7 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
     if (isDuplicateDescription(ffUrl)) continue;
 
     // Gender filter
-    if (!includeGendered) {
+    if (excludeGendered) {
       const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
       if (fs.existsSync(cachedPath)) {
         const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
@@ -485,7 +517,7 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
     const text = l.description || "";
     if (keyword && !keyword.test(text)) continue;
     if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
-    if (!includeGendered && isGenderRestricted(text)) continue;
+    if (excludeGendered && isGenderRestricted(text)) continue;
 
     allResults.push({
       source: "ronorp",
@@ -552,9 +584,9 @@ for (const r of displayed) {
 console.log(
   `Showing ${Math.min(allResults.length, limit)} of ${allResults.length} matches`,
 );
-if (!includeGendered)
+if (excludeGendered)
   console.log("  (gender-restricted listings hidden, use --include-gendered)");
-if (!includeShort)
+if (excludeShort)
   console.log("  (short sublets <2mo hidden, use --include-short)");
 if (newFlag)
   console.log(

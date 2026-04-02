@@ -113,27 +113,6 @@ function runBackfill(data, silent = false) {
   return updated;
 }
 
-/**
- * Auto-commit tracker.json and applications after apply.
- */
-function autoCommit(address) {
-  try {
-    execSync("git add tracker.json data/applications/", {
-      cwd: path.dirname(TRACKER_FILE),
-      stdio: "ignore",
-    });
-    execSync(
-      `git commit -m "Applied: ${(address || "unknown").replace(/"/g, '\\"')}"`,
-      {
-        cwd: path.dirname(TRACKER_FILE),
-        stdio: "ignore",
-      },
-    );
-  } catch {
-    // Silently ignore git failures (not a repo, nothing to commit, etc.)
-  }
-}
-
 const data = load();
 
 // Auto-backfill on every command (silent)

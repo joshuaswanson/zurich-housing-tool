@@ -15,6 +15,7 @@
 import fs from "fs";
 import { execSync } from "child_process";
 import {
+  config,
   ETH_ZENTRUM,
   MAX_PRICE,
   MAX_DISTANCE_KM,
@@ -36,6 +37,9 @@ import { scrapeWgzimmer } from "./wgzimmer-scrape.mjs";
 import { scrapeRonorp } from "./ronorp-scrape.mjs";
 
 const WGZIMMER_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
+
+const cfgSearch = config.search || {};
+const searchRegion = cfgSearch.region || "zurich-stadt";
 
 // ── Flatfox Source ──────────────────────────────────────────────────────────
 
@@ -94,7 +98,7 @@ async function fetchWgzimmer() {
   }
 
   // Use the imported scraper directly (no subprocess)
-  const allListings = await scrapeWgzimmer(MAX_PRICE);
+  const allListings = await scrapeWgzimmer(MAX_PRICE, searchRegion);
 
   // Save raw data
   fs.writeFileSync(
@@ -173,11 +177,12 @@ function printListings(
 
   // Summary
   const prices = filtered.filter((l) => l.price).map((l) => l.price);
+  const targetLabel = config.target.label || "ETH Zentrum";
   console.log(
     `  Total: ${filtered.length} listings` +
       (showAll
         ? ""
-        : ` (flatfox within ${maxDist} km of ETH + all wgzimmer Zürich)`),
+        : ` (flatfox within ${maxDist} km of ${targetLabel} + all wgzimmer ${searchRegion})`),
   );
   if (prices.length) {
     console.log(
@@ -255,9 +260,10 @@ export async function refresh() {
 // ── Main commands ───────────────────────────────────────────────────────────
 
 async function scan(opts = {}) {
+  const targetLabel = config.target.label || "ETH Zentrum";
   console.log(`\n  Zurich Housing Monitor — ${timestamp()}`);
   console.log(
-    `  Target: <${formatPrice(MAX_PRICE)}/mo, within ${opts.maxDist || MAX_DISTANCE_KM} km of ETH Zentrum\n`,
+    `  Target: <${formatPrice(MAX_PRICE)}/mo, within ${opts.maxDist || MAX_DISTANCE_KM} km of ${targetLabel}\n`,
   );
 
   const seen = loadSeen();
@@ -347,10 +353,10 @@ async function main() {
     case "links":
       console.log("\n  Useful housing links for Zurich:\n");
       console.log(
-        "  flatfox.ch    https://flatfox.ch/en/search/?object_category=SHARED&max_price=1500&query=Zurich",
+        `  flatfox.ch    https://flatfox.ch/en/search/?object_category=SHARED&max_price=${MAX_PRICE}&query=Zurich`,
       );
       console.log(
-        "  wgzimmer.ch   https://www.wgzimmer.ch/en/wgzimmer/search/mate/ch/zurich-stadt.html",
+        `  wgzimmer.ch   https://www.wgzimmer.ch/en/wgzimmer/search/mate/ch/${searchRegion}.html`,
       );
       console.log("  WOKO          https://www.woko.ch/en/zimmer-in-zuerich");
       console.log(

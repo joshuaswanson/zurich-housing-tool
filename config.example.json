@@ -1,0 +1,19 @@
+{
+  "target": {
+    "lat": 47.3764,
+    "lng": 8.5483,
+    "label": "ETH Zentrum"
+  },
+  "search": {
+    "maxPrice": 2000,
+    "region": "zurich-stadt",
+    "minDuration": 60
+  },
+  "exclude": {
+    "woko": true,
+    "genderRestricted": true,
+    "shortSublets": true,
+    "overAge": 28,
+    "spam": ["A/NTERIM", "NextGen Properties"]
+  }
+}

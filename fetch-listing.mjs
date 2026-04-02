@@ -14,7 +14,12 @@ import { launch } from "cloakbrowser";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
-import { LISTINGS_DIR, ensureDataDir } from "./lib.js";
+import {
+  LISTINGS_DIR,
+  TRACKER_FILE,
+  ensureDataDir,
+  geocodeAddress,
+} from "./lib.js";
 
 ensureDataDir();
 
@@ -180,6 +185,108 @@ export async function fetchWgzimmerListing(page, url) {
   });
 }
 
+// ── Auto-exclude patterns ──────────────────────────────────────────────────
+
+const SPAM_PATTERNS = [
+  { pattern: /A\/NTERIM/i, reason: "Auto-excluded: A/NTERIM spam" },
+  {
+    pattern: /NextGen Properties/i,
+    reason: "Auto-excluded: NextGen Properties spam",
+  },
+  {
+    pattern: /next\.genproperties/i,
+    reason: "Auto-excluded: NextGen Properties spam",
+  },
+  {
+    pattern: /nextgenproperties/i,
+    reason: "Auto-excluded: NextGen Properties spam",
+  },
+  {
+    pattern: /different Address than this ad/i,
+    reason: "Auto-excluded: fake address spam",
+  },
+  {
+    pattern: /Properties are at a different/i,
+    reason: "Auto-excluded: fake address spam",
+  },
+  {
+    pattern: /Co-Living Anbieter/i,
+    reason: "Auto-excluded: Co-Living Anbieter spam",
+  },
+  {
+    pattern: /NOTE:\s*This is an advertisement\.\s*The Property is located in/i,
+    reason: "Auto-excluded: fake address (property elsewhere)",
+  },
+];
+
+const WOKO_PATTERNS = [
+  { pattern: /\bWOKO\b/, reason: "Auto-excluded: WOKO property" },
+  { pattern: /\bJUWO\b/, reason: "Auto-excluded: JUWO property" },
+  {
+    pattern: /\bunder 28\b/i,
+    reason: "Auto-excluded: WOKO/JUWO age restriction",
+  },
+  {
+    pattern: /\bunter 28\b/i,
+    reason: "Auto-excluded: WOKO/JUWO age restriction",
+  },
+  { pattern: /WOKO-Kriterien/i, reason: "Auto-excluded: WOKO property" },
+  { pattern: /JUWO-Kriterien/i, reason: "Auto-excluded: JUWO property" },
+];
+
+function autoExcludeIfSpam(url, data) {
+  const text = JSON.stringify(data);
+  for (const { pattern, reason } of [...SPAM_PATTERNS, ...WOKO_PATTERNS]) {
+    if (pattern.test(text)) {
+      try {
+        const tracker = fs.existsSync(TRACKER_FILE)
+          ? JSON.parse(fs.readFileSync(TRACKER_FILE, "utf8"))
+          : {
+              applied: [],
+              shortlisted: [],
+              rejected: [],
+              excluded: [],
+              notes: {},
+            };
+        const allUrls = [
+          ...tracker.applied,
+          ...tracker.shortlisted,
+          ...tracker.rejected,
+          ...tracker.excluded,
+        ].map((e) => e.url);
+        if (allUrls.includes(url)) return null;
+        tracker.excluded.push({
+          url,
+          address: data.address || null,
+          price: data.rent || null,
+          reason,
+          date: new Date().toISOString().split("T")[0],
+        });
+        fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+        return reason;
+      } catch {}
+    }
+  }
+  return null;
+}
+
+async function autoGeocode(url, data) {
+  if (data.lat && data.lng) return;
+  const address = data.address;
+  if (!address) return;
+  const fullAddr =
+    address +
+    (data.city && !address.includes(data.city) ? ", " + data.city : "");
+  try {
+    const coords = await geocodeAddress(fullAddr);
+    if (coords) {
+      data.lat = coords.lat;
+      data.lng = coords.lng;
+      saveCache(url, data);
+    }
+  } catch {}
+}
+
 // ── Batch fetch (exported for search.js --fetch N) ──────────────────────────
 
 /**
@@ -211,6 +318,13 @@ export async function fetchListings(urls) {
             ? await fetchFlatfoxListing(page, url)
             : await fetchWgzimmerListing(page, url);
           saveCache(url, data);
+          // Auto-geocode (adds lat/lng to cached data)
+          await autoGeocode(url, data);
+          // Auto-exclude spam/WOKO
+          const excludeReason = autoExcludeIfSpam(url, data);
+          if (excludeReason) {
+            process.stderr.write(` [${excludeReason}]`);
+          }
           results.push({ url, data, fromCache: false });
           process.stderr.write(" ok\n");
         } catch (e) {

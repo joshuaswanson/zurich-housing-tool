@@ -6,7 +6,7 @@
  * Usage:
  *   node search.js                           # All listings from cache
  *   node search.js --max-price 800           # Price filter
- *   node search.js --near-eth               # <15 min walk from ETH Zentrum
+ *   node search.js --max-dist 2.0            # Max distance from ETH in km
  *   node search.js --no-woko                # Exclude WOKO/JUWO properties
  *   node search.js --permanent              # Only "No time restrictions"
  *   node search.js --not-tracked            # Exclude already applied/excluded/rejected
@@ -15,13 +15,15 @@
  *   node search.js --include-gendered       # Include gender-restricted listings
  *   node search.js --include-short          # Include short sublets (<2 months)
  *   node search.js --fetch N               # Fetch details for top N uncached results
- *   node search.js --max-dist N            # Max distance from ETH in km
+ *   node search.js --keyword <pattern>      # Filter by keyword/regex
+ *   node search.js --new [hours]            # Only show listings first seen within N hours (default 24)
  */
 
 import fs from "fs";
 import path from "path";
 import {
   ETH_ZENTRUM,
+  SEEN_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
   RONORP_CACHE_FILE,
@@ -47,8 +49,7 @@ function hasFlag(name) {
 if (hasFlag("--help") || hasFlag("-h")) {
   console.log(`Usage: node search.js [options]
   --max-price N         Max rent in CHF
-  --near-eth            Within ~15 min walk of ETH Zentrum
-  --max-dist N          Max distance from ETH in km (flatfox only, precise)
+  --max-dist N          Max distance from ETH in km (uses coordinates)
   --no-woko             Exclude WOKO/JUWO properties
   --permanent           Only unlimited duration
   --not-tracked         Exclude applied/excluded/rejected
@@ -56,13 +57,13 @@ if (hasFlag("--help") || hasFlag("-h")) {
   --include-short       Include short sublets <2 months (filtered by default)
   --sort distance|price Sort order (default: price)
   --limit N             Max results (default 20)
-  --keyword <pattern>   Filter by keyword/regex in description/neighborhood (e.g. "Altstadt|Niederdorf|8001")
+  --keyword <pattern>   Filter by keyword/regex in description/neighborhood
+  --new [hours]         Only listings first seen within N hours (default 24)
   --fetch N             Fetch details for top N uncached results`);
   process.exit(0);
 }
 
 const maxPrice = getArg("--max-price") ? parseInt(getArg("--max-price")) : null;
-const nearETH = hasFlag("--near-eth");
 const noWoko = hasFlag("--no-woko");
 const permanent = hasFlag("--permanent");
 const notTracked = hasFlag("--not-tracked");
@@ -76,15 +77,20 @@ const limit = getArg("--limit") ? parseInt(getArg("--limit")) : 20;
 const maxDist = getArg("--max-dist") ? parseFloat(getArg("--max-dist")) : null;
 const fetchCount = getArg("--fetch") ? parseInt(getArg("--fetch")) : 0;
 
+// --new flag: only show listings first seen within N hours
+const newFlag = hasFlag("--new");
+const newHours = (() => {
+  if (!newFlag) return null;
+  const val = getArg("--new");
+  // If --new is followed by a number, use it; otherwise default to 24
+  if (val && /^\d+$/.test(val)) return parseInt(val);
+  return 24;
+})();
+
 // ── Gender restriction detection ─────────────────────────────────────────────
 
-/**
- * Returns true if the text indicates the listing is restricted to female tenants.
- * Must avoid false positives: "Mitbewohner oder Mitbewohnerin" is NOT restricted.
- */
 function isGenderRestricted(text) {
   if (!text) return false;
-  const t = text.toLowerCase();
 
   // Negative patterns: inclusive phrasing (not restricted)
   if (/mitbewohner(?:in)?\s+(?:oder|or|\/)\s*mitbewohnerin/i.test(text))
@@ -108,17 +114,12 @@ function isGenderRestricted(text) {
   return false;
 }
 
-/**
- * Returns true if the listing is a short sublet (<2 months).
- * Parses available-from and until dates.
- */
 function isShortSublet(listing) {
   const from = listing.availableFrom || listing.date;
   const until = listing.until;
 
   if (!from || !until) return false;
 
-  // Skip "No time restrictions" / "unbefristet"
   const untilLower = until.toLowerCase();
   if (
     untilLower.includes("no time") ||
@@ -127,7 +128,6 @@ function isShortSublet(listing) {
   )
     return false;
 
-  // Try to parse dates in dd.mm.yyyy format
   const parseDate = (s) => {
     const m = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
     if (!m) return null;
@@ -142,8 +142,27 @@ function isShortSublet(listing) {
   const diffMs = untilDate - fromDate;
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
 
-  // Less than ~60 days = short sublet
   return diffDays > 0 && diffDays < 60;
+}
+
+// ── Load seen.json for --new filter ──────────────────────────────────────────
+
+const seenData = (() => {
+  if (!newFlag) return null;
+  if (fs.existsSync(SEEN_FILE)) {
+    return JSON.parse(fs.readFileSync(SEEN_FILE, "utf8"));
+  }
+  return {};
+})();
+
+const newCutoff = newHours ? Date.now() - newHours * 60 * 60 * 1000 : null;
+
+/** Check if a listing ID was first seen within the --new window */
+function isNewListing(id) {
+  if (!newFlag || !seenData) return true; // no filter
+  const entry = seenData[id];
+  if (!entry || !entry.firstSeen) return true; // unknown = treat as new
+  return new Date(entry.firstSeen).getTime() >= newCutoff;
 }
 
 // ── Load tracker ─────────────────────────────────────────────────────────────
@@ -159,7 +178,6 @@ if (notTracked && fs.existsSync(TRACKER_FILE)) {
       if (uuid) trackedIds.add(uuid);
       const pk = e.url.match(/\/(\d{5,})\/?/)?.[1];
       if (pk) trackedPks.add(pk);
-      // Collect addresses for same-address dedup
       if (e.address) {
         const normalized = e.address
           .replace(/\s*\(.*\)/, "")
@@ -169,7 +187,6 @@ if (notTracked && fs.existsSync(TRACKER_FILE)) {
       }
     }
   }
-  // Also check cached listing details for addresses
   if (fs.existsSync(LISTINGS_DIR)) {
     for (const id of [
       ...trackedIds,
@@ -229,18 +246,44 @@ if (fs.existsSync(LISTINGS_DIR)) {
   }
 }
 
-// ── Near-ETH patterns ────────────────────────────────────────────────────────
+// ── Description dedup ───────────────────────────────────────────────────────
 
-const NEAR_ETH_PATTERN =
-  /Kreis 1(?!\d)|Kreis 6|Hottingen|Oberstrass|Unterstrass|Fluntern|8001 |8006 |8032 |8044 /i;
-const ETH_WALK_PATTERN =
-  /(\d+)\s*(?:min|'|Minuten).*(?:zu Fuss|walk|Fuss).*(?:ETH|UZH)|(?:ETH|UZH).*(\d+)\s*(?:min|'|Minuten).*(?:zu Fuss|walk)|(\d+)\s*(?:min|').*(?:ETH HG|ETH Zentrum|UZH Zentrum)/i;
+const seenDescriptions = new Set();
+
+/** Normalize and extract first 200 chars of description for dedup */
+function getDescFingerprint(listing) {
+  // Collect description text from various fields
+  let desc = "";
+  if (listing.description) desc = listing.description;
+  if (listing.room) desc = desc || listing.room;
+
+  if (!desc) return null;
+
+  // Normalize: collapse whitespace, lowercase, trim, take first 200 chars
+  return desc.replace(/\s+/g, " ").trim().toLowerCase().substring(0, 200);
+}
+
+function isDuplicateDescription(url) {
+  const key = cacheKeyFromUrl(url);
+  if (!key) return false;
+  const cachedPath = path.join(LISTINGS_DIR, key + ".json");
+  if (!fs.existsSync(cachedPath)) return false;
+
+  const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
+  const fp = getDescFingerprint(cached);
+  if (!fp) return false;
+
+  if (seenDescriptions.has(fp)) return true;
+  seenDescriptions.add(fp);
+  return false;
+}
+
+// ── Results collection ──────────────────────────────────────────────────────
 
 const allResults = [];
+const pendingGeocode = []; // { addr, resultIndex }
 
 // ── wgzimmer ─────────────────────────────────────────────────────────────────
-
-const pendingGeocode = []; // { addr, resultIndex }
 
 if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
   const listings = JSON.parse(fs.readFileSync(WGZIMMER_LISTINGS_FILE, "utf8"));
@@ -253,6 +296,9 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
     if (maxPrice && l.price > maxPrice) continue;
     if (notTracked && trackedIds.has(id)) continue;
     if (keyword && !keyword.test(text)) continue;
+
+    // --new filter
+    if (newFlag && id && !isNewListing(`wgzimmer-${id}`)) continue;
 
     // Same-address dedup
     if (notTracked && trackedAddresses.size > 0 && id) {
@@ -267,9 +313,11 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
       }
     }
 
+    // Description dedup
+    if (id && isDuplicateDescription(l.url)) continue;
+
     // Gender filter (default on)
     if (!includeGendered) {
-      // Check listing text and cached detail
       let genderText = text;
       if (id) {
         const cachedPath = path.join(LISTINGS_DIR, id + ".json");
@@ -305,36 +353,26 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
         continue;
     }
 
-    // Calculate distance from cached listing address if available
+    // Calculate distance from cached listing coordinates or address
     let dist = null;
     if (id) {
       const cachedPath = path.join(LISTINGS_DIR, id + ".json");
       if (fs.existsSync(cachedPath)) {
         const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        if (cached.address) {
+        if (cached.lat && cached.lng) {
+          // Use pre-geocoded coordinates
+          dist = distKm(ETH_ZENTRUM, { lat: cached.lat, lng: cached.lng });
+        } else if (cached.address) {
           const addr = cached.address + (cached.city ? ", " + cached.city : "");
           pendingGeocode.push({ addr, resultIndex: allResults.length });
         }
       }
     }
 
-    // nearETH: if we have no geocode yet, fall back to text pattern matching
-    // (actual distance filtering happens after geocoding below)
-    if (nearETH && !id) {
-      const inHood = NEAR_ETH_PATTERN.test(text);
-      const walkMatch = text.match(ETH_WALK_PATTERN);
-      let closeWalk = false;
-      if (walkMatch) {
-        const mins = parseInt(walkMatch[1] || walkMatch[2] || walkMatch[3]);
-        if (mins <= 15) closeWalk = true;
-      }
-      if (!inHood && !closeWalk) continue;
-    }
-
     allResults.push({
       source: "wgzimmer",
       price: l.price,
-      dist: null,
+      dist,
       label: `${l.neighborhood || "?"} | avail: ${l.availableFrom || "?"}${l.until ? " | until: " + l.until : ""}`,
       desc: (l.description || "").substring(0, 140),
       url: l.url,
@@ -345,20 +383,24 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
 // ── flatfox (from cache file, no live API call) ──────────────────────────────
 
 if (fs.existsSync(FLATFOX_CACHE_FILE)) {
-  const distLimit = maxDist || (nearETH ? 1.0 : 5.0);
+  const distLimit = maxDist || 5.0;
   const priceLimit = maxPrice || 2000;
 
   const pins = JSON.parse(fs.readFileSync(FLATFOX_CACHE_FILE, "utf8"));
 
   for (const p of pins) {
     const km = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
-    if (km > distLimit) continue;
+    if (maxDist && km > distLimit) continue;
+    if (!maxDist && km > 5.0) continue; // Default distance cap for flatfox
     if (maxPrice && p.price_display > maxPrice) continue;
     if (priceLimit && p.price_display > priceLimit) continue;
     if (notTracked && trackedPks.has(String(p.pk))) continue;
 
     const ffUrl = `https://flatfox.ch/en/flat/8001-zurich/${p.pk}/`;
     const ffCacheKey = `flatfox-${p.pk}`;
+
+    // --new filter
+    if (newFlag && !isNewListing(ffCacheKey)) continue;
 
     // Keyword filter (check cached details if available)
     if (keyword) {
@@ -368,11 +410,11 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
         const detailText = JSON.stringify(cached);
         if (!keyword.test(detailText)) continue;
       } else {
-        continue; // Can't filter uncached flatfox by keyword
+        continue;
       }
     }
 
-    // Same-address dedup: skip if we already applied to this address
+    // Same-address dedup
     if (notTracked && trackedAddresses.size > 0) {
       const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
       if (fs.existsSync(cachedPath)) {
@@ -384,6 +426,9 @@ if (fs.existsSync(FLATFOX_CACHE_FILE)) {
           continue;
       }
     }
+
+    // Description dedup
+    if (isDuplicateDescription(ffUrl)) continue;
 
     // Gender filter
     if (!includeGendered) {
@@ -426,15 +471,16 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
 
     const slug = l.url.split("/").pop();
     if (notTracked) {
-      // Check by URL slug
       const isTracked = [...trackedIds, ...trackedPks].some(
         (id) => slug.includes(id) || id.includes(slug),
       );
       if (isTracked) continue;
-      // Address dedup
       if (l.address && trackedAddresses.has(l.address.trim().toLowerCase()))
         continue;
     }
+
+    // --new filter (ronorp uses url slug as id)
+    if (newFlag && !isNewListing(`ronorp-${slug}`)) continue;
 
     const text = l.description || "";
     if (keyword && !keyword.test(text)) continue;
@@ -455,7 +501,6 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
 // ── Geocode wgzimmer addresses for distance calculation ─────────────────────
 
 await (async () => {
-  const distLimit = maxDist || (nearETH ? 1.5 : null);
   if (pendingGeocode.length > 0) {
     for (const { addr, resultIndex } of pendingGeocode) {
       if (resultIndex >= allResults.length) continue;
@@ -470,11 +515,11 @@ await (async () => {
     }
   }
 
-  // Now filter by distance if --near-eth or --max-dist
-  if (distLimit) {
+  // Filter by --max-dist if specified
+  if (maxDist) {
     for (let i = allResults.length - 1; i >= 0; i--) {
       const r = allResults[i];
-      if (r.source === "wgzimmer" && r.dist !== null && r.dist > distLimit) {
+      if (r.dist !== null && r.dist > maxDist) {
         allResults.splice(i, 1);
       }
     }
@@ -511,11 +556,14 @@ if (!includeGendered)
   console.log("  (gender-restricted listings hidden, use --include-gendered)");
 if (!includeShort)
   console.log("  (short sublets <2mo hidden, use --include-short)");
+if (newFlag)
+  console.log(
+    `  (showing listings from last ${newHours}h only, --new ${newHours})`,
+  );
 
 // ── Batch fetch (--fetch N) ──────────────────────────────────────────────────
 
 if (fetchCount > 0) {
-  // Find top N uncached results
   const uncached = displayed.filter((r) => {
     const key = cacheKeyFromUrl(r.url);
     return key && !fs.existsSync(path.join(LISTINGS_DIR, key + ".json"));
@@ -528,7 +576,6 @@ if (fetchCount > 0) {
     console.log(
       `\nFetching details for ${toFetch.length} uncached listing(s)...`,
     );
-    // Dynamic import to avoid loading cloakbrowser unless needed
     const { fetchListings } = await import("./fetch-listing.mjs");
     const results = await fetchListings(toFetch.map((r) => r.url));
     for (const { url, data } of results) {

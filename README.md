@@ -36,8 +36,7 @@ Sends a macOS desktop notification when new listings appear.
 ```bash
 node search.js                            # All cached listings (wgzimmer + flatfox)
 node search.js --max-price 800            # Price filter
-node search.js --near-eth                 # <15 min walk from ETH Zentrum
-node search.js --max-dist 2               # Max 2 km from ETH (flatfox, precise)
+node search.js --max-dist 2              # Max 2 km from ETH (geocoded coordinates)
 node search.js --no-woko                  # Exclude WOKO/JUWO properties
 node search.js --permanent                # Only unlimited duration
 node search.js --not-tracked              # Exclude applied/excluded/rejected
@@ -45,15 +44,18 @@ node search.js --include-gendered         # Include gender-restricted listings
 node search.js --include-short            # Include short sublets (<2 months)
 node search.js --sort distance            # Sort by distance (default: price)
 node search.js --limit 10                 # Max results (default 20)
+node search.js --keyword "Seefeld|Kreis 8" # Filter by keyword/regex
+node search.js --new                      # Only listings from last 24 hours
+node search.js --new 48                   # Only listings from last 48 hours
 node search.js --fetch 5                  # Fetch details for top 5 uncached results
 ```
 
-Reads from cached data files only -- no network requests unless `--fetch` is used. By default, gender-restricted listings (female-only WGs) and short sublets (<2 months) are hidden.
+Reads from cached data files only -- no network requests unless `--fetch` is used. By default, gender-restricted listings (female-only WGs), short sublets (<2 months), duplicate descriptions, and corporate spam (A/NTERIM, NextGen) are hidden.
 
 Combine flags freely:
 
 ```bash
-node search.js --near-eth --no-woko --not-tracked --sort distance --fetch 3
+node search.js --max-dist 2 --no-woko --not-tracked --sort distance --fetch 3
 ```
 
 ### Fetch full listing details
@@ -72,7 +74,8 @@ Scrapes the full listing page (address, room description, "We are", "We are look
 
 ```bash
 node track.js                           # View all tracked
-node track.js apply <url> [address]     # Mark as applied (auto-populates price/address from cache)
+node track.js status                    # Dashboard with stats, days since applied, etc.
+node track.js apply <url> [address]     # Mark as applied (auto-populates price/address, auto-commits)
 node track.js shortlist <url> [address] # Shortlist
 node track.js exclude <url> <reason>    # Not interested
 node track.js reject <url>              # They rejected you
@@ -81,7 +84,7 @@ node track.js check <url>              # Check status
 node track.js backfill                  # Populate price/address for existing entries from cache
 ```
 
-When tracking a URL, price and address are automatically looked up from `data/listings/` cache. The `backfill` command updates all existing entries that have null price or address.
+When tracking a URL, price and address are automatically looked up from `data/listings/` cache. Backfill runs silently on every command. The `apply` command auto-commits to git. Fetched listings are auto-checked for WOKO/JUWO/spam and excluded automatically.
 
 ### Useful links
 

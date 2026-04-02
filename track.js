@@ -11,10 +11,12 @@
  *   node track.js note <url> <text>        # Add a note
  *   node track.js check <url>              # Check if already tracked
  *   node track.js backfill                 # Populate price/address from cache
+ *   node track.js status                   # Dashboard with stats
  */
 
 import fs from "fs";
 import path from "path";
+import { execSync } from "child_process";
 import {
   TRACKER_FILE,
   LISTINGS_DIR,
@@ -69,7 +71,6 @@ function lookupFromCache(url) {
   const price = cached.rent || null;
   let address = cached.address || null;
   if (address && cached.city) {
-    // Only append city if not already in address
     if (!address.includes(cached.city)) {
       address = `${address}, ${cached.city}`;
     }
@@ -77,7 +78,67 @@ function lookupFromCache(url) {
   return { price, address };
 }
 
+/**
+ * Silent backfill: populate missing price/address from cached listings.
+ * Returns number of entries updated.
+ */
+function runBackfill(data, silent = false) {
+  let updated = 0;
+  for (const cat of ["applied", "shortlisted", "rejected", "excluded"]) {
+    for (const entry of data[cat] || []) {
+      if (entry.price && entry.address) continue;
+      const { price, address } = lookupFromCache(entry.url);
+      let changed = false;
+      if (!entry.price && price) {
+        entry.price = price;
+        changed = true;
+      }
+      if (!entry.address && address) {
+        entry.address = address;
+        changed = true;
+      }
+      if (changed) {
+        updated++;
+        if (!silent) {
+          console.log(
+            `  Updated: CHF ${entry.price || "?"} | ${entry.address || "?"} | ${entry.url.substring(0, 60)}...`,
+          );
+        }
+      }
+    }
+  }
+  if (updated > 0) {
+    save(data);
+  }
+  return updated;
+}
+
+/**
+ * Auto-commit tracker.json and applications after apply.
+ */
+function autoCommit(address) {
+  try {
+    execSync("git add tracker.json data/applications/", {
+      cwd: path.dirname(TRACKER_FILE),
+      stdio: "ignore",
+    });
+    execSync(
+      `git commit -m "Applied: ${(address || "unknown").replace(/"/g, '\\"')}"`,
+      {
+        cwd: path.dirname(TRACKER_FILE),
+        stdio: "ignore",
+      },
+    );
+  } catch {
+    // Silently ignore git failures (not a repo, nothing to commit, etc.)
+  }
+}
+
 const data = load();
+
+// Auto-backfill on every command (silent)
+runBackfill(data, true);
+
 const [, , cmd, ...cmdArgs] = process.argv;
 
 switch (cmd) {
@@ -119,22 +180,24 @@ switch (cmd) {
       );
       break;
     }
-    // Auto-populate from cache
     const { price, address: cachedAddr } = lookupFromCache(url);
     const manualAddr = rest.join(" ") || null;
+    const finalAddr = manualAddr || cachedAddr;
     data.applied.push({
       url,
-      address: manualAddr || cachedAddr,
+      address: finalAddr,
       price: price,
       date: formatDate(),
     });
     save(data);
     const info = [];
     if (price) info.push(`CHF ${price}`);
-    if (manualAddr || cachedAddr) info.push(manualAddr || cachedAddr);
+    if (finalAddr) info.push(finalAddr);
     console.log(
       `  Marked as applied.${info.length ? " (" + info.join(", ") + ")" : ""}`,
     );
+    // Auto-commit
+    autoCommit(finalAddr);
     break;
   }
 
@@ -182,7 +245,6 @@ switch (cmd) {
       console.log("Usage: node track.js reject <url>");
       break;
     }
-    // Move from applied to rejected if present
     const idx = data.applied.findIndex(
       (e) => extractId(e.url) === extractId(url),
     );
@@ -232,31 +294,9 @@ switch (cmd) {
   }
 
   case "backfill": {
-    let updated = 0;
-    for (const cat of ["applied", "shortlisted", "rejected", "excluded"]) {
-      for (const entry of data[cat] || []) {
-        if (entry.price && entry.address) continue; // Already populated
-        const { price, address } = lookupFromCache(entry.url);
-        let changed = false;
-        if (!entry.price && price) {
-          entry.price = price;
-          changed = true;
-        }
-        if (!entry.address && address) {
-          entry.address = address;
-          changed = true;
-        }
-        if (changed) {
-          updated++;
-          console.log(
-            `  Updated: CHF ${entry.price || "?"} | ${entry.address || "?"} | ${entry.url.substring(0, 60)}...`,
-          );
-        }
-      }
-    }
-    if (updated > 0) {
-      save(data);
-      console.log(`\n  Backfilled ${updated} entries.`);
+    const count = runBackfill(data, false);
+    if (count > 0) {
+      console.log(`\n  Backfilled ${count} entries.`);
     } else {
       console.log(
         "  Nothing to backfill (all entries already populated or no cache data).",
@@ -265,9 +305,102 @@ switch (cmd) {
     break;
   }
 
+  case "status": {
+    const appliedCount = data.applied?.length || 0;
+    const excludedCount = data.excluded?.length || 0;
+    const rejectedCount = data.rejected?.length || 0;
+    const shortlistedCount = data.shortlisted?.length || 0;
+    const totalCount =
+      appliedCount + excludedCount + rejectedCount + shortlistedCount;
+
+    console.log("\n  ── Housing Search Dashboard ──────────────────────────");
+    console.log(`\n  Total tracked: ${totalCount}`);
+    console.log(
+      `  Applied: ${appliedCount} | Shortlisted: ${shortlistedCount} | Rejected: ${rejectedCount} | Excluded: ${excludedCount}`,
+    );
+
+    // Applied listings detail
+    if (appliedCount > 0) {
+      console.log("\n  ── Applied ──────────────────────────────────────────");
+      const today = new Date();
+      const appliedPrices = [];
+
+      for (const e of data.applied) {
+        const daysSince = e.date
+          ? Math.round((today - new Date(e.date)) / (1000 * 60 * 60 * 24))
+          : "?";
+        const price = e.price ? `CHF ${e.price}` : "price ?";
+        const addr = e.address || "address ?";
+        console.log(
+          `    ${price} | ${addr} | applied ${e.date || "?"} (${daysSince}d ago)`,
+        );
+        const note = data.notes[extractId(e.url)];
+        if (note) console.log(`      Note: ${note}`);
+        if (e.price) appliedPrices.push(e.price);
+      }
+
+      // Summary stats
+      if (appliedPrices.length > 0) {
+        const avg = Math.round(
+          appliedPrices.reduce((a, b) => a + b, 0) / appliedPrices.length,
+        );
+        const min = Math.min(...appliedPrices);
+        const max = Math.max(...appliedPrices);
+        console.log(
+          `\n  Applied price stats: avg CHF ${avg} | min CHF ${min} | max CHF ${max}`,
+        );
+      }
+    }
+
+    // Shortlisted
+    if (shortlistedCount > 0) {
+      console.log("\n  ── Shortlisted ──────────────────────────────────────");
+      for (const e of data.shortlisted) {
+        const price = e.price ? `CHF ${e.price}` : "price ?";
+        console.log(`    ${price} | ${e.address || "?"} | ${e.date || "?"}`);
+      }
+    }
+
+    // Rejected
+    if (rejectedCount > 0) {
+      console.log(`\n  ── Rejected (${rejectedCount}) ──────────────────────`);
+      for (const e of data.rejected) {
+        const price = e.price ? `CHF ${e.price}` : "price ?";
+        console.log(`    ${price} | ${e.address || "?"} | ${e.date || "?"}`);
+      }
+    }
+
+    // Excluded breakdown
+    if (excludedCount > 0) {
+      const reasons = {};
+      for (const e of data.excluded) {
+        const r = e.reason || "no reason";
+        const bucket = r.startsWith("Auto-excluded:")
+          ? r
+          : r.includes("WOKO")
+            ? "WOKO/JUWO"
+            : r.includes("JUWO")
+              ? "WOKO/JUWO"
+              : "Manual";
+        reasons[bucket] = (reasons[bucket] || 0) + 1;
+      }
+      console.log(
+        `\n  ── Excluded breakdown (${excludedCount}) ──────────────`,
+      );
+      for (const [reason, count] of Object.entries(reasons).sort(
+        (a, b) => b[1] - a[1],
+      )) {
+        console.log(`    ${count}x ${reason}`);
+      }
+    }
+
+    console.log();
+    break;
+  }
+
   default:
     console.log("Unknown command:", cmd);
     console.log(
-      "Commands: list, apply, shortlist, exclude, reject, note, check, backfill",
+      "Commands: list, apply, shortlist, exclude, reject, note, check, backfill, status",
     );
 }

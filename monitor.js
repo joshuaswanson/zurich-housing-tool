@@ -81,11 +81,13 @@ async function fetchFlatfox() {
 
 // ── wgzimmer Source ─────────────────────────────────────────────────────────
 
+let forceRefresh = false;
+
 async function fetchWgzimmer() {
   ensureDataDir();
 
-  // Check cache first
-  if (fs.existsSync(WGZIMMER_CACHE_FILE)) {
+  // Check cache first (skip if --fresh)
+  if (!forceRefresh && fs.existsSync(WGZIMMER_CACHE_FILE)) {
     const stat = fs.statSync(WGZIMMER_CACHE_FILE);
     const age = Date.now() - stat.mtimeMs;
     if (age < WGZIMMER_CACHE_MAX_AGE_MS) {
@@ -333,6 +335,8 @@ async function main() {
   const args = process.argv.slice(2);
   const cmd = args[0] || "scan";
 
+  forceRefresh = args.includes("--fresh");
+
   const opts = {
     showAll: args.includes("--all"),
     maxDist: (() => {
@@ -380,6 +384,7 @@ async function main() {
       console.log("  links             Show useful housing search links");
       console.log("\nOptions:");
       console.log("  --all             Show all listings (no distance filter)");
+      console.log("  --fresh           Force fresh scrape (ignore cache)");
       console.log(
         "  --radius N        Max distance from ETH in km (default 5)",
       );

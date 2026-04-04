@@ -282,6 +282,22 @@ if (fs.existsSync(LISTINGS_DIR)) {
 
 const seenDescriptions = new Set();
 
+// Pre-populate with descriptions from tracked listings (applied/excluded)
+if (notTracked && fs.existsSync(LISTINGS_DIR)) {
+  const allTracked = [
+    ...trackedIds,
+    ...Array.from(trackedPks).map((p) => `flatfox-${p}`),
+  ];
+  for (const id of allTracked) {
+    const file = path.join(LISTINGS_DIR, id + ".json");
+    if (fs.existsSync(file)) {
+      const data = JSON.parse(fs.readFileSync(file, "utf8"));
+      const fp = getDescFingerprint(data);
+      if (fp) seenDescriptions.add(fp);
+    }
+  }
+}
+
 /** Normalize and extract first 200 chars of description for dedup */
 function getDescFingerprint(listing) {
   // Collect description text from various fields
@@ -401,11 +417,15 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
       }
     }
 
+    const distLabel =
+      dist !== null
+        ? `${dist.toFixed(1)} km (~${Math.round(dist * 12)} min walk) | `
+        : "";
     allResults.push({
       source: "wgzimmer",
       price: l.price,
       dist,
-      label: `${l.neighborhood || "?"} | avail: ${l.availableFrom || "?"}${l.until ? " | until: " + l.until : ""}`,
+      label: `${distLabel}${l.neighborhood || "?"} | avail: ${l.availableFrom || "?"}${l.until ? " | until: " + l.until : ""}`,
       desc: (l.description || "").substring(0, 140),
       url: l.url,
     });

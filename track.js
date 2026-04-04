@@ -175,8 +175,6 @@ switch (cmd) {
     console.log(
       `  Marked as applied.${info.length ? " (" + info.join(", ") + ")" : ""}`,
     );
-    // Auto-commit
-    autoCommit(finalAddr);
     break;
   }
 

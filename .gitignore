@@ -3,3 +3,4 @@ data/
 .claude/
 tracker.json
 config.json
+.DS_Store

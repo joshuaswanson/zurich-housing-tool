@@ -9,10 +9,12 @@
     "links": "node monitor.js links",
     "fetch": "node fetch-listing.mjs",
     "search": "node search.js",
-    "track": "node track.js"
+    "track": "node track.js",
+    "dashboard": "node server.js"
   },
   "dependencies": {
     "cloakbrowser": "^0.3.19",
+    "express": "^5.2.1",
     "playwright-core": "^1.58.2"
   }
 }

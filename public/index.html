@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zurich-housing-tool</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      :root {
+        --bg: #0a0a0a;
+        --surface: #111;
+        --surface2: #1a1a1a;
+        --border: #222;
+        --text: #ccc;
+        --text-dim: #666;
+        --text-bright: #eee;
+        --green: #4ade80;
+        --green-dim: #1a3a2a;
+        --red: #f87171;
+        --yellow: #fbbf24;
+        --blue: #60a5fa;
+        --orange: #fb923c;
+      }
+
+      body {
+        font-family: "JetBrains Mono", monospace;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.5;
+        min-height: 100vh;
+      }
+
+      /* ── Header ─────────────────────────────── */
+
+      header {
+        border-bottom: 1px solid var(--border);
+        padding: 20px 32px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        position: sticky;
+        top: 0;
+        background: var(--bg);
+        z-index: 100;
+      }
+
+      h1 {
+        font-size: 16px;
+        font-weight: 500;
+        color: var(--green);
+        letter-spacing: -0.5px;
+      }
+
+      h1 span {
+        color: var(--text-dim);
+        font-weight: 300;
+      }
+
+      .scan-btn {
+        background: var(--green);
+        color: #000;
+        border: none;
+        padding: 8px 20px;
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        transition: opacity 0.15s;
+      }
+
+      .scan-btn:hover {
+        opacity: 0.85;
+      }
+      .scan-btn:disabled {
+        opacity: 0.4;
+        cursor: wait;
+      }
+      .scan-btn.scanning {
+        animation: pulse 1.5s ease infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      /* ── Stats Bar ──────────────────────────── */
+
+      .stats {
+        display: flex;
+        gap: 32px;
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+        font-size: 12px;
+        overflow-x: auto;
+      }
+
+      .stat {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        white-space: nowrap;
+      }
+      .stat-value {
+        color: var(--green);
+        font-weight: 700;
+        font-size: 18px;
+      }
+      .stat-label {
+        color: var(--text-dim);
+      }
+
+      /* ── Filters ────────────────────────────── */
+
+      .filters {
+        padding: 16px 32px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        gap: 24px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .filter-group label {
+        color: var(--text-dim);
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      input[type="range"] {
+        -webkit-appearance: none;
+        background: var(--border);
+        height: 4px;
+        width: 120px;
+        border-radius: 2px;
+        outline: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 14px;
+        height: 14px;
+        background: var(--green);
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      .filter-value {
+        color: var(--text-bright);
+        min-width: 50px;
+        font-size: 12px;
+      }
+
+      select {
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+        font-family: inherit;
+        font-size: 12px;
+        cursor: pointer;
+      }
+
+      .toggle {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        background: var(--border);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+
+      .toggle.active {
+        background: var(--green-dim);
+      }
+
+      .toggle::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 16px;
+        height: 16px;
+        background: var(--text-dim);
+        border-radius: 50%;
+        transition: all 0.2s;
+      }
+
+      .toggle.active::after {
+        left: 18px;
+        background: var(--green);
+      }
+
+      /* ── Table ──────────────────────────────── */
+
+      .table-wrap {
+        overflow-x: auto;
+        padding: 0 32px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 16px 0;
+      }
+
+      th {
+        text-align: left;
+        padding: 10px 12px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+
+      th:hover {
+        color: var(--text);
+      }
+      th.sorted {
+        color: var(--green);
+      }
+      th.sorted::after {
+        content: " ^";
+      }
+      th.sorted.desc::after {
+        content: " v";
+      }
+
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid #151515;
+        vertical-align: top;
+        max-width: 400px;
+      }
+
+      tr:hover {
+        background: var(--surface);
+      }
+
+      .source-badge {
+        display: inline-block;
+        padding: 2px 6px;
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+      }
+
+      .source-wgzimmer {
+        color: var(--orange);
+        border: 1px solid var(--orange);
+      }
+      .source-flatfox {
+        color: var(--blue);
+        border: 1px solid var(--blue);
+      }
+      .source-ronorp {
+        color: var(--yellow);
+        border: 1px solid var(--yellow);
+      }
+
+      .price {
+        color: var(--green);
+        font-weight: 700;
+      }
+      .dist {
+        color: var(--text-dim);
+      }
+
+      td a {
+        color: var(--text-dim);
+        text-decoration: none;
+        font-size: 11px;
+        transition: color 0.15s;
+      }
+
+      td a:hover {
+        color: var(--green);
+      }
+
+      .desc {
+        color: var(--text-dim);
+        font-size: 11px;
+        line-height: 1.4;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      .no-data {
+        padding: 48px 32px;
+        text-align: center;
+        color: var(--text-dim);
+      }
+
+      /* ── Tracker Section ────────────────────── */
+
+      .tracker {
+        padding: 24px 32px;
+        border-top: 2px solid var(--border);
+        margin-top: 16px;
+      }
+
+      .tracker h2 {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 16px;
+      }
+
+      .tracker-counts {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 20px;
+      }
+
+      .tracker-count {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+      }
+
+      .tracker-count .n {
+        font-size: 24px;
+        font-weight: 700;
+      }
+      .tracker-count .l {
+        color: var(--text-dim);
+        font-size: 11px;
+      }
+      .applied-n {
+        color: var(--green);
+      }
+      .excluded-n {
+        color: var(--text-dim);
+      }
+      .rejected-n {
+        color: var(--red);
+      }
+
+      .applied-list {
+        display: grid;
+        gap: 4px;
+      }
+
+      .applied-item {
+        display: flex;
+        gap: 16px;
+        padding: 6px 0;
+        border-bottom: 1px solid #151515;
+        font-size: 12px;
+        align-items: baseline;
+      }
+
+      .applied-item .ap-price {
+        color: var(--green);
+        min-width: 70px;
+      }
+      .applied-item .ap-addr {
+        color: var(--text);
+        flex: 1;
+      }
+      .applied-item .ap-days {
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+
+      /* ── Footer ─────────────────────────────── */
+
+      footer {
+        padding: 20px 32px;
+        border-top: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 11px;
+        text-align: center;
+      }
+
+      footer a {
+        color: var(--green);
+        text-decoration: none;
+      }
+      footer a:hover {
+        text-decoration: underline;
+      }
+
+      /* ── Responsive ─────────────────────────── */
+
+      @media (max-width: 768px) {
+        header,
+        .stats,
+        .filters,
+        .table-wrap,
+        .tracker,
+        footer {
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+        .stats {
+          gap: 16px;
+        }
+        .filters {
+          gap: 12px;
+        }
+        input[type="range"] {
+          width: 80px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>zurich-housing-tool <span>// dashboard</span></h1>
+      <button class="scan-btn" onclick="scan()">Scan Now</button>
+    </header>
+
+    <div class="stats" id="stats">
+      <div class="stat">
+        <span class="stat-value" id="total-count">-</span
+        ><span class="stat-label">listings</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="under1k">-</span
+        ><span class="stat-label">under 1000</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="nearby">-</span
+        ><span class="stat-label">within 1.5km</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="applied-count">-</span
+        ><span class="stat-label">applied</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value" id="excluded-count">-</span
+        ><span class="stat-label">excluded</span>
+      </div>
+    </div>
+
+    <div class="filters">
+      <div class="filter-group">
+        <label>Max Price</label>
+        <input
+          type="range"
+          id="f-price"
+          min="500"
+          max="3000"
+          step="50"
+          value="2000"
+          oninput="applyFilters()"
+        />
+        <span class="filter-value" id="f-price-val">2000</span>
+      </div>
+      <div class="filter-group">
+        <label>Max Dist</label>
+        <input
+          type="range"
+          id="f-dist"
+          min="0.5"
+          max="5"
+          step="0.1"
+          value="5"
+          oninput="applyFilters()"
+        />
+        <span class="filter-value" id="f-dist-val">5 km</span>
+      </div>
+      <div class="filter-group">
+        <label>Sort</label>
+        <select id="f-sort" onchange="applyFilters()">
+          <option value="price">Price</option>
+          <option value="distance">Distance</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Hide tracked</label>
+        <div
+          class="toggle active"
+          id="f-tracked"
+          onclick="toggleFilter(this)"
+        ></div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th class="sorted" data-col="price">Price</th>
+            <th data-col="dist">Distance</th>
+            <th>Address</th>
+            <th>Available</th>
+            <th>Until</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody id="listings-body"></tbody>
+      </table>
+      <div class="no-data" id="no-data" style="display: none">
+        No listings loaded. Hit Scan Now or run
+        <code>node monitor.js scan</code>
+      </div>
+    </div>
+
+    <div class="tracker">
+      <h2>Application Tracker</h2>
+      <div class="tracker-counts">
+        <div class="tracker-count">
+          <span class="n applied-n" id="t-applied">0</span
+          ><span class="l">applied</span>
+        </div>
+        <div class="tracker-count">
+          <span class="n excluded-n" id="t-excluded">0</span
+          ><span class="l">excluded</span>
+        </div>
+        <div class="tracker-count">
+          <span class="n rejected-n" id="t-rejected">0</span
+          ><span class="l">rejected</span>
+        </div>
+      </div>
+      <div class="applied-list" id="applied-list"></div>
+    </div>
+
+    <footer>
+      <a
+        href="https://github.com/joshuaswanson/zurich-housing-tool"
+        target="_blank"
+        >github.com/joshuaswanson/zurich-housing-tool</a
+      >
+    </footer>
+
+    <script>
+      let allListings = [];
+      let tracker = {
+        applied: [],
+        excluded: [],
+        rejected: [],
+        shortlisted: [],
+      };
+      const trackedUrls = new Set();
+
+      async function load() {
+        try {
+          const [listRes, trackRes] = await Promise.all([
+            fetch("/api/listings"),
+            fetch("/api/tracker"),
+          ]);
+          allListings = await listRes.json();
+          tracker = await trackRes.json();
+
+          // Build tracked URL set
+          trackedUrls.clear();
+          for (const cat of [
+            "applied",
+            "excluded",
+            "rejected",
+            "shortlisted",
+          ]) {
+            for (const e of tracker[cat] || []) trackedUrls.add(e.url);
+          }
+
+          updateStats();
+          applyFilters();
+          renderTracker();
+        } catch (e) {
+          document.getElementById("no-data").style.display = "block";
+        }
+      }
+
+      function updateStats() {
+        document.getElementById("total-count").textContent = allListings.length;
+        document.getElementById("under1k").textContent = allListings.filter(
+          (l) => l.price < 1000,
+        ).length;
+        document.getElementById("nearby").textContent = allListings.filter(
+          (l) => l.dist && l.dist <= 1.5,
+        ).length;
+        document.getElementById("applied-count").textContent = (
+          tracker.applied || []
+        ).length;
+        document.getElementById("excluded-count").textContent = (
+          tracker.excluded || []
+        ).length;
+      }
+
+      function applyFilters() {
+        const maxPrice = parseInt(document.getElementById("f-price").value);
+        const maxDist = parseFloat(document.getElementById("f-dist").value);
+        const sortBy = document.getElementById("f-sort").value;
+        const hideTracked = document
+          .getElementById("f-tracked")
+          .classList.contains("active");
+
+        document.getElementById("f-price-val").textContent = maxPrice;
+        document.getElementById("f-dist-val").textContent = maxDist + " km";
+
+        let filtered = allListings.filter((l) => {
+          if (l.price > maxPrice) return false;
+          if (l.dist !== null && l.dist > maxDist) return false;
+          if (hideTracked && trackedUrls.has(l.url)) return false;
+          return true;
+        });
+
+        if (sortBy === "price") {
+          filtered.sort((a, b) => a.price - b.price);
+        } else {
+          filtered.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
+        }
+
+        renderTable(filtered);
+      }
+
+      function renderTable(listings) {
+        const tbody = document.getElementById("listings-body");
+        const noData = document.getElementById("no-data");
+
+        if (listings.length === 0) {
+          tbody.innerHTML = "";
+          noData.style.display = "block";
+          return;
+        }
+
+        noData.style.display = "none";
+        tbody.innerHTML = listings
+          .slice(0, 200)
+          .map(
+            (l) => `
+    <tr>
+      <td><span class="source-badge source-${l.source}">${l.source}</span></td>
+      <td class="price">${l.price}</td>
+      <td class="dist">${l.dist !== null ? l.dist.toFixed(1) + " km" : "-"}</td>
+      <td>
+        <div>${l.address || "-"}</div>
+        ${l.description ? `<div class="desc">${esc(l.description)}</div>` : ""}
+      </td>
+      <td>${l.availableFrom || "-"}</td>
+      <td>${l.until || "-"}</td>
+      <td><a href="${l.url}" target="_blank">open &rarr;</a></td>
+    </tr>
+  `,
+          )
+          .join("");
+      }
+
+      function renderTracker() {
+        document.getElementById("t-applied").textContent = (
+          tracker.applied || []
+        ).length;
+        document.getElementById("t-excluded").textContent = (
+          tracker.excluded || []
+        ).length;
+        document.getElementById("t-rejected").textContent = (
+          tracker.rejected || []
+        ).length;
+
+        const list = document.getElementById("applied-list");
+        const applied = tracker.applied || [];
+
+        if (applied.length === 0) {
+          list.innerHTML =
+            '<div style="color:var(--text-dim)">No applications yet.</div>';
+          return;
+        }
+
+        list.innerHTML = applied
+          .map((a) => {
+            const days = a.date
+              ? Math.floor((Date.now() - new Date(a.date).getTime()) / 86400000)
+              : "?";
+            return `
+      <div class="applied-item">
+        <span class="ap-price">${a.price ? "CHF " + a.price : "?"}</span>
+        <span class="ap-addr">${esc(a.address || a.url.substring(0, 60))}</span>
+        <span class="ap-days">${days}d ago</span>
+      </div>
+    `;
+          })
+          .join("");
+      }
+
+      function toggleFilter(el) {
+        el.classList.toggle("active");
+        applyFilters();
+      }
+
+      async function scan() {
+        const btn = document.querySelector(".scan-btn");
+        btn.disabled = true;
+        btn.classList.add("scanning");
+        btn.textContent = "Scanning...";
+
+        try {
+          await fetch("/api/scan", { method: "POST" });
+          await load();
+        } catch (e) {
+          console.error("Scan failed:", e);
+        }
+
+        btn.disabled = false;
+        btn.classList.remove("scanning");
+        btn.textContent = "Scan Now";
+      }
+
+      function esc(s) {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      }
+
+      // Column sort
+      document.querySelectorAll("th[data-col]").forEach((th) => {
+        th.addEventListener("click", () => {
+          const col = th.dataset.col;
+          document.getElementById("f-sort").value =
+            col === "dist" ? "distance" : col;
+          document
+            .querySelectorAll("th")
+            .forEach((t) => t.classList.remove("sorted", "desc"));
+          th.classList.add("sorted");
+          applyFilters();
+        });
+      });
+
+      load();
+    </script>
+  </body>
+</html>

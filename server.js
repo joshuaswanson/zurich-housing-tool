@@ -1,0 +1,135 @@
+#!/usr/bin/env node
+/**
+ * Web dashboard server for zurich-housing-tool.
+ * Usage: node server.js [port]
+ */
+import express from "express";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { execSync } from "child_process";
+import {
+  DATA_DIR,
+  WGZIMMER_LISTINGS_FILE,
+  FLATFOX_CACHE_FILE,
+  RONORP_CACHE_FILE,
+  TRACKER_FILE,
+  LISTINGS_DIR,
+  ETH_ZENTRUM,
+  MAX_PRICE,
+  distKm,
+  ensureDataDir,
+} from "./lib.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const app = express();
+const PORT = parseInt(process.argv[2]) || 3456;
+
+app.use(express.static(path.join(__dirname, "public")));
+app.use(express.json());
+
+// ── API: Get all listings ─────────────────────────────────────────────────
+
+app.get("/api/listings", (req, res) => {
+  const listings = [];
+
+  // wgzimmer
+  if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
+    const wg = JSON.parse(fs.readFileSync(WGZIMMER_LISTINGS_FILE, "utf8"));
+    for (const l of wg) {
+      if (!l.price) continue;
+      const id = l.url.match(/([a-f0-9-]{36})/)?.[1];
+      let dist = null;
+      let address = null;
+      if (id && fs.existsSync(path.join(LISTINGS_DIR, id + ".json"))) {
+        const cached = JSON.parse(
+          fs.readFileSync(path.join(LISTINGS_DIR, id + ".json"), "utf8"),
+        );
+        if (cached.lat && cached.lng) {
+          dist = distKm(ETH_ZENTRUM, { lat: cached.lat, lng: cached.lng });
+        }
+        address = cached.address;
+      }
+      listings.push({
+        id: `wgzimmer-${id || l.url.slice(-20)}`,
+        source: "wgzimmer",
+        price: l.price,
+        dist: dist ? Math.round(dist * 100) / 100 : null,
+        address: address || l.neighborhood || null,
+        description: l.description?.substring(0, 200) || "",
+        availableFrom: l.availableFrom || null,
+        until: l.until || null,
+        url: l.url,
+      });
+    }
+  }
+
+  // flatfox
+  if (fs.existsSync(FLATFOX_CACHE_FILE)) {
+    const pins = JSON.parse(fs.readFileSync(FLATFOX_CACHE_FILE, "utf8"));
+    for (const p of pins) {
+      const km = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
+      const cacheKey = `flatfox-${p.pk}`;
+      let address = null;
+      let description = "";
+      let availableFrom = null;
+      if (fs.existsSync(path.join(LISTINGS_DIR, cacheKey + ".json"))) {
+        const cached = JSON.parse(
+          fs.readFileSync(path.join(LISTINGS_DIR, cacheKey + ".json"), "utf8"),
+        );
+        address = cached.address;
+        description = cached.description?.substring(0, 200) || "";
+        availableFrom = cached.availableFrom;
+      }
+      listings.push({
+        id: cacheKey,
+        source: "flatfox",
+        price: p.price_display,
+        dist: Math.round(km * 100) / 100,
+        address,
+        description,
+        availableFrom,
+        until: null,
+        url: `https://flatfox.ch/en/flat/8001-zurich/${p.pk}/`,
+      });
+    }
+  }
+
+  res.json(listings);
+});
+
+// ── API: Get tracker ──────────────────────────────────────────────────────
+
+app.get("/api/tracker", (req, res) => {
+  if (fs.existsSync(TRACKER_FILE)) {
+    res.json(JSON.parse(fs.readFileSync(TRACKER_FILE, "utf8")));
+  } else {
+    res.json({ applied: [], shortlisted: [], rejected: [], excluded: [] });
+  }
+});
+
+// ── API: Trigger scan ─────────────────────────────────────────────────────
+
+app.post("/api/scan", (req, res) => {
+  try {
+    execSync("node monitor.js scan --fresh", {
+      cwd: __dirname,
+      timeout: 300000,
+      stdio: "ignore",
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message.substring(0, 100) });
+  }
+});
+
+// ── API: Get config ───────────────────────────────────────────────────────
+
+app.get("/api/config", (req, res) => {
+  res.json({ target: ETH_ZENTRUM, maxPrice: MAX_PRICE });
+});
+
+app.listen(PORT, () => {
+  console.log(`\n  zurich-housing-tool dashboard`);
+  console.log(`  http://localhost:${PORT}\n`);
+});

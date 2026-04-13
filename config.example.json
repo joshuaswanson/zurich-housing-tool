@@ -7,7 +7,16 @@
   "search": {
     "maxPrice": 2000,
     "region": "zurich-stadt",
-    "minDuration": 60
+    "minDuration": 60,
+    "flatfoxSlug": "8001-zurich",
+    "ronorpUrl": "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220",
+    "geocodeSuffix": "Zürich, Schweiz"
+  },
+  "flatfoxBounds": {
+    "north": 47.4204,
+    "south": 47.3304,
+    "east": 8.6003,
+    "west": 8.4603
   },
   "exclude": {
     "woko": true,
@@ -15,5 +24,23 @@
     "shortSublets": true,
     "overAge": 28,
     "spam": ["A/NTERIM", "NextGen Properties"]
-  }
+  },
+  "links": [
+    {
+      "label": "flatfox.ch",
+      "url": "https://flatfox.ch/en/search/?object_category=SHARED&max_price=2000&query=Zurich"
+    },
+    {
+      "label": "wgzimmer.ch",
+      "url": "https://www.wgzimmer.ch/en/wgzimmer/search/mate/ch/zurich-stadt.html"
+    },
+    {
+      "label": "ronorp.net",
+      "url": "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220"
+    },
+    {
+      "label": "HousingAnywhere",
+      "url": "https://housinganywhere.com/s/Zurich--Switzerland/student-accommodation"
+    }
+  ]
 }

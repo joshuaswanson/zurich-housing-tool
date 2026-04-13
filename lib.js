@@ -43,15 +43,26 @@ export const RONORP_CACHE_FILE = path.join(DATA_DIR, "ronorp_cache.json");
 export const TRACKER_FILE = path.join(__dirname, "tracker.json");
 
 /**
- * Flatfox bounding box: derived from target coordinates with reasonable padding.
+ * Flatfox bounding box: from config or derived from target coordinates.
  * Covers roughly a 5 km radius around the target.
  */
-export const FLATFOX_BOUNDS = {
+export const FLATFOX_BOUNDS = config.flatfoxBounds || {
   north: config.target.lat + 0.044,
   south: config.target.lat - 0.046,
   east: config.target.lng + 0.052,
   west: config.target.lng - 0.088,
 };
+
+/** Flatfox URL slug for direct listing links (e.g. "8001-zurich") */
+export const FLATFOX_SLUG = config.search?.flatfoxSlug || "8001-zurich";
+
+/** Ronorp listing page URL */
+export const RONORP_URL =
+  config.search?.ronorpUrl ||
+  "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220";
+
+/** Suffix appended to addresses for geocoding (e.g. "Zürich, Schweiz") */
+export const GEOCODE_SUFFIX = config.search?.geocodeSuffix || "";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -127,10 +138,11 @@ export async function geocodeAddress(address) {
   if (cache[key]) return cache[key];
 
   try {
-    const query = encodeURIComponent(address + ", Zürich, Schweiz");
+    const suffix = GEOCODE_SUFFIX ? ", " + GEOCODE_SUFFIX : "";
+    const query = encodeURIComponent(address + suffix);
     const resp = await fetch(
       `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
-      { headers: { "User-Agent": "zurich-housing-monitor/1.0" } },
+      { headers: { "User-Agent": "swiss-housing-monitor/2.0" } },
     );
     const results = await resp.json();
     if (results.length > 0) {

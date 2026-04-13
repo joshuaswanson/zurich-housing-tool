@@ -1,115 +1,44 @@
-# Zurich Housing Monitor
+# zurich-housing-tool
 
-Find affordable WG rooms near ETH Zurich. Scrapes **flatfox.ch** (API) and **wgzimmer.ch** (headless browser with reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)).
+Finding housing in Zurich sucks. You already know this. You're competing with hundreds of people for every halfway decent WG room, most of the affordable listings are age-restricted student housing you don't qualify for, and half the online listings are corporate spam with fake addresses. It's a numbers game. You send 30+ applications to get 2-3 viewings to maybe get 1 offer.
+
+This tool automates the grind. It scrapes the major Swiss housing platforms, filters out the garbage, tracks your applications, and lets you blast out messages without losing your mind.
+
+## What it does
+
+- **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public pin API), and [ronorp.net](https://ronorp.net)
+- **Smart filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and corporate spam (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
+- **Geocodes addresses** for real walking distance from your target (ETH Zentrum, UZH, wherever)
+- **Tracks applications** so you don't accidentally apply to the same place twice
+- **Deduplicates** same-description cross-platform reposts and same-address listings
+- **Fetches full listing details** (room description, "We are", "Looking for", etc.) and caches permanently
+- **Desktop notifications** when new listings appear (macOS)
 
 ## Setup
 
 ```bash
+git clone https://github.com/joshuaswanson/zurich-housing-tool.git
+cd zurich-housing-tool
 npm install
+cp config.example.json config.json
 ```
 
-CloakBrowser downloads a custom Chromium binary on first run (~140 MB).
+CloakBrowser downloads a custom Chromium binary on first run (~140 MB). This is what bypasses wgzimmer's reCAPTCHA.
 
-## Commands
-
-### Scan for listings
-
-```bash
-node monitor.js scan                # All listings, default 5km radius
-node monitor.js scan --radius 2     # Within 2km of ETH Zentrum
-node monitor.js scan --all          # No distance filter
-```
-
-Refreshes both sources (flatfox API + wgzimmer scrape), writes data to `data/`, and updates `seen.json`. Flatfox pins are saved to `data/flatfox_cache.json` so `search.js` can use them offline.
-
-### Watch for new listings
-
-```bash
-node monitor.js watch           # Poll every 15 minutes
-node monitor.js watch 10        # Poll every 10 minutes
-```
-
-Sends a macOS desktop notification when new listings appear.
-
-### Search & filter
-
-```bash
-node search.js                            # All cached listings (wgzimmer + flatfox)
-node search.js --max-price 800            # Price filter
-node search.js --max-dist 2              # Max 2 km from ETH (geocoded coordinates)
-node search.js --no-woko                  # Exclude WOKO/JUWO properties
-node search.js --permanent                # Only unlimited duration
-node search.js --not-tracked              # Exclude applied/excluded/rejected
-node search.js --include-gendered         # Include gender-restricted listings
-node search.js --include-short            # Include short sublets (<2 months)
-node search.js --sort distance            # Sort by distance (default: price)
-node search.js --limit 10                 # Max results (default 20)
-node search.js --keyword "Seefeld|Kreis 8" # Filter by keyword/regex
-node search.js --new                      # Only listings from last 24 hours
-node search.js --new 48                   # Only listings from last 48 hours
-node search.js --fetch 5                  # Fetch details for top 5 uncached results
-```
-
-Reads from cached data files only -- no network requests unless `--fetch` is used. By default, gender-restricted listings (female-only WGs), short sublets (<2 months), duplicate descriptions, and corporate spam (A/NTERIM, NextGen) are hidden.
-
-Combine flags freely:
-
-```bash
-node search.js --max-dist 2 --no-woko --not-tracked --sort distance --fetch 3
-```
-
-### Fetch full listing details
-
-```bash
-node fetch-listing.mjs <url>                # Fetch one listing
-node fetch-listing.mjs <url1> <url2> ...    # Fetch multiple
-node fetch-listing.mjs --from-file urls.txt # Fetch from file
-node fetch-listing.mjs --summary <url>      # Compact summary from cache
-node fetch-listing.mjs --all                # Summarize all cached listings
-```
-
-Scrapes the full listing page (address, room description, "We are", "We are looking for", etc). Results are **permanently cached** in `data/listings/` by listing UUID or flatfox PK.
-
-### Track applications
-
-```bash
-node track.js                           # View all tracked
-node track.js status                    # Dashboard with stats, days since applied, etc.
-node track.js apply <url> [address]     # Mark as applied (auto-populates price/address, auto-commits)
-node track.js shortlist <url> [address] # Shortlist
-node track.js exclude <url> <reason>    # Not interested
-node track.js reject <url>              # They rejected you
-node track.js note <url> <text>         # Add a note
-node track.js check <url>              # Check status
-node track.js backfill                  # Populate price/address for existing entries from cache
-```
-
-When tracking a URL, price and address are automatically looked up from `data/listings/` cache. Backfill runs silently on every command. The `apply` command auto-commits to git. Fetched listings are auto-checked for WOKO/JUWO/spam and excluded automatically.
-
-### Useful links
-
-```bash
-node monitor.js links
-```
-
-## npm shortcuts
-
-```bash
-npm run scan        # node monitor.js scan
-npm run watch       # node monitor.js watch
-npm run fetch       # node fetch-listing.mjs
-npm run search      # node search.js
-npm run track       # node track.js
-```
-
-## Configuration
-
-Copy `config.example.json` to `config.json` and customize:
+Edit `config.json` to set your target location:
 
 ```json
 {
-  "target": { "lat": 47.3764, "lng": 8.5483, "label": "ETH Zentrum" },
-  "search": { "maxPrice": 2000, "region": "zurich-stadt", "minDuration": 60 },
+  "target": {
+    "lat": 47.3764,
+    "lng": 8.5483,
+    "label": "ETH Zentrum"
+  },
+  "search": {
+    "maxPrice": 2000,
+    "region": "zurich-stadt",
+    "minDuration": 60
+  },
   "exclude": {
     "woko": true,
     "genderRestricted": true,
@@ -120,47 +49,112 @@ Copy `config.example.json` to `config.json` and customize:
 }
 ```
 
-- **target**: coordinates and label for distance calculations
-- **search**: max price, wgzimmer region, minimum sublet duration in days
-- **exclude**: toggle filters, set age limit, add spam company names
+**Common target locations:**
+| Location | Lat | Lng |
+|----------|-----|-----|
+| ETH Zentrum | 47.3764 | 8.5483 |
+| ETH Honggerberg | 47.4085 | 8.5075 |
+| UZH Zentrum | 47.3744 | 8.5508 |
+| UZH Irchel | 47.3975 | 8.5495 |
+| Zurich HB | 47.3783 | 8.5402 |
 
-`config.json` is gitignored. `config.example.json` is committed as a template.
+## Commands
 
-## File structure
+### Scan for listings
 
+```bash
+node monitor.js scan                 # Scan all sources
+node monitor.js scan --fresh         # Force fresh scrape (ignore cache)
+node monitor.js scan --radius 2      # Only show within 2 km
+node monitor.js watch 15             # Auto-poll every 15 min + desktop notifications
 ```
-lib.js                Shared utilities (config, distance, paths, cache helpers)
-monitor.js            Data acquisition (flatfox API + wgzimmer scrape)
-wgzimmer-scrape.mjs   CloakBrowser-based wgzimmer scraper (exports scrapeWgzimmer)
-ronorp-scrape.mjs     CloakBrowser-based ronorp.net scraper
-fetch-listing.mjs     Fetch & cache full listing details, auto-exclude WOKO/spam
-search.js             Search & filter cached listings with smart defaults
-track.js              Application tracker with dashboard
-config.json           Your personal config (gitignored)
-config.example.json   Config template (committed)
-tracker.json          Tracker state (gitignored)
-package.json          ESM ("type": "module")
-data/                 All cached data (gitignored)
+
+### Search & filter
+
+```bash
+node search.js                                    # Everything from cache
+node search.js --max-dist 1.5                     # Within 1.5 km of target
+node search.js --max-price 1500                   # Price cap
+node search.js --not-tracked                      # Hide applied/excluded
+node search.js --sort distance                    # Sort by distance (default: price)
+node search.js --keyword "Seefeld|Kreis 8"        # Regex filter on description
+node search.js --new                              # Last 24 hours only
+node search.js --new 48                           # Last 48 hours
+node search.js --permanent                        # Unlimited duration only
+node search.js --include-gendered                 # Include female-only WGs
+node search.js --include-short                    # Include sublets < 2 months
+node search.js --fetch 5                          # Auto-fetch details for top 5
+
+# The kitchen sink:
+node search.js --max-dist 2 --not-tracked --sort distance --new --fetch 3
+```
+
+### Fetch full listing details
+
+```bash
+node fetch-listing.mjs <url>                      # Fetch and cache one listing
+node fetch-listing.mjs <url1> <url2> ...          # Multiple
+node fetch-listing.mjs --from-file urls.txt       # From file
+node fetch-listing.mjs --summary <url>            # Compact summary from cache
+node fetch-listing.mjs --summary --all            # All cached listings
+```
+
+Fetched listings are auto-checked for WOKO/JUWO/spam and excluded from future searches.
+
+### Track applications
+
+```bash
+node track.js                           # List all tracked
+node track.js status                    # Dashboard with stats
+node track.js apply <url> [address]     # Mark as applied
+node track.js shortlist <url>           # Shortlist
+node track.js exclude <url> <reason>    # Not interested
+node track.js reject <url>              # They rejected you
+node track.js note <url> <text>         # Add a note
+node track.js check <url>              # Check if tracked
+node track.js backfill                  # Populate price/address from cache
+```
+
+### Useful links
+
+```bash
+node monitor.js links                   # Housing search URLs for Zurich
 ```
 
 ## How it works
 
-- **flatfox.ch** exposes a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices. No authentication needed. Distance from ETH Zentrum (47.3764, 8.5483) is calculated via haversine. Pins are cached to `data/flatfox_cache.json` during monitor refresh, so `search.js` works offline.
+**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices. No auth needed. We calculate haversine distance from your target and cache pins locally.
 
-- **wgzimmer.ch** uses reCAPTCHA v3 which blocks all standard headless browsers. We use [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a custom Chromium binary with source-level anti-detection patches, which passes reCAPTCHA v3 fully headless. The scraper is imported directly by `monitor.js` (no subprocess).
+**wgzimmer.ch** uses Google reCAPTCHA v3 which blocks every headless browser (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). We use [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a custom Chromium with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
 
-- **Gender filter**: Detects female-only listings ("Mitbewohnerin", "weiblich", "female only", "Girls-WG", "nur Frauen") while avoiding false positives on inclusive phrasing like "Mitbewohner oder Mitbewohnerin".
+**ronorp.net** is a smaller Zurich classifieds site. Lower volume but different audience.
 
-- **Short sublet filter**: Parses available-from and until dates to hide listings shorter than 2 months.
+**Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently so distance calculations are instant.
 
-- **Auto-populate tracker**: When tracking a URL, price and address are looked up from the listing detail cache. Backfill runs silently on every command.
+**Spam detection** catches corporate housing companies that list fake addresses in the city center but are actually in Ruschlikon, Wollishofen, etc.
 
-- **Auto-exclude**: Fetched listings are automatically checked for WOKO/JUWO and spam patterns and excluded from future searches.
+## File structure
 
-- **Geocoding**: Listing addresses are geocoded via Nominatim (OpenStreetMap) on fetch and cached permanently for distance calculations.
+```
+monitor.js            Scan all sources, watch mode, desktop notifications
+search.js             Search & filter cached listings
+fetch-listing.mjs     Fetch full listing details (wgzimmer + flatfox)
+track.js              Application tracker + dashboard
+wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
+ronorp-scrape.mjs     CloakBrowser ronorp scraper
+lib.js                Shared utilities (config, distance, geocoding, cache)
+config.json           Your config (gitignored)
+config.example.json   Config template
+tracker.json          Your application data (gitignored)
+data/                 All cached data (gitignored)
+```
 
-- **Description dedup**: Listings with near-identical descriptions (e.g. same person posting multiple times) are deduplicated.
+## Why this exists
 
-- **Config-driven**: All preferences (target location, price, filters, spam list) live in `config.json`. See Configuration section above.
+I applied to 30+ places over 3 weeks to get 2 viewings and 1 offer. Every cheap listing near the university was WOKO (age-restricted), every flatfox listing under CHF 1,000 was either a corporate co-living scam or a 3-week sublet, and wgzimmer.ch made me solve a CAPTCHA every time I wanted to search.
 
-- All modules use **ESM** (`"type": "module"` in package.json). CloakBrowser is ESM-only.
+If you're looking for housing in Zurich, stop browsing manually. Run the scanner, blast out applications, track everything, and let the numbers do the work. Good luck.
+
+## License
+
+MIT

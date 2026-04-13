@@ -56,7 +56,6 @@ Edit `config.json` to set your target location:
 | ETH Honggerberg | 47.4085 | 8.5075 |
 | UZH Zentrum | 47.3744 | 8.5508 |
 | UZH Irchel | 47.3975 | 8.5495 |
-| Zurich HB | 47.3783 | 8.5402 |
 
 ## Commands
 
@@ -114,6 +113,15 @@ node track.js note <url> <text>         # Add a note
 node track.js check <url>              # Check if tracked
 node track.js backfill                  # Populate price/address from cache
 ```
+
+### Web dashboard
+
+```bash
+node server.js                          # Start dashboard at http://localhost:3456
+npm run dashboard                       # Same thing
+```
+
+Dark-mode dashboard with a radar map of Zurich, sortable/filterable listings table, and application tracker. The "Scan Now" button triggers a full scrape and batch-fetches listing details for geocoding.
 
 ### Useful links
 

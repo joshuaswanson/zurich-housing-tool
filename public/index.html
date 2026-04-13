@@ -703,7 +703,7 @@
       </td>
       <td>${l.availableFrom || "-"}</td>
       <td>${l.until || "-"}</td>
-      <td><a href="${l.url}" target="_blank">open &rarr;</a></td>
+      <td><a href="${l.url}" target="_blank">open</a> <button onclick="generateMessage('${l.url}')" style="background:none;border:1px solid var(--green);color:var(--green);padding:1px 6px;font-family:inherit;font-size:10px;cursor:pointer;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">generate</button></td>
     </tr>
   `,
           )
@@ -735,11 +735,14 @@
             const days = a.date
               ? Math.floor((Date.now() - new Date(a.date).getTime()) / 86400000)
               : "?";
+            const urlEnc = esc(a.url);
             return `
       <div class="applied-item">
         <span class="ap-price">${a.price ? "CHF " + a.price : "?"}</span>
         <span class="ap-addr">${esc(a.address || a.url.substring(0, 60))}</span>
         <span class="ap-days">${days}d ago</span>
+        <button onclick="rejectApp('${urlEnc}')" style="background:none;border:1px solid var(--red);color:var(--red);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">reject</button>
+        <button onclick="showMessage('${urlEnc}')" style="background:none;border:1px solid var(--text-dim);color:var(--text-dim);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">msg</button>
       </div>
     `;
           })
@@ -937,6 +940,94 @@
       }
       drawRadar();
 
+      // ── Reject application ──────────────────────────
+      async function rejectApp(url) {
+        if (!confirm("Mark as rejected?")) return;
+        await fetch("/api/reject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        await load();
+      }
+
+      // ── Show sent message ─────────────────────────
+      let appMessages = [];
+      async function loadMessages() {
+        try {
+          const res = await fetch("/api/applications");
+          appMessages = await res.json();
+        } catch {}
+      }
+
+      function showMessage(url) {
+        const match = appMessages.find(
+          (a) => a.content.includes(url) || url.includes(a.id.split("-")[0]),
+        );
+        const modal = document.createElement("div");
+        modal.style.cssText =
+          "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer;";
+        modal.onclick = () => modal.remove();
+        const box = document.createElement("pre");
+        box.style.cssText =
+          "background:var(--surface);border:1px solid var(--border);padding:24px;max-width:700px;max-height:80vh;overflow:auto;white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);cursor:text;";
+        box.onclick = (e) => e.stopPropagation();
+        box.textContent = match
+          ? match.content
+          : "No saved message found for this listing.";
+        modal.appendChild(box);
+        document.body.appendChild(modal);
+      }
+
+      // ── Generate message via Ollama ───────────────
+      async function generateMessage(url) {
+        const btn = event.target;
+        btn.textContent = "generating...";
+        btn.disabled = true;
+        try {
+          const res = await fetch("/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url }),
+          });
+          const data = await res.json();
+          if (data.error) {
+            alert(data.error);
+            return;
+          }
+          const modal = document.createElement("div");
+          modal.style.cssText =
+            "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer;";
+          modal.onclick = () => modal.remove();
+          const box = document.createElement("div");
+          box.style.cssText =
+            "background:var(--surface);border:1px solid var(--green);padding:24px;max-width:700px;max-height:80vh;overflow:auto;cursor:text;";
+          box.onclick = (e) => e.stopPropagation();
+          const pre = document.createElement("pre");
+          pre.style.cssText =
+            "white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);margin-bottom:16px;";
+          pre.textContent = data.message;
+          const copyBtn = document.createElement("button");
+          copyBtn.textContent = "COPY TO CLIPBOARD";
+          copyBtn.style.cssText =
+            "background:var(--green);color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;letter-spacing:0.5px;";
+          copyBtn.onclick = () => {
+            navigator.clipboard.writeText(data.message);
+            copyBtn.textContent = "COPIED";
+          };
+          box.appendChild(pre);
+          box.appendChild(copyBtn);
+          modal.appendChild(box);
+          document.body.appendChild(modal);
+        } catch (e) {
+          alert("Failed to generate: " + e.message);
+        } finally {
+          btn.textContent = "generate";
+          btn.disabled = false;
+        }
+      }
+
+      loadMessages();
       load();
     </script>
   </body>

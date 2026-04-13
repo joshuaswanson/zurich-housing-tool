@@ -6,12 +6,12 @@ This tool automates the grind. It scrapes the major Swiss housing platforms, fil
 
 ## What it does
 
+- **LLM-powered application messages**: Uses a local LLM (via [Ollama](https://ollama.com)) to auto-generate tailored application messages for each listing based on your profile. Fill in your details once, hit generate, and get a personalized message that actually reads the listing description. Bilingual (German + English) when needed.
 - **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public pin API), and [ronorp.net](https://ronorp.net)
 - **Smart filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and corporate spam (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
 - **Geocodes addresses** for real walking distance from your target (ETH Zentrum, UZH, wherever)
 - **Tracks applications** so you don't accidentally apply to the same place twice
-- **Deduplicates** same-description cross-platform reposts and same-address listings
-- **Fetches full listing details** (room description, "We are", "Looking for", etc.) and caches permanently
+- **Web dashboard** with a radar map, sortable listings table, and application tracker
 - **Desktop notifications** when new listings appear (macOS)
 
 ## Setup

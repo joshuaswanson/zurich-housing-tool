@@ -151,6 +151,141 @@ app.get("/api/config", (req, res) => {
   res.json({ target: ETH_ZENTRUM, maxPrice: MAX_PRICE });
 });
 
+// ── API: Get sent applications with messages ──────────────────────────────
+
+app.get("/api/applications", (req, res) => {
+  const appDir = path.join(DATA_DIR, "applications");
+  if (!fs.existsSync(appDir)) return res.json([]);
+  const files = fs.readdirSync(appDir).filter((f) => f.endsWith(".md"));
+  const apps = files.map((f) => {
+    const content = fs.readFileSync(path.join(appDir, f), "utf8");
+    return { id: f.replace(".md", ""), content };
+  });
+  res.json(apps);
+});
+
+// ── API: Mark as rejected ─────────────────────────────────────────────────
+
+app.post("/api/reject", (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: "url required" });
+  try {
+    const tracker = fs.existsSync(TRACKER_FILE)
+      ? JSON.parse(fs.readFileSync(TRACKER_FILE, "utf8"))
+      : { applied: [], shortlisted: [], rejected: [], excluded: [] };
+
+    // Move from applied to rejected
+    const idx = tracker.applied.findIndex((e) => e.url === url);
+    if (idx > -1) {
+      const entry = tracker.applied.splice(idx, 1)[0];
+      entry.rejectedDate = new Date().toISOString().split("T")[0];
+      tracker.rejected.push(entry);
+    } else {
+      tracker.rejected.push({
+        url,
+        date: new Date().toISOString().split("T")[0],
+      });
+    }
+    fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Generate application message via Ollama ──────────────────────────
+
+const PROFILE_FILE = path.join(__dirname, "profile.json");
+
+app.post("/api/generate", async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: "url required" });
+
+  // Load user profile
+  if (!fs.existsSync(PROFILE_FILE)) {
+    return res.status(400).json({
+      error:
+        "No profile.json found. Copy profile.example.json to profile.json and fill in your details.",
+    });
+  }
+  const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
+
+  // Load listing details from cache
+  const cacheKey =
+    url.match(
+      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+    )?.[1] ||
+    (url.match(/\/(\d{5,})\/?/)
+      ? `flatfox-${url.match(/\/(\d{5,})\/?/)[1]}`
+      : null);
+
+  let listing = null;
+  if (cacheKey && fs.existsSync(path.join(LISTINGS_DIR, cacheKey + ".json"))) {
+    listing = JSON.parse(
+      fs.readFileSync(path.join(LISTINGS_DIR, cacheKey + ".json"), "utf8"),
+    );
+  }
+
+  if (!listing) {
+    return res
+      .status(400)
+      .json({ error: "Listing not fetched yet. Fetch it first." });
+  }
+
+  const listingDesc = [
+    listing.description || "",
+    listing.room || "",
+    listing.lookingFor || "",
+    listing.weAre || "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+
+  const isGerman =
+    /[äöüß]|Zürich|Strasse|Wohnung/i.test(listingDesc) &&
+    !/english version|ENG|For English/i.test(listingDesc.substring(0, 200));
+
+  const prompt = `You are writing a short, friendly WG (shared flat) application message. Write from the perspective of the applicant based on their profile below. The message should be tailored to the specific listing. Be genuine, not generic. Keep it under 200 words.
+
+${isGerman ? "The listing is in German. Write the message in German first, then add a note '(Übersetzung mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and include the English version below." : "The listing is in English. Write in English only."}
+
+${profile.languages && /german|deutsch/i.test(profile.languages) ? "" : "If writing in German, mention that you can read/follow German but need to speak English day-to-day."}
+
+APPLICANT PROFILE:
+${JSON.stringify(profile, null, 2)}
+
+LISTING:
+${listingDesc.substring(0, 2000)}
+
+Write the application message now. Do not include a subject line. Start with a greeting.`;
+
+  try {
+    const ollamaRes = await fetch("http://localhost:11434/api/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "llama3.2",
+        prompt,
+        stream: false,
+      }),
+    });
+
+    if (!ollamaRes.ok) {
+      return res.status(500).json({
+        error: "Ollama not running. Start it with: ollama serve",
+      });
+    }
+
+    const result = await ollamaRes.json();
+    res.json({ message: result.response });
+  } catch (e) {
+    res.status(500).json({
+      error:
+        "Could not connect to Ollama. Make sure it's running (ollama serve) and has llama3.2 pulled (ollama pull llama3.2).",
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`\n  zurich-housing-tool dashboard`);
   console.log(`  http://localhost:${PORT}\n`);

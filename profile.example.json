@@ -1,0 +1,13 @@
+{
+  "name": "Jane Doe",
+  "age": 24,
+  "occupation": "Master's student in Biology at UZH",
+  "situation": "Looking for housing from September, current lease ends August",
+  "futurePlans": "Continuing with PhD at UZH",
+  "hobbies": ["bouldering", "reading", "cooking"],
+  "personality": "Relaxed, tidy, social",
+  "nationality": "Swiss",
+  "languages": "German and English fluently",
+  "wgExperience": "Lived in shared flats for 3 years",
+  "extras": "I have a cat named Milo"
+}

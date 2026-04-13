@@ -166,12 +166,6 @@ tracker.json          Your application data (gitignored)
 data/                 All cached data (gitignored)
 ```
 
-## Why this exists
-
-I applied to 30+ places over 3 weeks to get 2 viewings and 1 offer. Every cheap listing near the university was WOKO (age-restricted), every flatfox listing under CHF 1,000 was either a corporate co-living scam or a 3-week sublet, and wgzimmer.ch made me solve a CAPTCHA every time I wanted to search.
-
-If you're looking for housing in Zurich, stop browsing manually. Run the scanner, blast out applications, track everything, and let the numbers do the work. Good luck.
-
 ## Support
 
 If you find this useful, [buy me a coffee](https://buymeacoffee.com/swanson).

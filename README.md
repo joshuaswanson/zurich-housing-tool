@@ -1,5 +1,7 @@
 # zurich-housing-tool
 
+![Dashboard](assets/screenshot.png)
+
 Finding housing in Zurich sucks. You already know this. You're competing with hundreds of people for every halfway decent WG room, most of the affordable listings are age-restricted student housing you don't qualify for, and half the online listings are corporate spam with fake addresses. It's a numbers game. You send 30+ applications to get 2-3 viewings to maybe get 1 offer.
 
 This tool automates the grind. It scrapes the major Swiss housing platforms, filters out the garbage, tracks your applications, and lets you blast out messages without losing your mind.
@@ -169,6 +171,12 @@ data/                 All cached data (gitignored)
 I applied to 30+ places over 3 weeks to get 2 viewings and 1 offer. Every cheap listing near the university was WOKO (age-restricted), every flatfox listing under CHF 1,000 was either a corporate co-living scam or a 3-week sublet, and wgzimmer.ch made me solve a CAPTCHA every time I wanted to search.
 
 If you're looking for housing in Zurich, stop browsing manually. Run the scanner, blast out applications, track everything, and let the numbers do the work. Good luck.
+
+## Support
+
+If you find this useful, [buy me a coffee](https://buymeacoffee.com/swanson).
+
+<img src="assets/bmc_qr.png" alt="Buy Me a Coffee QR" width="200">
 
 ## License
 

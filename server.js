@@ -112,11 +112,20 @@ app.get("/api/tracker", (req, res) => {
 
 app.post("/api/scan", (req, res) => {
   try {
+    // Scan all sources
     execSync("node monitor.js scan --fresh", {
       cwd: __dirname,
       timeout: 300000,
       stdio: "ignore",
     });
+    // Batch fetch top 50 unfetched listings for geocoding
+    try {
+      execSync("node search.js --not-tracked --fetch 50 --limit 50", {
+        cwd: __dirname,
+        timeout: 300000,
+        stdio: "ignore",
+      });
+    } catch {}
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message.substring(0, 100) });

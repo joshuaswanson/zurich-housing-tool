@@ -19,11 +19,18 @@ This tool automates the grind. It scrapes the major Swiss housing platforms, fil
 ```bash
 git clone https://github.com/joshuaswanson/zurich-housing-tool.git
 cd zurich-housing-tool
-npm install
-cp config.example.json config.json
+./setup.sh
 ```
 
-CloakBrowser downloads a custom Chromium binary on first run (~140 MB). This is what bypasses wgzimmer's reCAPTCHA.
+That's it. The setup script installs dependencies, creates your config files, pulls the LLM model (if Ollama is installed), and runs an initial scan. Then:
+
+```bash
+node server.js
+```
+
+Open http://localhost:3456 and start hunting.
+
+**Optional**: Install [Ollama](https://ollama.com) for LLM-powered message generation. The tool works without it, but you won't get auto-generated application messages.
 
 Edit `config.json` to set your target location:
 

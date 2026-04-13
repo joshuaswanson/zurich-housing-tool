@@ -703,7 +703,7 @@
       </td>
       <td>${l.availableFrom || "-"}</td>
       <td>${l.until || "-"}</td>
-      <td><a href="${l.url}" target="_blank">open</a> <button onclick="generateMessage('${l.url}')" style="background:none;border:1px solid var(--green);color:var(--green);padding:1px 6px;font-family:inherit;font-size:10px;cursor:pointer;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">generate</button></td>
+      <td><a href="${l.url}" target="_blank" style="border:1px solid var(--text-dim);padding:1px 6px;font-size:10px;display:inline-block">open</a> <button onclick="generateMessage('${l.url}')" style="background:none;border:1px solid var(--green);color:var(--green);padding:1px 6px;font-family:inherit;font-size:10px;cursor:pointer;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">generate</button></td>
     </tr>
   `,
           )
@@ -741,7 +741,7 @@
         <span class="ap-price">${a.price ? "CHF " + a.price : "?"}</span>
         <span class="ap-addr">${esc(a.address || a.url.substring(0, 60))}</span>
         <span class="ap-days">${days}d ago</span>
-        <button onclick="rejectApp('${urlEnc}')" style="background:none;border:1px solid var(--red);color:var(--red);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">reject</button>
+        <button onclick="rejectApp('${urlEnc}')" style="background:none;border:1px solid var(--red);color:var(--red);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">rejected</button>
         <button onclick="showMessage('${urlEnc}')" style="background:none;border:1px solid var(--text-dim);color:var(--text-dim);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">msg</button>
       </div>
     `;

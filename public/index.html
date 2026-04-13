@@ -4,6 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>zurich-housing-tool</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap");
 
@@ -512,6 +517,34 @@
       </div>
     </div>
 
+    <!-- Radar Map -->
+    <div
+      id="radar-section"
+      style="
+        position: relative;
+        height: 500px;
+        border-bottom: 1px solid var(--border);
+        overflow: hidden;
+      "
+    >
+      <div id="map" style="width: 100%; height: 100%"></div>
+      <!-- Radar sweep overlay -->
+      <div
+        id="radar-overlay"
+        style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          pointer-events: none;
+          z-index: 500;
+        "
+      >
+        <canvas id="radar-canvas"></canvas>
+      </div>
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -590,9 +623,13 @@
             for (const e of tracker[cat] || []) trackedUrls.add(e.url);
           }
 
+          // Filter out garbage (price < 50 is clearly a parsing error)
+          allListings = allListings.filter((l) => l.price >= 50);
+
           updateStats();
           applyFilters();
           renderTracker();
+          plotListings(allListings);
         } catch (e) {
           document.getElementById("no-data").style.display = "block";
         }
@@ -751,6 +788,147 @@
           applyFilters();
         });
       });
+
+      // ── Radar Map ──────────────────────────────────────
+      const TARGET = { lat: 47.3764, lng: 8.5483 };
+      const map = L.map("map", {
+        center: [TARGET.lat, TARGET.lng],
+        zoom: 14,
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      L.tileLayer(
+        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        {
+          maxZoom: 19,
+        },
+      ).addTo(map);
+
+      L.control.zoom({ position: "topright" }).addTo(map);
+
+      // Target marker (crosshair)
+      L.circleMarker([TARGET.lat, TARGET.lng], {
+        radius: 8,
+        color: "#4ade80",
+        fillColor: "#4ade80",
+        fillOpacity: 0.3,
+        weight: 2,
+      })
+        .addTo(map)
+        .bindPopup("Target: ETH Zentrum");
+
+      // Range rings
+      [0.5, 1.0, 1.5].forEach((km) => {
+        L.circle([TARGET.lat, TARGET.lng], {
+          radius: km * 1000,
+          color: "#4ade8033",
+          fill: false,
+          weight: 1,
+          dashArray: "4 4",
+        }).addTo(map);
+      });
+
+      const listingMarkers = L.layerGroup().addTo(map);
+
+      function updateMap(listings) {
+        listingMarkers.clearLayers();
+        listings.forEach((l) => {
+          if (!l.dist) return; // no coordinates
+          // Reverse geocode from distance isn't possible, but we have flatfox coords
+          // For flatfox: we can get lat/lng from the API response
+        });
+
+        // Use the raw data which has coordinates
+        fetch("/api/listings")
+          .then((r) => r.json())
+          .then((all) => {
+            listingMarkers.clearLayers();
+            // We need lat/lng - flatfox has it in the pin data, wgzimmer has it cached
+            // Let's add a coords endpoint
+          });
+      }
+
+      // Better approach: add lat/lng to the listings API response
+      function plotListings(listings) {
+        listingMarkers.clearLayers();
+        let plotted = 0;
+        for (const l of listings) {
+          if (!l.lat || !l.lng) continue;
+          const color =
+            l.source === "flatfox"
+              ? "#60a5fa"
+              : l.source === "wgzimmer"
+                ? "#fb923c"
+                : "#fbbf24";
+          const marker = L.circleMarker([l.lat, l.lng], {
+            radius: 5,
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.7,
+            weight: 1,
+          }).addTo(listingMarkers);
+          marker.bindPopup(
+            `<b>CHF ${l.price}</b><br>${l.address || l.source}<br><a href="${l.url}" target="_blank">open</a>`,
+          );
+          plotted++;
+        }
+        return plotted;
+      }
+
+      // ── Radar sweep animation ──────────────────────
+      const canvas = document.getElementById("radar-canvas");
+      const ctx = canvas.getContext("2d");
+      let radarAngle = 0;
+
+      function resizeCanvas() {
+        const section = document.getElementById("radar-section");
+        canvas.width = section.offsetWidth;
+        canvas.height = section.offsetHeight;
+      }
+      resizeCanvas();
+      window.addEventListener("resize", resizeCanvas);
+
+      function drawRadar() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Get map center in pixels
+        const centerPoint = map.latLngToContainerPoint([
+          TARGET.lat,
+          TARGET.lng,
+        ]);
+        const cx = centerPoint.x;
+        const cy = centerPoint.y;
+        const radius = Math.max(canvas.width, canvas.height);
+
+        // Sweep gradient
+        const sweepAngle = radarAngle;
+        const gradient = ctx.createConicGradient(sweepAngle, cx, cy);
+        gradient.addColorStop(0, "rgba(74, 222, 128, 0)");
+        gradient.addColorStop(0.85, "rgba(74, 222, 128, 0)");
+        gradient.addColorStop(0.95, "rgba(74, 222, 128, 0.08)");
+        gradient.addColorStop(1, "rgba(74, 222, 128, 0.15)");
+
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Sweep line
+        ctx.strokeStyle = "rgba(74, 222, 128, 0.6)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(
+          cx + Math.cos(sweepAngle) * radius,
+          cy + Math.sin(sweepAngle) * radius,
+        );
+        ctx.stroke();
+
+        radarAngle += 0.015;
+        requestAnimationFrame(drawRadar);
+      }
+      drawRadar();
 
       load();
     </script>

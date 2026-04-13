@@ -50,11 +50,22 @@ app.get("/api/listings", (req, res) => {
         }
         address = cached.address;
       }
+      let lat = null,
+        lng = null;
+      if (id && fs.existsSync(path.join(LISTINGS_DIR, id + ".json"))) {
+        const c = JSON.parse(
+          fs.readFileSync(path.join(LISTINGS_DIR, id + ".json"), "utf8"),
+        );
+        lat = c.lat || null;
+        lng = c.lng || null;
+      }
       listings.push({
         id: `wgzimmer-${id || l.url.slice(-20)}`,
         source: "wgzimmer",
         price: l.price,
         dist: dist ? Math.round(dist * 100) / 100 : null,
+        lat,
+        lng,
         address: address || l.neighborhood || null,
         description: l.description?.substring(0, 200) || "",
         availableFrom: l.availableFrom || null,
@@ -86,6 +97,8 @@ app.get("/api/listings", (req, res) => {
         source: "flatfox",
         price: p.price_display,
         dist: Math.round(km * 100) / 100,
+        lat: p.latitude,
+        lng: p.longitude,
         address,
         description,
         availableFrom,

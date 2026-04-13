@@ -914,10 +914,12 @@
         const sweepAngle = radarAngle;
         const gradient = ctx.createConicGradient(sweepAngle, cx, cy);
         gradient.addColorStop(0, "rgba(74, 222, 128, 0)");
-        gradient.addColorStop(0.8, "rgba(74, 222, 128, 0)");
-        gradient.addColorStop(0.92, "rgba(74, 222, 128, 0.06)");
-        gradient.addColorStop(0.97, "rgba(74, 222, 128, 0.15)");
-        gradient.addColorStop(1, "rgba(74, 222, 128, 0.3)");
+        gradient.addColorStop(0.55, "rgba(74, 222, 128, 0)");
+        gradient.addColorStop(0.7, "rgba(74, 222, 128, 0.03)");
+        gradient.addColorStop(0.82, "rgba(74, 222, 128, 0.08)");
+        gradient.addColorStop(0.91, "rgba(74, 222, 128, 0.18)");
+        gradient.addColorStop(0.97, "rgba(74, 222, 128, 0.35)");
+        gradient.addColorStop(1, "rgba(74, 222, 128, 0.5)");
 
         ctx.fillStyle = gradient;
         ctx.beginPath();

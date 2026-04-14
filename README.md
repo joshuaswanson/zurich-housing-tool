@@ -13,7 +13,7 @@ This tool automates the grind. It scrapes the major Swiss housing platforms, fil
 - **Smart filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and corporate spam (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
 - **Geocodes addresses** for real walking distance from your target (ETH Zentrum, UZH, wherever)
 - **Tracks applications** so you don't accidentally apply to the same place twice
-- **Web dashboard** with a radar map, sortable listings table, and application tracker
+- **Web dashboard** with a map, sortable listings table, and application tracker
 - **Desktop notifications** when new listings appear (macOS)
 
 ## Setup
@@ -130,7 +130,7 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-Dark-mode dashboard with a radar map of Zurich, sortable/filterable listings table, and application tracker. The "Scan Now" button triggers a full scrape and batch-fetches listing details for geocoding.
+Dark-mode dashboard with a map, sortable/filterable listings table, and application tracker. The "Scan Now" button triggers a full scrape and batch-fetches listing details for geocoding.
 
 ### Useful links
 

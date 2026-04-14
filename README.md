@@ -2,13 +2,13 @@
 
 ![Dashboard](assets/screenshot.png)
 
-Finding housing in Zurich sucks. You already know this. You're competing with hundreds of people for every halfway decent WG room, most of the affordable listings are age-restricted student housing you don't qualify for, and half the online listings are corporate spam with fake addresses. It's a numbers game. You send 30+ applications to get 2-3 viewings to maybe get 1 offer.
+Finding housing in Zurich sucks. It's purely a numbers game. You send 50+ applications to get 2-3 viewings and maybe 1 offer.
 
-This tool automates the grind. It scrapes the major Swiss housing platforms, filters out the garbage, tracks your applications, and lets you blast out messages without losing your mind.
+This tool automates the grind. It scrapes the major Swiss housing platforms, filters out garbage listings, tracks your applications, and lets you quickly generate and send out messages en masse, each tailored for the listing's description. Then you pick the housing you like from those who have the decency to respond.
 
 ## What it does
 
-- **LLM-powered application messages**: Uses a local LLM (via [Ollama](https://ollama.com)) to auto-generate tailored application messages for each listing based on your profile. Fill in your details once, hit generate, and get a personalized message that actually reads the listing description. Bilingual (German + English) when needed.
+- **LLM-generated application messages**: Uses a local LLM (via [Ollama](https://ollama.com)) to auto-generate tailored application messages for each listing based on your profile. Fill in your details once, hit generate, and get a personalized message that actually reads the listing description. Bilingual (German + English) when needed.
 - **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public pin API), and [ronorp.net](https://ronorp.net)
 - **Smart filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and corporate spam (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
 - **Geocodes addresses** for real walking distance from your target (ETH Zentrum, UZH, wherever)

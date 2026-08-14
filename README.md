@@ -2,17 +2,17 @@
 
 ![Dashboard](assets/screenshot.png)
 
-Finding housing in Zurich sucks. It's purely a numbers game. You send 50+ applications to get 2-3 viewings and maybe 1 offer.
+A housing search in Zurich is a volume problem. A typical search runs to 50 or more applications for a handful of viewings.
 
-This tool automates the grind. It scrapes the major Swiss housing platforms, filters out garbage listings, tracks your applications, and lets you quickly generate and send out messages en masse, each tailored for the listing's description. Then you pick the housing you like from those who have the decency to respond.
+This tool scrapes the major Swiss housing platforms, filters the results, tracks your applications, and generates an application message for each listing from its description.
 
 ## What it does
 
-- **LLM-generated application messages**: Uses a local LLM (via [Ollama](https://ollama.com)) to auto-generate tailored application messages for each listing based on your profile. Fill in your details once, hit generate, and get a personalized message that actually reads the listing description. Bilingual (German + English) when needed.
+- **LLM-generated application messages**: A local LLM (via [Ollama](https://ollama.com)) writes an application message per listing from your profile and the listing description. You enter your details once. Output is German or English, or both.
 - **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public pin API), and [ronorp.net](https://ronorp.net)
-- **Smart filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and corporate spam (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
-- **Geocodes addresses** for real walking distance from your target (ETH Zentrum, UZH, wherever)
-- **Tracks applications** so you don't accidentally apply to the same place twice
+- **Filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and listings from bulk corporate posters (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
+- **Geocodes addresses** to compute walking distance from a target location (ETH Zentrum, UZH, or any coordinates)
+- **Tracks applications** to prevent duplicate applications to the same listing
 - **Web dashboard** with a map, sortable listings table, and application tracker
 - **Desktop notifications** when new listings appear (macOS)
 
@@ -24,15 +24,15 @@ cd zurich-housing-tool
 ./setup.sh
 ```
 
-That's it. The setup script installs dependencies, creates your config files, pulls the LLM model (if Ollama is installed), and runs an initial scan. Then:
+The setup script installs dependencies, creates the config files, pulls the LLM model (if Ollama is installed), and runs an initial scan. Then:
 
 ```bash
 node server.js
 ```
 
-Open http://localhost:3456 and start hunting.
+The dashboard is at http://localhost:3456.
 
-**Optional**: Install [Ollama](https://ollama.com) for LLM-powered message generation. The tool works without it, but you won't get auto-generated application messages.
+**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it.
 
 Edit `config.json` to set your target location:
 
@@ -93,7 +93,7 @@ node search.js --include-gendered                 # Include female-only WGs
 node search.js --include-short                    # Include sublets < 2 months
 node search.js --fetch 5                          # Auto-fetch details for top 5
 
-# The kitchen sink:
+# Combined:
 node search.js --max-dist 2 --not-tracked --sort distance --new --fetch 3
 ```
 
@@ -117,7 +117,7 @@ node track.js status                    # Dashboard with stats
 node track.js apply <url> [address]     # Mark as applied
 node track.js shortlist <url>           # Shortlist
 node track.js exclude <url> <reason>    # Not interested
-node track.js reject <url>              # They rejected you
+node track.js reject <url>              # Mark as rejected by the lister
 node track.js note <url> <text>         # Add a note
 node track.js check <url>              # Check if tracked
 node track.js backfill                  # Populate price/address from cache
@@ -130,7 +130,7 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-Dark-mode dashboard with a map, sortable/filterable listings table, and application tracker. The "Scan Now" button triggers a full scrape and batch-fetches listing details for geocoding.
+The dashboard is dark-mode and has a map, a sortable and filterable listings table, and the application tracker. The "Scan Now" button runs a full scrape and batch-fetches listing details for geocoding.
 
 ### Useful links
 
@@ -140,15 +140,15 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 ## How it works
 
-**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices. No auth needed. We calculate haversine distance from your target and cache pins locally.
+**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally.
 
-**wgzimmer.ch** uses Google reCAPTCHA v3 which blocks every headless browser (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). We use [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a custom Chromium with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
+**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
 
-**ronorp.net** is a smaller Zurich classifieds site. Lower volume but different audience.
+**ronorp.net** is a smaller Zurich classifieds site with lower listing volume.
 
-**Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently so distance calculations are instant.
+**Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently, so later distance calculations need no network calls.
 
-**Spam detection** catches corporate housing companies that list fake addresses in the city center but are actually in Ruschlikon, Wollishofen, etc.
+**Spam detection** flags listings that give a city-center address but are located elsewhere (Ruschlikon, Wollishofen, and similar), a pattern common to bulk corporate posters.
 
 ## File structure
 

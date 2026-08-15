@@ -2,8 +2,6 @@
 
 ![Dashboard](assets/screenshot.png)
 
-A housing search in Zurich is a volume problem. A typical search runs to 50 or more applications for a handful of viewings.
-
 This tool scrapes the major Swiss housing platforms, filters the results, tracks your applications, and generates an application message for each listing from its description.
 
 ## What it does

@@ -806,12 +806,16 @@
         color: var(--ink);
       }
 
-      th[aria-sort="ascending"] .sort-button {
+      th[aria-sort] .sort-button {
         color: var(--ink);
       }
 
       th[aria-sort="ascending"] .sort-button::after {
         content: " \2191";
+      }
+
+      th[aria-sort="descending"] .sort-button::after {
+        content: " \2193";
       }
 
       td {
@@ -1344,8 +1348,12 @@
                   <button class="sort-button" type="button"><span data-i18n="col_distance">Distance</span></button>
                 </th>
                 <th><span data-i18n="col_address">Address</span></th>
-                <th><span data-i18n="col_available">Available</span></th>
-                <th><span data-i18n="col_source">Source</span></th>
+                <th data-sort="available">
+                  <button class="sort-button" type="button"><span data-i18n="col_available">Available</span></button>
+                </th>
+                <th data-sort="source">
+                  <button class="sort-button" type="button"><span data-i18n="col_source">Source</span></button>
+                </th>
                 <th></th>
               </tr>
             </thead>
@@ -1428,6 +1436,7 @@
       let tracker = { applied: [], excluded: [], rejected: [], shortlisted: [] };
       let appMessages = [];
       let sortBy = "price";
+      let sortDescending = false;
       const trackedStatus = new Map();
       const TARGET_KEY = "zurich-housing-target";
       const TARGET_PRESETS = [
@@ -1873,6 +1882,27 @@
         }
       }
 
+      const LAST = Number.MAX_SAFE_INTEGER;
+
+      // Listings free now sort first, dated ones by date, and the rest last.
+      function availableTime(l) {
+        if (l.availableFrom === "Immediately") return 0;
+        const date = (l.availableFrom || "").match(
+          /(\d{1,2})\.(\d{1,2})\.(\d{4})/,
+        );
+        if (!date) return LAST;
+        return new Date(date[3], date[2] - 1, date[1]).getTime();
+      }
+
+      const SORT_COMPARATORS = {
+        price: (a, b) => a.price - b.price,
+        distance: (a, b) => (a.dist ?? LAST) - (b.dist ?? LAST),
+        available: (a, b) =>
+          availableTime(a) - availableTime(b) || a.price - b.price,
+        source: (a, b) =>
+          a.source.localeCompare(b.source) || a.price - b.price,
+      };
+
       function matchesKeywords(l, keywords) {
         if (keywords.length === 0) return true;
         const text = `${l.address || ""} ${l.description}`.toLowerCase();
@@ -1922,7 +1952,14 @@
 
         localStorage.setItem(
           FILTERS_KEY,
-          JSON.stringify({ maxPrice, maxDist, newHours, checked, sortBy }),
+          JSON.stringify({
+            maxPrice,
+            maxDist,
+            newHours,
+            checked,
+            sortBy,
+            sortDescending,
+          }),
         );
 
         const activeExtras =
@@ -1945,11 +1982,10 @@
           return true;
         });
 
-        if (sortBy === "price") {
-          filtered.sort((a, b) => a.price - b.price);
-        } else {
-          filtered.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
-        }
+        const compare = SORT_COMPARATORS[sortBy];
+        filtered.sort((a, b) =>
+          sortDescending ? compare(b, a) : compare(a, b),
+        );
 
         $("tab-listings-count").textContent = filtered.length;
         renderTable(filtered);
@@ -2975,11 +3011,15 @@
       });
       $("filters").addEventListener("submit", (e) => e.preventDefault());
 
-      function setSort(column) {
+      function setSort(column, descending = false) {
         sortBy = column;
+        sortDescending = descending;
         document.querySelectorAll("th[data-sort]").forEach((th) => {
           if (th.dataset.sort === column) {
-            th.setAttribute("aria-sort", "ascending");
+            th.setAttribute(
+              "aria-sort",
+              descending ? "descending" : "ascending",
+            );
           } else {
             th.removeAttribute("aria-sort");
           }
@@ -2988,7 +3028,8 @@
 
       document.querySelectorAll("th[data-sort]").forEach((th) => {
         th.querySelector("button").addEventListener("click", () => {
-          setSort(th.dataset.sort);
+          const sameColumn = th.dataset.sort === sortBy;
+          setSort(th.dataset.sort, sameColumn && !sortDescending);
           applyFilters();
         });
       });
@@ -3005,7 +3046,10 @@
         for (const [id, value] of Object.entries(saved.checked || {})) {
           if ($(id)) $(id).checked = value;
         }
-        setSort(saved.sortBy === "distance" ? "distance" : "price");
+        setSort(
+          saved.sortBy in SORT_COMPARATORS ? saved.sortBy : "price",
+          Boolean(saved.sortDescending),
+        );
       }
 
       $("listings-body").addEventListener("click", (e) => {

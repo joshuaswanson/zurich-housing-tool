@@ -35,6 +35,9 @@ import {
   cacheKeyFromUrl,
   ensureDataDir,
   geocodeAddress,
+  isGenderRestricted,
+  isShortSublet,
+  buildSpamPatterns,
 } from "./lib.js";
 
 // ── Config defaults ─────────────────────────────────────────────────────────
@@ -106,64 +109,6 @@ const newHours = (() => {
   if (val && /^\d+$/.test(val)) return parseInt(val);
   return 24;
 })();
-
-// ── Gender restriction detection ─────────────────────────────────────────────
-
-function isGenderRestricted(text) {
-  if (!text) return false;
-
-  // Negative patterns: inclusive phrasing (not restricted)
-  if (/mitbewohner(?:in)?\s+(?:oder|or|\/)\s*mitbewohnerin/i.test(text))
-    return false;
-  if (/mitbewohnerin\s+(?:oder|or|\/)\s*mitbewohner(?!in)/i.test(text))
-    return false;
-  if (/(?:m|w|d)\s*\/\s*(?:m|w|d)\s*\/\s*(?:m|w|d)/i.test(text)) return false;
-
-  // Positive patterns: female-only
-  if (/\bmitbewohnerin\b/i.test(text)) return true;
-  if (/\bweiblich\b/i.test(text)) return true;
-  if (/\bfemale only\b/i.test(text)) return true;
-  if (/\bgirls[- ]?wg\b/i.test(text)) return true;
-  if (/\bnur frauen\b/i.test(text)) return true;
-  if (/\bfrauen[- ]?wg\b/i.test(text)) return true;
-  if (/\bonly.{0,10}(?:women|female|girl)/i.test(text)) return true;
-  if (/\b(?:women|female|girl).{0,10}only\b/i.test(text)) return true;
-  if (/\breine.{0,5}frauen/i.test(text)) return true;
-  if (/\bsuchen.{0,20}mitbewohnerin\b/i.test(text)) return true;
-
-  return false;
-}
-
-function isShortSublet(listing) {
-  const from = listing.availableFrom || listing.date;
-  const until = listing.until;
-
-  if (!from || !until) return false;
-
-  const untilLower = until.toLowerCase();
-  if (
-    untilLower.includes("no time") ||
-    untilLower.includes("unbefristet") ||
-    untilLower === "?"
-  )
-    return false;
-
-  const parseDate = (s) => {
-    const m = s.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
-    if (!m) return null;
-    return new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1]));
-  };
-
-  const fromDate = parseDate(from);
-  const untilDate = parseDate(until);
-
-  if (!fromDate || !untilDate) return false;
-
-  const diffMs = untilDate - fromDate;
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  return diffDays > 0 && diffDays < minDurationDays;
-}
 
 // ── Load seen.json for --new filter ──────────────────────────────────────────
 
@@ -241,27 +186,7 @@ if (noWoko && fs.existsSync(LISTINGS_DIR)) {
 
 // ── Corporate spam detection ────────────────────────────────────────────────
 
-// Hardcoded patterns (always active for robustness)
-const SPAM_PATTERNS = [
-  /A\/NTERIM/i,
-  /NextGen Properties/i,
-  /next\.genproperties/i,
-  /nextgenproperties/i,
-  /different Address than this ad/i,
-  /Properties are at a different/i,
-  /Co-Living Anbieter/i,
-];
-
-// Add patterns from config spam list (in addition to hardcoded ones)
-const configSpamList = cfgExclude.spam || [];
-for (const term of configSpamList) {
-  // Escape regex special chars for literal matching, then add as pattern
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const alreadyCovered = SPAM_PATTERNS.some((p) => p.test(term));
-  if (!alreadyCovered) {
-    SPAM_PATTERNS.push(new RegExp(escaped, "i"));
-  }
-}
+const SPAM_PATTERNS = buildSpamPatterns(cfgExclude.spam || []);
 
 const spamIds = new Set();
 if (fs.existsSync(LISTINGS_DIR)) {
@@ -384,7 +309,7 @@ if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
     }
 
     // Short sublet filter (default from config)
-    if (excludeShort && isShortSublet(l)) continue;
+    if (excludeShort && isShortSublet(l, minDurationDays)) continue;
 
     if (noWoko) {
       if (id && wokoIds.has(id)) continue;

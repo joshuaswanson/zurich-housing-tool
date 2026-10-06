@@ -24,6 +24,7 @@ import {
   WGZIMMER_CACHE_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
+  fetchFlatfoxDetails,
   RONORP_CACHE_FILE,
   ensureDataDir,
   loadSeen,
@@ -58,7 +59,14 @@ async function fetchFlatfox() {
   if (!resp.ok) throw new Error(`Flatfox API ${resp.status}`);
   const pins = await resp.json();
 
-  // Save raw pins to flatfox_cache.json for search.js
+  try {
+    const details = await fetchFlatfoxDetails(pins.map((p) => p.pk));
+    for (const p of pins) Object.assign(p, details.get(p.pk));
+  } catch (e) {
+    console.log(` details unavailable (${e.message})`);
+  }
+
+  // Save pins to flatfox_cache.json for search.js
   ensureDataDir();
   fs.writeFileSync(FLATFOX_CACHE_FILE, JSON.stringify(pins, null, 2));
 
@@ -364,7 +372,7 @@ async function main() {
       );
       console.log("  WOKO          https://www.woko.ch/en/zimmer-in-zuerich");
       console.log(
-        "  ronorp.net    https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220",
+        "  ronorp.net    https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D",
       );
       console.log(
         "  HousingAnywhere https://housinganywhere.com/s/Zurich--Switzerland/student-accommodation",

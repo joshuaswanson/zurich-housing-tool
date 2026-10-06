@@ -1042,6 +1042,18 @@
             class="tab"
             type="button"
             role="tab"
+            id="tab-excluded"
+            aria-controls="panel-excluded"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span data-i18n="tab_excluded">Excluded</span>
+            <span class="tab-count" id="tab-excluded-count"></span>
+          </button>
+          <button
+            class="tab"
+            type="button"
+            role="tab"
             id="tab-profile"
             aria-controls="panel-profile"
             aria-selected="false"
@@ -1180,6 +1192,16 @@
           hidden
         >
         <div id="applied-list"></div>
+        </section>
+
+        <section
+          class="tab-panel"
+          role="tabpanel"
+          id="panel-excluded"
+          aria-labelledby="tab-excluded"
+          hidden
+        >
+          <div id="excluded-list"></div>
         </section>
 
         <section
@@ -1366,7 +1388,7 @@
           group_applied: "Applied",
           group_shortlisted: "Shortlisted",
           group_rejected: "Rejected",
-          group_excluded: "Excluded",
+          
           act_show_message: "Show message",
           act_reject: "Mark rejected",
           act_remove: "Remove",
@@ -1411,6 +1433,8 @@
           notify_body: "{count} since the last scan.",
           avail_immediately: "Immediately",
           avail_agreement: "By agreement",
+          tab_excluded: "Excluded",
+          nothing_excluded: "Nothing excluded.",
           tab_profile: "Profile",
           profile_intro: "These details are used by the LLM to draft application messages. They are stored in profile.json on this computer.",
           save_profile: "Save profile",
@@ -1503,7 +1527,7 @@
           group_applied: "Beworben",
           group_shortlisted: "Vorgemerkt",
           group_rejected: "Abgelehnt",
-          group_excluded: "Ausgeschlossen",
+          
           act_show_message: "Nachricht anzeigen",
           act_reject: "Als abgelehnt markieren",
           act_remove: "Entfernen",
@@ -1548,6 +1572,8 @@
           notify_body: "{count} seit der letzten Suche.",
           avail_immediately: "Sofort",
           avail_agreement: "Nach Vereinbarung",
+          tab_excluded: "Ausgeschlossen",
+          nothing_excluded: "Nichts ausgeschlossen.",
           tab_profile: "Profil",
           profile_intro: "Diese Angaben verwendet das LLM, um Bewerbungsnachrichten zu entwerfen. Sie werden in profile.json auf diesem Computer gespeichert.",
           save_profile: "Profil speichern",
@@ -1879,12 +1905,7 @@
         return counted("days_ago", days);
       }
 
-      const TRACKED_GROUPS = [
-        "applied",
-        "shortlisted",
-        "rejected",
-        "excluded",
-      ];
+      const APPLICATION_GROUPS = ["applied", "shortlisted", "rejected"];
       const TRACKED_ACTIONS = {
         applied: [
           ["show-message", "act_show_message"],
@@ -1908,36 +1929,40 @@
           .join("");
       }
 
-      function renderApplications() {
-        $("tab-applications-count").textContent = (tracker.applied || []).length;
-
-        const groups = TRACKED_GROUPS.filter(
-          (category) => (tracker[category] || []).length > 0,
-        );
-        if (groups.length === 0) {
-          $("applied-list").innerHTML =
-            `<p class="empty">${t("nothing_tracked")}</p>`;
-          return;
-        }
-
-        $("applied-list").innerHTML = groups
+      function trackedEntries(category) {
+        return (tracker[category] || [])
           .map(
-            (category) => `
-              <h3 class="group-head">${t(`group_${category}`)} <span class="tab-count">${tracker[category].length}</span></h3>
-              ${tracker[category]
-                .map(
-                  (e) => `
-                    <div class="application" data-url="${esc(e.url)}">
-                      <a class="application-place" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.address || e.url.substring(0, 60))}</a>
-                      <span class="rent">${e.price ? "CHF " + esc(e.price) : ""}</span>
-                      <span class="secondary">${esc(e.reason || daysAgo(e.date))}</span>
-                      <span class="row-actions">${actionButtons(TRACKED_ACTIONS[category])}</span>
-                      ${noteFor(e.url) ? `<span class="application-note">${esc(t("note_prefix", { text: noteFor(e.url) }))}</span>` : ""}
-                    </div>`,
-                )
-                .join("")}`,
+            (e) => `
+              <div class="application" data-url="${esc(e.url)}">
+                <a class="application-place" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.address || e.url.substring(0, 60))}</a>
+                <span class="rent">${e.price ? "CHF " + esc(e.price) : ""}</span>
+                <span class="secondary">${esc(e.reason || daysAgo(e.date))}</span>
+                <span class="row-actions">${actionButtons(TRACKED_ACTIONS[category])}</span>
+                ${noteFor(e.url) ? `<span class="application-note">${esc(t("note_prefix", { text: noteFor(e.url) }))}</span>` : ""}
+              </div>`,
           )
           .join("");
+      }
+
+      function renderApplications() {
+        $("tab-applications-count").textContent = (tracker.applied || []).length;
+        $("tab-excluded-count").textContent = (tracker.excluded || []).length;
+
+        $("excluded-list").innerHTML =
+          trackedEntries("excluded") ||
+          `<p class="empty">${t("nothing_excluded")}</p>`;
+
+        const groups = APPLICATION_GROUPS.filter(
+          (category) => (tracker[category] || []).length > 0,
+        );
+        $("applied-list").innerHTML =
+          groups
+            .map(
+              (category) => `
+                <h3 class="group-head">${t(`group_${category}`)} <span class="tab-count">${tracker[category].length}</span></h3>
+                ${trackedEntries(category)}`,
+            )
+            .join("") || `<p class="empty">${t("nothing_tracked")}</p>`;
       }
 
       function detailSections(details) {
@@ -2812,13 +2837,15 @@
       });
       $("listings-body").addEventListener("mouseleave", () => setHovered(null));
 
-      $("applied-list").addEventListener("click", (e) => {
-        const button = e.target.closest("[data-action]");
-        if (!button) return;
-        const url = button.closest(".application").dataset.url;
-        if (button.dataset.action === "show-message") showMessage(url);
-        else track(url, button.dataset.action);
-      });
+      for (const list of [$("applied-list"), $("excluded-list")]) {
+        list.addEventListener("click", (e) => {
+          const button = e.target.closest("[data-action]");
+          if (!button) return;
+          const url = button.closest(".application").dataset.url;
+          if (button.dataset.action === "show-message") showMessage(url);
+          else track(url, button.dataset.action);
+        });
+      }
 
       $("dialog-copy").addEventListener("click", () => {
         navigator.clipboard.writeText($("dialog-editor").value);

@@ -50,7 +50,6 @@ app.use(express.json());
 
 const SPAM_PATTERNS = buildSpamPatterns(config.exclude?.spam || []);
 const MIN_DURATION_DAYS = config.search?.minDuration || 60;
-const DESCRIPTION_LENGTH = 400;
 
 function readJson(file, fallback) {
   return fs.existsSync(file)
@@ -94,7 +93,7 @@ app.get("/api/listings", (req, res) => {
       lat: cached?.lat || null,
       lng: cached?.lng || null,
       address: cached?.address || l.neighborhood || null,
-      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
+      description: l.description || "",
       availableFrom: l.availableFrom || null,
       until: l.until || null,
       url: l.url,
@@ -120,10 +119,7 @@ app.get("/api/listings", (req, res) => {
       lat: p.latitude,
       lng: p.longitude,
       address: cached?.address || p.address || null,
-      description: (cached?.description || p.description || "").substring(
-        0,
-        DESCRIPTION_LENGTH,
-      ),
+      description: cached?.description || p.description || "",
       availableFrom: cached?.availableFrom || p.availableFrom || null,
       until: null,
       url: `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`,
@@ -146,7 +142,7 @@ app.get("/api/listings", (req, res) => {
       lat: l.lat || null,
       lng: l.lng || null,
       address: l.address || null,
-      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
+      description: l.description || "",
       availableFrom: l.availableFrom || null,
       until: null,
       url: l.url,
@@ -171,7 +167,7 @@ app.get("/api/listings", (req, res) => {
       lat: l.lat || null,
       lng: l.lng || null,
       address: l.address || null,
-      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
+      description: l.description || "",
       availableFrom: l.availableFrom || null,
       until: l.until || null,
       url: l.url,
@@ -575,7 +571,11 @@ Write the application message now. Do not include a subject line. Start with a g
 
 export { app };
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+const startedDirectly =
+  Boolean(process.argv[1]) &&
+  import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (startedDirectly) {
   app.listen(PORT, () => {
     console.log(`\n  zurich-housing-tool dashboard`);
     console.log(`  http://localhost:${PORT}\n`);

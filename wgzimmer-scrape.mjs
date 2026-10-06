@@ -101,7 +101,7 @@ export function extractListings() {
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 2 && l !== "\u2665");
-    listing.description = lines.join(" | ").substring(0, 400);
+    listing.description = lines.join(" | ");
     results.push(listing);
   }
   return results;

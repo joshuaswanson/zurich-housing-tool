@@ -4,7 +4,7 @@
  * Exports scrapeRonorp() and works standalone.
  */
 
-import { geocodeAddress } from "./lib.js";
+import { geocodeAddress, htmlToText } from "./lib.js";
 
 const API_URL = "https://cockpit.ronorp.net/api/market/category/housing";
 const GEOCODE_DELAY_MS = 1100;
@@ -15,23 +15,6 @@ const WG_SUB_CATEGORY_ID = "144";
 const ZURICH_CITY_ID = "2";
 const PAGE_SIZE = 50;
 const MAX_PAGES = 10;
-
-const HTML_ENTITIES = {
-  "&nbsp;": " ",
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-};
-
-function htmlToText(html) {
-  return (html || "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function formatDate(isoDate) {
   if (!isoDate) return null;
@@ -52,7 +35,7 @@ function pricePeriod(price, text) {
 export function toListing(post) {
   const location = post.location || {};
   const price = post.price ? Math.round(parseFloat(post.price)) : null;
-  const description = `${post.title} ${htmlToText(post.description)}`;
+  const description = `${post.title}\n\n${htmlToText(post.description)}`;
   const locationAddress = location.address?.replace(
     /,\s*(Schweiz|Suiza|Switzerland|Suisse)$/i,
     "",
@@ -72,7 +55,7 @@ export function toListing(post) {
     lng: hasStreet ? (location.longitude ?? null) : null,
     postcode: hasStreet ? null : postcode,
     isOffer: post.post_type === "offer",
-    description: description.substring(0, 400),
+    description,
     availableFrom: formatDate(post.housing_detail?.ready_to_move),
     isTemporary: post.housing_detail?.contract === "temporary",
     source: "ronorp",

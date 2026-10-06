@@ -171,6 +171,30 @@ export async function geocodeAddress(address) {
   return null;
 }
 
+// ── Text ──────────────────────────────────────────────────────────────────
+
+const HTML_ENTITIES = {
+  "&nbsp;": " ",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+};
+
+/** Plain text from an HTML fragment, keeping its line breaks. */
+export function htmlToText(html) {
+  return (html || "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h\d)>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? " ")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // ── Flatfox details ───────────────────────────────────────────────────────
 
 const FLATFOX_DETAILS_BATCH_SIZE = 50;
@@ -194,8 +218,7 @@ export function toFlatfoxDetails(l) {
       null,
     description: [l.description_title, l.description]
       .filter(Boolean)
-      .join("\n\n")
-      .substring(0, 400),
+      .join("\n\n"),
     availableFrom: flatfoxAvailableFrom(l),
   };
 }

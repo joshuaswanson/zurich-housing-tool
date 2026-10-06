@@ -2,27 +2,8 @@
  * wgzimmer.ch listing detail pages.
  * A detail page is plain HTML and needs no browser, unlike the search form.
  */
+import { htmlToText } from "./lib.js";
 
-const HTML_ENTITIES = {
-  "&nbsp;": " ",
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-};
-
-function htmlToText(html) {
-  return (html || "")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? " ")
-    .replace(/[ \t]+/g, " ")
-    .replace(/ ?\n ?/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
 
 /** The value in `<p><strong>Label</strong> value</p>`. */
 function labelled(html, label) {

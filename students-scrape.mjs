@@ -3,29 +3,13 @@
  * Reads the public list page for the Zurich area and each listing's detail
  * page. Exports scrapeStudents() and works standalone.
  */
-import { geocodeAddress } from "./lib.js";
+import { geocodeAddress, htmlToText } from "./lib.js";
 
 const BASE_URL = "https://www.students.ch";
 const ZURICH_LIST_URL = `${BASE_URL}/wohnen/list/140`;
 const REQUEST_DELAY_MS = 1000;
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
-const HTML_ENTITIES = {
-  "&nbsp;": " ",
-  "&amp;": "&",
-  "&lt;": "<",
-  "&gt;": ">",
-  "&quot;": '"',
-  "&#39;": "'",
-};
-
-function decodeEntities(text) {
-  return (text || "")
-    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 async function fetchHtml(url) {
   const resp = await fetch(url, {
@@ -45,7 +29,7 @@ export function parseListRows(html) {
         id: link[2],
         isWholeFlat: !/title="WG-Zimmer"/.test(row),
         url: BASE_URL + link[1],
-        title: decodeEntities(
+        title: htmlToText(
           row.match(/<span[^>]*title="([^"]*)"/)?.[1] ||
             row.match(/href="\/wohnen\/details\/[^>]*>\s*([^<]+)</)?.[1],
         ),
@@ -59,13 +43,13 @@ export function parseListRows(html) {
 
 export function parseDetails(html) {
   const until = html.match(/Frei bis: <strong>([^<]*)<\/strong>/)?.[1];
+  // The address heading is followed by the full description.
+  const main = html.match(
+    /<div class="floatbox box_large clearfix"><h3>([^<]*)<\/h3>([\s\S]*?)<\/div>/,
+  );
   return {
-    address: decodeEntities(
-      html.match(/<small>([^<]{3,80}, \d{4} [^<]{2,40})<\/small>/)?.[1],
-    ),
-    description: decodeEntities(
-      html.match(/property="og:description" content="([^"]*)"/)?.[1],
-    ),
+    address: htmlToText(main?.[1]),
+    description: htmlToText(main?.[2]),
     until: until && !/unbeschr/i.test(until) ? until.trim() : null,
   };
 }
@@ -86,7 +70,7 @@ export async function scrapeStudents() {
       address: details.address || null,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,
-      description: `${row.title} ${details.description}`.substring(0, 400),
+      description: `${row.title}\n\n${details.description}`,
       availableFrom: row.availableFrom,
       until: details.until,
       source: "students",

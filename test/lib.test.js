@@ -5,6 +5,7 @@ import {
   cacheKeyFromUrl,
   distKm,
   hasEndDate,
+  htmlToText,
   isGenderRestricted,
   isPostcodeOnly,
   isShortSublet,
@@ -146,4 +147,17 @@ test("toFlatfoxDetails builds the address and availability", () => {
     toFlatfoxDetails({ moving_date_type: "imm" }).availableFrom,
     "Immediately",
   );
+});
+
+test("htmlToText keeps line breaks and decodes entities", () => {
+  assert.equal(
+    htmlToText("<p>Eins &amp; zwei</p><p>Drei<br>Vier&nbsp;fünf</p>"),
+    "Eins & zwei\nDrei\nVier fünf",
+  );
+  assert.equal(htmlToText(null), "");
+});
+
+test("toFlatfoxDetails keeps the whole description", () => {
+  const description = "x".repeat(3000);
+  assert.equal(toFlatfoxDetails({ description }).description.length, 3000);
 });

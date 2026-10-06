@@ -31,7 +31,7 @@ test("ronorp listing with a street keeps the site's coordinates", () => {
   assert.equal(listing.postcode, null);
   assert.equal(listing.price, 990);
   assert.equal(listing.availableFrom, "1.11.2026");
-  assert.equal(listing.description, "WG Zimmer Helles Zimmer");
+  assert.equal(listing.description, "WG Zimmer\n\nHelles Zimmer");
 });
 
 test("ronorp listing that names only the city falls back to its postcode", () => {
@@ -102,18 +102,29 @@ test("students.ch list rows are parsed into listings", () => {
   assert.equal(flat.isWholeFlat, true);
 });
 
-test("students.ch detail pages give address, description and end date", () => {
+test("students.ch detail pages give address, full description and end date", () => {
   const html = `
-    <meta property="og:description" content="Grosses Zimmer &amp; Balkon" />
-    <small>Hagenholzstrasse 105, 8050 Zürich</small>
+    <meta property="og:description" content="Grosses Zimmer &amp; Balk..." />
+    <div class="floatbox box_large clearfix"><h3>Hagenholzstrasse 105, 8050 Zürich</h3>Grosses Zimmer &amp; Balkon.<br />
+<br />
+Ruhige Lage, 10 Minuten zum Bahnhof.</div>
     <div>Frei ab: <strong>01.11.2026</strong><br />Frei bis: <strong>30.06.2027</strong></div>`;
   assert.deepEqual(parseDetails(html), {
     address: "Hagenholzstrasse 105, 8050 Zürich",
-    description: "Grosses Zimmer & Balkon",
+    description: "Grosses Zimmer & Balkon.\n\nRuhige Lage, 10 Minuten zum Bahnhof.",
     until: "30.06.2027",
   });
   const openEnded = parseDetails(
     "<div>Frei bis: <strong>Unbeschränkt</strong></div>",
   );
   assert.equal(openEnded.until, null);
+});
+
+test("ronorp keeps the whole description with its paragraphs", () => {
+  const longText = "Satz. ".repeat(200).trim();
+  const listing = toListing(
+    ronorpPost({ description: `<p>Erster Absatz</p><p>${longText}</p>` }),
+  );
+  assert.equal(listing.description, `WG Zimmer\n\nErster Absatz\n${longText}`);
+  assert.ok(listing.description.length > 1000);
 });

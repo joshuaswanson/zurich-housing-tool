@@ -40,6 +40,10 @@ export const WGZIMMER_LISTINGS_FILE = path.join(
 );
 export const FLATFOX_CACHE_FILE = path.join(DATA_DIR, "flatfox_cache.json");
 export const RONORP_CACHE_FILE = path.join(DATA_DIR, "ronorp_cache.json");
+export const STUDENTS_CACHE_FILE = path.join(
+  DATA_DIR,
+  "students_cache.json",
+);
 export const TRACKER_FILE = path.join(__dirname, "tracker.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
 

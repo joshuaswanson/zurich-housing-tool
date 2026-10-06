@@ -39,6 +39,10 @@
       "url": "https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D"
     },
     {
+      "label": "students.ch",
+      "url": "https://www.students.ch/wohnen/list/140"
+    },
+    {
       "label": "HousingAnywhere",
       "url": "https://housinganywhere.com/s/Zurich--Switzerland/student-accommodation"
     }

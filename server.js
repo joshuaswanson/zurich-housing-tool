@@ -14,6 +14,7 @@ import {
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
   RONORP_CACHE_FILE,
+  STUDENTS_CACHE_FILE,
   TRACKER_FILE,
   LISTINGS_DIR,
   ETH_ZENTRUM,
@@ -151,6 +152,29 @@ app.get("/api/listings", (req, res) => {
       firstSeen: seen[id]?.firstSeen || null,
       hasEndDate: Boolean(l.isTemporary),
       ...listingFlags(l.description || "", {}),
+    });
+  }
+
+  // students.ch
+  for (const l of readJson(STUDENTS_CACHE_FILE, [])) {
+    if (!l.price) continue;
+    const id = `students-${l.url.match(/details\/(\d+)/)?.[1]}`;
+    const hasCoords = l.lat && l.lng;
+    listings.push({
+      id,
+      source: "students",
+      price: l.price,
+      dist: hasCoords ? Math.round(distKm(ETH_ZENTRUM, l) * 100) / 100 : null,
+      lat: l.lat || null,
+      lng: l.lng || null,
+      address: l.address || null,
+      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
+      availableFrom: l.availableFrom || null,
+      until: l.until || null,
+      url: l.url,
+      firstSeen: seen[id]?.firstSeen || null,
+      hasEndDate: Boolean(l.until),
+      ...listingFlags(l.description || "", l),
     });
   }
 

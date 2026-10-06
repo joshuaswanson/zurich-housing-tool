@@ -27,6 +27,7 @@ import {
   SCAN_STATUS_FILE,
   fetchFlatfoxDetails,
   RONORP_CACHE_FILE,
+  STUDENTS_CACHE_FILE,
   ensureDataDir,
   loadSeen,
   saveSeen,
@@ -37,6 +38,7 @@ import {
 } from "./lib.js";
 import { scrapeWgzimmer } from "./wgzimmer-scrape.mjs";
 import { scrapeRonorp } from "./ronorp-scrape.mjs";
+import { scrapeStudents } from "./students-scrape.mjs";
 
 const WGZIMMER_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -298,6 +300,31 @@ export async function refresh() {
     sources.ronorp = failed(e.message);
   }
 
+  // students.ch
+  process.stdout.write("  Scanning students.ch...");
+  try {
+    const st = await scrapeStudents();
+    ensureDataDir();
+    fs.writeFileSync(STUDENTS_CACHE_FILE, JSON.stringify(st, null, 2));
+    const stFormatted = st
+      .filter((l) => l.price && l.price <= MAX_PRICE)
+      .map((l) => ({
+        id: `students-${l.url.match(/details\/(\d+)/)[1]}`,
+        source: "students",
+        price: l.price,
+        title: l.description?.substring(0, 80) || "",
+        url: l.url,
+        distKm: null,
+        walkMin: null,
+      }));
+    console.log(` ${stFormatted.length} listings found`);
+    allListings.push(...stFormatted);
+    sources.students = succeeded(stFormatted.length);
+  } catch (e) {
+    console.log(` error (${e.message.substring(0, 50)})`);
+    sources.students = failed(e.message);
+  }
+
   ensureDataDir();
   fs.writeFileSync(
     SCAN_STATUS_FILE,
@@ -420,6 +447,7 @@ async function main() {
       );
       console.log("  WOKO          https://www.woko.ch/en/zimmer-in-zuerich");
       console.log(
+        "  students.ch   https://www.students.ch/wohnen/list/140",
         "  ronorp.net    https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D",
       );
       console.log(

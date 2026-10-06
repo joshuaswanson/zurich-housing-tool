@@ -29,6 +29,7 @@ import {
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
   RONORP_CACHE_FILE,
+  STUDENTS_CACHE_FILE,
   LISTINGS_DIR,
   TRACKER_FILE,
   distKm,
@@ -468,6 +469,46 @@ if (fs.existsSync(RONORP_CACHE_FILE)) {
       source: "ronorp",
       price: l.price,
       dist: null,
+      label: `${l.address || "Zürich"} | ${text.substring(0, 80)}`,
+      desc: "",
+      url: l.url,
+    });
+  }
+}
+
+// ── students.ch ───────────────────────────────────────────────────────────────
+
+if (fs.existsSync(STUDENTS_CACHE_FILE)) {
+  const listings = JSON.parse(fs.readFileSync(STUDENTS_CACHE_FILE, "utf8"));
+
+  for (const l of listings) {
+    if (!l.price) continue;
+    if (maxPrice && l.price > maxPrice) continue;
+
+    const listingId = l.url.match(/details\/(\d+)/)?.[1];
+    if (notTracked) {
+      if (trackedPks.has(listingId)) continue;
+      if (l.address && trackedAddresses.has(l.address.trim().toLowerCase()))
+        continue;
+    }
+
+    if (newFlag && !isNewListing(`students-${listingId}`)) continue;
+
+    const text = l.description || "";
+    if (keyword && !keyword.test(text)) continue;
+    if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
+    if (excludeGendered && isGenderRestricted(text)) continue;
+    if (excludeShort && isShortSublet(l, minDurationDays)) continue;
+    if (permanent && l.until) continue;
+
+    const dist =
+      l.lat && l.lng ? distKm(ETH_ZENTRUM, { lat: l.lat, lng: l.lng }) : null;
+    if (maxDist && dist !== null && dist > maxDist) continue;
+
+    allResults.push({
+      source: "students",
+      price: l.price,
+      dist,
       label: `${l.address || "Zürich"} | ${text.substring(0, 80)}`,
       desc: "",
       url: l.url,

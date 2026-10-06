@@ -30,10 +30,12 @@
         --accent: #1f4fa3;
         --accent-ink: #ffffff;
         --danger: #b3261e;
+        --report: #b3261e;
 
         --src-flatfox: #c2600f;
         --src-wgzimmer: #0b7f86;
         --src-ronorp: #7b4bb3;
+        --src-students: #b8336a;
 
         --map-land: #eef0ee;
         --map-water: #c5d7e6;
@@ -57,10 +59,12 @@
           --accent: #8ab4f0;
           --accent-ink: #10203a;
           --danger: #f08a80;
+          --report: #c9372c;
 
           --src-flatfox: #f0994a;
           --src-wgzimmer: #3fbfc4;
           --src-ronorp: #b592e8;
+          --src-students: #ef7fa8;
 
           --map-land: #1b1e23;
           --map-water: #0e2233;
@@ -230,14 +234,17 @@
         min-width: 0;
       }
 
-      .header-link {
-        color: var(--muted);
-        font-size: 13px;
-        white-space: nowrap;
+      .button-report,
+      .button-report:hover {
+        background: var(--report);
+        border-color: var(--report);
+        color: #ffffff;
+        padding: 8px 14px;
+        text-decoration: none;
       }
 
-      .header-link:hover {
-        color: var(--ink);
+      .button-report:hover {
+        filter: brightness(1.1);
       }
 
       .scan {
@@ -315,6 +322,10 @@
 
       .dot-wgzimmer {
         background: var(--src-wgzimmer);
+      }
+
+      .dot-students {
+        background: var(--src-students);
       }
 
       .dot-ronorp {
@@ -489,6 +500,17 @@
         margin-top: -6px;
         color: var(--muted);
         font-size: 12.5px;
+      }
+
+      .more-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 28px;
+        flex-basis: 100%;
+      }
+
+      .more-filters[hidden] {
+        display: none;
       }
 
       .filter-group {
@@ -828,8 +850,7 @@
           font-size: 21px;
         }
 
-        .summary,
-        .header-link {
+        .summary {
           order: 3;
         }
 
@@ -886,13 +907,6 @@
         >
       </h1>
       <p class="summary"><span data-i18n="byline">by Joshua Swanson</span></p>
-      <a
-        class="header-link"
-        href="https://github.com/joshuaswanson/zurich-housing-tool/issues"
-        target="_blank"
-        rel="noopener"
-        ><span data-i18n="report_issue">Report an issue</span></a
-      >
       <div class="scan">
         <span class="scan-status" id="scan-status" role="status"></span>
         <select id="language" aria-label="Language" data-i18n-aria-label="language">
@@ -908,9 +922,17 @@
             <option value="60" data-i18n="auto_60">every hour</option>
           </select>
         </label>
-        <button class="button button-primary" id="scan-button">
-          <span data-i18n="scan">Scan for listings</span>
+        <button class="button button-primary" id="scan-button" data-i18n="scan">
+          Scan for listings
         </button>
+        <a
+          class="button button-report"
+          href="https://github.com/joshuaswanson/zurich-housing-tool/issues"
+          target="_blank"
+          rel="noopener"
+          data-i18n="report_issue"
+          >Report an issue</a
+        >
       </div>
     </header>
 
@@ -929,6 +951,7 @@
           <span class="source"><i class="dot dot-wgzimmer"></i>wgzimmer</span>
           <span class="source"><i class="dot dot-flatfox"></i>flatfox</span>
           <span class="source"><i class="dot dot-ronorp"></i>ronorp</span>
+          <span class="source"><i class="dot dot-students"></i>students</span>
         </div>
       </section>
 
@@ -998,6 +1021,17 @@
             />
             <output id="f-dist-val"></output>
           </label>
+          <button
+            class="button"
+            type="button"
+            id="more-filters-toggle"
+            aria-expanded="false"
+            aria-controls="more-filters"
+          >
+            <span data-i18n="more_filters">More filters</span>
+            <span class="tab-count" id="more-filters-count"></span>
+          </button>
+          <div class="more-filters" id="more-filters" hidden>
           <div class="filter-group" role="group" aria-labelledby="show-label">
             <span class="filter-group-label" id="show-label" data-i18n="show">Show</span>
             <label class="filter">
@@ -1033,9 +1067,10 @@
                 <option value="0" data-i18n="new_any">any time</option>
                 <option value="24" data-i18n="new_24">in the last 24 hours</option>
                 <option value="48" data-i18n="new_48">in the last 48 hours</option>
-                <option value="168" data-i18n="new_168">in the last 7 days</option>
+                                <option value="168" data-i18n="new_168">in the last 7 days</option>
               </select>
             </label>
+          </div>
           </div>
         </form>
 
@@ -1100,7 +1135,12 @@
 
     <script>
       const MAX_ROWS = 200;
-      const SOURCE_SITES = ["wgzimmer.ch", "flatfox.ch", "ronorp.net"];
+      const SOURCE_SITES = [
+        "wgzimmer.ch",
+        "flatfox.ch",
+        "ronorp.net",
+        "students.ch",
+      ];
 
       let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
       let allListings = [];
@@ -1187,6 +1227,7 @@
           search_placeholder: "Seefeld, Kreis 8, balcony",
           max_rent: "Max rent",
           max_distance: "Max distance",
+          more_filters: "More filters",
           show: "Show",
           f_tracked: "Tracked",
           f_gender: "Gender-restricted",
@@ -1300,6 +1341,7 @@
           search_placeholder: "Seefeld, Kreis 8, Balkon",
           max_rent: "Max. Miete",
           max_distance: "Max. Distanz",
+          more_filters: "Weitere Filter",
           show: "Anzeigen",
           f_tracked: "Erfasste",
           f_gender: "Geschlechtsspezifische",
@@ -1537,6 +1579,10 @@
           FILTERS_KEY,
           JSON.stringify({ maxPrice, maxDist, newHours, checked, sortBy }),
         );
+
+        const activeExtras =
+          Object.values(checked).filter(Boolean).length + (newHours ? 1 : 0);
+        $("more-filters-count").textContent = activeExtras || "";
 
         $("f-price-val").textContent = `CHF ${maxPrice}`;
         $("f-dist-val").textContent = `${maxDist} km`;
@@ -2266,6 +2312,8 @@
                   cssVar("--src-flatfox"),
                   "wgzimmer",
                   cssVar("--src-wgzimmer"),
+                  "students",
+                  cssVar("--src-students"),
                   cssVar("--src-ronorp"),
                 ],
                 "circle-stroke-color": cssVar("--surface"),
@@ -2460,6 +2508,11 @@
       $("filters").addEventListener("input", applyFilters);
       $("target-select").addEventListener("change", (e) => {
         setTarget(targets.find((t) => t.label === e.target.value));
+      });
+      $("more-filters-toggle").addEventListener("click", (e) => {
+        const panel = $("more-filters");
+        panel.hidden = !panel.hidden;
+        e.currentTarget.setAttribute("aria-expanded", !panel.hidden);
       });
       $("language").addEventListener("change", (e) => {
         setLanguage(e.target.value);

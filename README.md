@@ -131,17 +131,10 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-- **Listings tab**: A table sortable by rent, distance, availability date, or source, showing the walking time next to each distance. Clicking a column header a second time reverses the order. The table shows 200 rows at a time, with a button to show more. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings and whole flats are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
-- **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
-- **Applications tab**: Listings you applied to, shortlisted, or were rejected for, with notes.
-- **Excluded tab**: Excluded listings with the reason, each with a button to restore it.
-- **Profile tab**: A form for the details the LLM uses to draft application messages. Saving it writes `profile.json`.
-- **Drafting a message**: The draft opens in an editable dialog. It can be copied, or saved so that it shows up under "Show message" for that listing.
-- **Map**: Listings with known coordinates appear as dots coloured by source. A listing that gives only a postcode is drawn as a hollow dot near the centre of that postcode area, and its distance reads "about". Hollow dots for the same postcode are fanned out around the centre so each can be clicked. The map also shows rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
-- **Scan for listings**: Runs a full scrape. After the scan has answered, the server fetches the detail pages of up to 60 wgzimmer listings in the background, one per second, which gives them an address and a place on the map. The header shows when the last scan finished, names any source that failed, and says when addresses are still being fetched.
-- **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
-
-Filter, sort, target, language, and theme settings are saved in the browser.
+- The filter switches start from the `exclude` section of `config.json`.
+- After each scan, the server fetches the detail pages of up to 60 wgzimmer listings in the background, one per second. This gives them an address and a place on the map.
+- A listing that gives only a postcode is placed at the centre of that postcode area.
+- Auto scan runs while the page is open.
 
 ### Tests
 

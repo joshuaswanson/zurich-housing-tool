@@ -133,17 +133,23 @@ npm run dashboard                       # Same thing
 
 The dashboard is available in English and German and follows the system light or dark setting. A settings menu in the header changes the language, forces the light or dark theme, and turns on auto scan. The map sits on the left and the Listings, Applications, Excluded, and Profile tabs on the right. It covers nearly everything the command line tools do.
 
-- **Listings tab**: A table sortable by rent, distance, availability date, or source, showing the walking time next to each distance. Clicking a column header a second time reverses the order. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings and whole flats are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
+- **Listings tab**: A table sortable by rent, distance, availability date, or source, showing the walking time next to each distance. Clicking a column header a second time reverses the order. The table shows 200 rows at a time, with a button to show more. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings and whole flats are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
 - **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
 - **Applications tab**: Listings you applied to, shortlisted, or were rejected for, with notes.
 - **Excluded tab**: Excluded listings with the reason, each with a button to restore it.
 - **Profile tab**: A form for the details the LLM uses to draft application messages. Saving it writes `profile.json`.
 - **Drafting a message**: The draft opens in an editable dialog. It can be copied, or saved so that it shows up under "Show message" for that listing.
 - **Map**: Listings with known coordinates appear as dots coloured by source. A listing that gives only a postcode sits at the centre of that postcode area, drawn as a hollow dot, and its distance reads "about". The map also shows rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
-- **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
+- **Scan for listings**: Runs a full scrape. After the scan has answered, the server fetches the detail pages of up to 25 wgzimmer listings in the background, which gives them an address and a place on the map. The header shows when the last scan finished, names any source that failed, and says when addresses are still being fetched.
 - **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
 
 Filter, sort, target, language, and theme settings are saved in the browser.
+
+### Tests
+
+```bash
+npm test                                # Filters and the ronorp and students.ch parsers
+```
 
 ### Useful links
 
@@ -155,7 +161,7 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 **flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. The pin API returns at most 1000 pins per request, so the scan splits the search area into quadrants whenever a response reaches that limit. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
 
-**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless. The reCAPTCHA library occasionally fails to download, so the scraper reloads the page once when that happens.
+**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless. The search page occasionally stalls and the reCAPTCHA library occasionally fails to download, so the scraper loads the page up to three times.
 
 **ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped. A post whose price is a nightly or weekly rate is labelled as such and treated as a short sublet.
 
@@ -179,6 +185,7 @@ public/index.html     Web dashboard page
 wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
 ronorp-scrape.mjs     ronorp listings via its public API
 students-scrape.mjs   students.ch listings from its public pages
+test/                 Tests (run with npm test)
 lib.js                Shared utilities (config, distance, geocoding, cache, listing filters)
 setup.sh              One-time setup
 config.json           Your config (gitignored)

@@ -128,7 +128,7 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-The dashboard is dark-mode and has a map, a sortable and filterable listings table, and the application tracker. The "Scan Now" button runs a full scrape and batch-fetches listing details for geocoding.
+The dashboard follows the system light or dark setting and has a map, a sortable and filterable listings table, and the application tracker. Selecting a listing moves the map to it and shows buttons to shortlist it, mark it as applied, or exclude it. The Applications tab lists everything tracked. The "Scan for listings" button runs a full scrape and batch-fetches listing details for geocoding.
 
 ### Useful links
 
@@ -142,7 +142,7 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 **wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
 
-**ronorp.net** is a smaller Zurich classifieds site with lower listing volume.
+**ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped.
 
 **Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently, so later distance calculations need no network calls.
 
@@ -156,7 +156,7 @@ search.js             Search & filter cached listings
 fetch-listing.mjs     Fetch full listing details (wgzimmer + flatfox)
 track.js              Application tracker + dashboard
 wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
-ronorp-scrape.mjs     CloakBrowser ronorp scraper
+ronorp-scrape.mjs     ronorp listings via its public API
 lib.js                Shared utilities (config, distance, geocoding, cache)
 config.json           Your config (gitignored)
 config.example.json   Config template

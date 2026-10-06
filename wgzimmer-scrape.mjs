@@ -8,7 +8,7 @@ import { launch } from "cloakbrowser";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const RECAPTCHA_ATTEMPTS = 3;
+const SEARCH_PAGE_ATTEMPTS = 3;
 const RECAPTCHA_TIMEOUT_MS = 15000;
 
 async function openSearchForm(page, maxPrice, region) {
@@ -65,14 +65,18 @@ export async function scrapeWgzimmer(maxPrice = 1500, region = "zurich-stadt") {
   try {
     const page = await browser.newPage();
 
-    // The reCAPTCHA library sometimes fails to download, so the page is
-    // loaded again when it does not become ready.
+    // The search page sometimes stalls while loading, and the reCAPTCHA
+    // library sometimes fails to download, so the page is loaded again
+    // when it does not become ready.
     for (let attempt = 1; ; attempt++) {
-      await openSearchForm(page, maxPrice, region);
-      if (await recaptchaReady(page)) break;
-      if (attempt === RECAPTCHA_ATTEMPTS) {
-        throw new Error("reCAPTCHA script did not load");
+      let failure = "reCAPTCHA script did not load";
+      try {
+        await openSearchForm(page, maxPrice, region);
+        if (await recaptchaReady(page)) break;
+      } catch (e) {
+        failure = e.message.split("\n")[0];
       }
+      if (attempt === SEARCH_PAGE_ATTEMPTS) throw new Error(failure);
     }
     await page.evaluate(() => submitForm());
     await delay(8000);

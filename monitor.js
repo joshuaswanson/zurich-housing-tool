@@ -272,7 +272,7 @@ export async function refresh() {
     }
   } catch (e) {
     console.log(` blocked (${e.message.substring(0, 50)})`);
-    sources.wgzimmer = failed(e.message);
+    sources.wgzimmer = failed(e.message.split("\n")[0]);
   }
 
   // ronorp

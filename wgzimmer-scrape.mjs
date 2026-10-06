@@ -44,7 +44,15 @@ export async function scrapeWgzimmer(maxPrice = 1500, region = "zurich-stadt") {
     await page.selectOption('select[name="priceMax"]', String(maxPrice));
     await delay(1000);
 
-    // Submit (reCAPTCHA handled by submitForm)
+    // submitForm calls grecaptcha.execute, which exists only once the
+    // reCAPTCHA script has finished loading.
+    await page.waitForFunction(
+      () =>
+        typeof grecaptcha !== "undefined" &&
+        typeof grecaptcha.execute === "function",
+      null,
+      { timeout: 20000 },
+    );
     await page.evaluate(() => submitForm());
     await delay(8000);
 

@@ -940,6 +940,11 @@
         white-space: nowrap;
       }
 
+      .show-more {
+        display: block;
+        margin: 16px auto 0;
+      }
+
       .empty {
         padding: 40px 8px;
         color: var(--muted);
@@ -1378,6 +1383,7 @@
             <tbody id="listings-body"></tbody>
           </table>
         </div>
+        <button class="button show-more" type="button" id="show-more" hidden></button>
         <p class="empty" id="listings-empty" hidden></p>
 
         </section>
@@ -1441,7 +1447,9 @@
     </dialog>
 
     <script>
-      const MAX_ROWS = 200;
+      const ROWS_PER_PAGE = 200;
+      let rowLimit = ROWS_PER_PAGE;
+      let filteredListings = [];
       const SOURCE_SITES = [
         "wgzimmer.ch",
         "flatfox.ch",
@@ -1569,6 +1577,7 @@
           empty_none: "No listings yet. Scan to fetch them from {sources}.",
           empty_filtered: "No listings match these filters.",
           showing_first: "Showing the first {max} of {total}",
+          show_more: "Show {n} more",
           showing_of: "{shown} of {total}",
           unmapped: "{n} without coordinates are not on the map",
           min_walk: "{n} min walk",
@@ -1717,6 +1726,7 @@
           empty_none: "Noch keine Inserate. Starte eine Suche, um sie von {sources} zu laden.",
           empty_filtered: "Keine Inserate entsprechen diesen Filtern.",
           showing_first: "Die ersten {max} von {total}",
+          show_more: "{n} weitere anzeigen",
           showing_of: "{shown} von {total}",
           unmapped: "{n} ohne Koordinaten fehlen auf der Karte",
           min_walk: "{n} Min. zu Fuss",
@@ -2012,6 +2022,8 @@
         );
 
         $("tab-listings-count").textContent = filtered.length;
+        filteredListings = filtered;
+        rowLimit = ROWS_PER_PAGE;
         renderTable(filtered);
         setMapListings(filtered);
       }
@@ -2031,6 +2043,7 @@
         $("listings-empty").hidden = false;
         $("listings-empty").textContent = text;
         $("listings-note").textContent = "";
+        $("show-more").hidden = true;
       }
 
       function renderTable(listings) {
@@ -2047,11 +2060,12 @@
 
         $("listings-table").hidden = false;
         $("listings-empty").hidden = true;
+        renderShowMore(listings.length);
 
         const unmapped = listings.filter((l) => !l.lat || !l.lng).length;
         const notes = [
-          listings.length > MAX_ROWS
-            ? t("showing_first", { max: MAX_ROWS, total: listings.length })
+          listings.length > rowLimit
+            ? t("showing_first", { max: rowLimit, total: listings.length })
             : t("showing_of", {
                 shown: listings.length,
                 total: allListings.length,
@@ -2063,7 +2077,7 @@
         $("listings-note").textContent = notes.join(". ");
 
         $("listings-body").innerHTML = listings
-          .slice(0, MAX_ROWS)
+          .slice(0, rowLimit)
           .map(
             (l) => `
               <tr class="listing-row" data-id="${esc(l.id)}" tabindex="0">
@@ -2097,7 +2111,15 @@
           .join("");
       }
 
-      const AVAILABILITY_KEYS = {
+function renderShowMore(total) {
+        const remaining = Math.max(0, total - rowLimit);
+        $("show-more").hidden = remaining === 0;
+        $("show-more").textContent = t("show_more", {
+          n: Math.min(remaining, ROWS_PER_PAGE),
+        });
+      }
+
+            const AVAILABILITY_KEYS = {
         Immediately: "avail_immediately",
         "By agreement": "avail_agreement",
       };
@@ -3027,6 +3049,10 @@
       $("filters").addEventListener("input", applyFilters);
       $("target-select").addEventListener("change", (e) => {
         setTarget(targets.find((t) => t.label === e.target.value));
+      });
+      $("show-more").addEventListener("click", () => {
+        rowLimit += ROWS_PER_PAGE;
+        renderTable(filteredListings);
       });
       $("more-filters-toggle").addEventListener("click", (e) => {
         const panel = $("more-filters");

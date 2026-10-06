@@ -51,13 +51,16 @@ function toListing(post) {
   const address =
     location.address?.replace(/,\s*(Schweiz|Suiza|Switzerland|Suisse)$/i, "") ||
     (post.zip_code ? String(post.zip_code) : null);
+  // A location that names only the city is geocoded to the city centre,
+  // which says nothing about where the room is.
+  const isCityOnly = Boolean(address) && address === location.locality;
   return {
     url: `https://ronorp.net/market/posts/${post.seo_slug || post.slug}`,
     price,
     pricePeriod: pricePeriod(price, description),
     address,
-    lat: location.latitude ?? null,
-    lng: location.longitude ?? null,
+    lat: isCityOnly ? null : (location.latitude ?? null),
+    lng: isCityOnly ? null : (location.longitude ?? null),
     isOffer: post.post_type === "offer",
     description: description.substring(0, 400),
     availableFrom: formatDate(post.housing_detail?.ready_to_move),

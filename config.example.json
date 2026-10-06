@@ -9,7 +9,7 @@
     "region": "zurich-stadt",
     "minDuration": 60,
     "flatfoxSlug": "8001-zurich",
-    "ronorpUrl": "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220",
+    "ronorpUrl": "https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D",
     "geocodeSuffix": "Zürich, Schweiz"
   },
   "flatfoxBounds": {
@@ -36,7 +36,7 @@
     },
     {
       "label": "ronorp.net",
-      "url": "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220"
+      "url": "https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D"
     },
     {
       "label": "HousingAnywhere",

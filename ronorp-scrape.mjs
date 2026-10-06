@@ -1,81 +1,92 @@
 /**
- * ronorp.net scraper for Zurich WG listings.
- * Uses CloakBrowser. Exports scrapeRonorp() and works standalone.
+ * ronorp.net source for Zurich WG listings.
+ * Reads the public JSON API behind ronorp.net/zurich/market/housing.
+ * Exports scrapeRonorp() and works standalone.
  */
-import { launch } from "cloakbrowser";
+
+const API_URL = "https://cockpit.ronorp.net/api/market/category/housing";
+const HOUSING_CATEGORY_ID = "140";
+const WG_SUB_CATEGORY_ID = "144";
+const ZURICH_CITY_ID = "2";
+const PAGE_SIZE = 50;
+const MAX_PAGES = 10;
+
+const HTML_ENTITIES = {
+  "&nbsp;": " ",
+  "&amp;": "&",
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+};
+
+function htmlToText(html) {
+  return (html || "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[a-z#0-9]+;/gi, (entity) => HTML_ENTITIES[entity] ?? " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatDate(isoDate) {
+  if (!isoDate) return null;
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return `${day}.${month}.${year}`;
+}
+
+function toListing(post) {
+  const location = post.location || {};
+  const address =
+    location.address?.replace(/,\s*(Schweiz|Suiza|Switzerland|Suisse)$/i, "") ||
+    (post.zip_code ? String(post.zip_code) : null);
+  return {
+    url: `https://ronorp.net/market/posts/${post.seo_slug || post.slug}`,
+    price: post.price ? Math.round(parseFloat(post.price)) : null,
+    address,
+    lat: location.latitude ?? null,
+    lng: location.longitude ?? null,
+    isOffer: post.post_type === "offer",
+    description: `${post.title} ${htmlToText(post.description)}`.substring(
+      0,
+      400,
+    ),
+    availableFrom: formatDate(post.housing_detail?.ready_to_move),
+    isTemporary: post.housing_detail?.contract === "temporary",
+    source: "ronorp",
+  };
+}
+
+async function fetchPage(page) {
+  const url = new URL(API_URL);
+  url.searchParams.set("category_id", HOUSING_CATEGORY_ID);
+  url.searchParams.set(
+    "sub_category_id",
+    JSON.stringify([WG_SUB_CATEGORY_ID]),
+  );
+  url.searchParams.set("publication_city", JSON.stringify([ZURICH_CITY_ID]));
+  url.searchParams.set("city_id", ZURICH_CITY_ID);
+  url.searchParams.set("pageSize", PAGE_SIZE);
+  url.searchParams.set("page", page);
+  url.searchParams.set("sorting_seed", "1");
+  url.searchParams.set("is_mobile", "0");
+
+  const resp = await fetch(url, { headers: { Accept: "application/json" } });
+  if (!resp.ok) throw new Error(`ronorp API ${resp.status}`);
+  return resp.json();
+}
 
 export async function scrapeRonorp() {
-  const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-  const browser = await launch({ headless: true, humanize: true });
-
-  try {
-    const page = await browser.newPage();
-    await page.goto(
-      "https://www.ronorp.net/zuerich/immobilien/wohnen.1450/wg.1220",
-      { waitUntil: "domcontentloaded", timeout: 30000 },
-    );
-    await delay(3000);
-
-    // Scroll a few times to load all listings (infinite scroll)
-    for (let i = 0; i < 5; i++) {
-      await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-      await delay(1500);
-    }
-
-    const listings = await page.evaluate(() => {
-      const cards = document.querySelectorAll('a[href*="/market/posts/"]');
-      const seen = new Set();
-      const results = [];
-
-      for (const a of cards) {
-        const href = a.href;
-        if (seen.has(href)) continue;
-        seen.add(href);
-
-        const text = a.textContent.trim();
-        if (text.length < 30) continue;
-        // Skip UMS corporate listings
-        if (
-          text.includes("UMS Untermietservice") ||
-          href.includes("moblierte-privat")
-        )
-          continue;
-
-        const priceMatch = text.match(/CHF\s*([\d']+)/);
-        const price = priceMatch
-          ? parseInt(priceMatch[1].replace(/'/g, ""))
-          : null;
-
-        // Try to extract address
-        const addrMatch = text.match(
-          /(\w+(?:strasse|gasse|weg|platz)\s*\d*,?\s*\d{4}\s*\w+)/i,
-        );
-        const address = addrMatch ? addrMatch[1].trim() : null;
-
-        // Check if it's someone searching (not offering) a room
-        const isSearch =
-          /\bSuche\b.*\b(?:Wohnung|Zimmer|WG)\b|\b(?:Wohnung|Zimmer|WG)\b.*\bgesucht\b|\bGesuch\b|\bLooking for a (?:room|flat|apartment)\b|\bich suche\b|\bwir suchen eine Wohnung\b/i.test(
-            text,
-          );
-
-        results.push({
-          url: href,
-          price,
-          address,
-          isOffer: !isSearch,
-          description: text.replace(/\s+/g, " ").substring(0, 400),
-          source: "ronorp",
-        });
-      }
-
-      return results;
-    });
-
-    // Only return offers (not people searching for rooms)
-    return listings.filter((l) => l.isOffer);
-  } finally {
-    await browser.close();
+  const postsById = new Map();
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const { posts, total_count: totalCount } = await fetchPage(page);
+    // The response mixes ad slots, which have no id, into the posts.
+    const realPosts = posts.filter((p) => p.id);
+    for (const post of realPosts) postsById.set(post.id, post);
+    if (realPosts.length === 0 || postsById.size >= totalCount) break;
   }
+
+  // Only return offers (not people searching for rooms)
+  return [...postsById.values()].map(toListing).filter((l) => l.isOffer);
 }
 
 // Standalone mode

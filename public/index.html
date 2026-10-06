@@ -1553,6 +1553,7 @@
           scan: "Scan for listings",
           scanning: "Scanning",
           scan_wait: "This takes a few minutes.",
+          fetching_addresses: "Fetching more wgzimmer addresses.",
           scan_failed: "Scan failed. {error}",
           last_scan: "Last scan {when}.",
           sources_failed: "{sources} failed.",
@@ -1702,6 +1703,7 @@
           scan: "Inserate suchen",
           scanning: "Suche läuft",
           scan_wait: "Das dauert ein paar Minuten.",
+          fetching_addresses: "Weitere wgzimmer-Adressen werden geladen.",
           scan_failed: "Suche fehlgeschlagen. {error}",
           last_scan: "Letzte Suche {when}.",
           sources_failed: "{sources} fehlgeschlagen.",
@@ -2406,11 +2408,27 @@ function renderShowMore(total) {
           (failedSources.length > 0
             ? ` ${t("sources_failed", { sources: joinList(failedSources) })}`
             : "") +
-          (newCount > 0 ? ` ${counted("new_listings", newCount)}.` : "");
+          (newCount > 0 ? ` ${counted("new_listings", newCount)}.` : "") +
+          (scanStatus.fetchingDetails ? ` ${t("fetching_addresses")}` : "");
+        watchDetailFetch(scanStatus.fetchingDetails);
         status.title =
           failedSources.length > 0
             ? t("sources_failed_detail", { sources: joinList(failedSources) })
             : "";
+      }
+
+      const DETAIL_POLL_MS = 20000;
+      let detailPollTimer = null;
+
+      // Addresses for wgzimmer listings arrive after the scan has answered.
+      function watchDetailFetch(fetching) {
+        clearTimeout(detailPollTimer);
+        if (!fetching) return;
+        detailPollTimer = setTimeout(async () => {
+          const status = await (await fetch("/api/scan-status")).json();
+          if (!status.fetchingDetails) await load();
+          renderScanStatus(status);
+        }, DETAIL_POLL_MS);
       }
 
       async function loadScanStatus() {

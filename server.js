@@ -207,15 +207,31 @@ app.get("/api/tracker", (req, res) => {
 
 let scanInProgress = false;
 
-function runNodeScript(args) {
+function runNodeScript(args, timeout = SCAN_STEP_TIMEOUT_MS) {
   return execFileAsync(process.execPath, args, {
     cwd: __dirname,
-    timeout: SCAN_STEP_TIMEOUT_MS,
+    timeout,
     maxBuffer: 64 * 1024 * 1024,
   });
 }
 
-const DETAILS_PER_SCAN = 50;
+// A detail page takes about 12 seconds, so the batch runs after the scan
+// has answered.
+const DETAILS_PER_SCAN = 25;
+const DETAILS_TIMEOUT_MS = 480000;
+let detailFetchInProgress = false;
+
+async function fetchWgzimmerDetailsInBackground() {
+  const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
+  if (urls.length === 0) return;
+  detailFetchInProgress = true;
+  try {
+    await runNodeScript(["fetch-listing.mjs", ...urls], DETAILS_TIMEOUT_MS);
+  } catch {
+  } finally {
+    detailFetchInProgress = false;
+  }
+}
 
 /**
  * wgzimmer listings carry no address until their detail page is fetched.
@@ -238,18 +254,15 @@ function unfetchedWgzimmerUrls(limit) {
 }
 
 app.post("/api/scan", async (req, res) => {
-  if (scanInProgress) {
+  if (scanInProgress || detailFetchInProgress) {
     return res.status(409).json({ error: "A scan is already running." });
   }
   scanInProgress = true;
   try {
     // Scan all sources
     await runNodeScript(["monitor.js", "scan", "--fresh"]);
-    try {
-      const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
-      if (urls.length > 0) await runNodeScript(["fetch-listing.mjs", ...urls]);
-    } catch {}
-    res.json({ ok: true, status: readJson(SCAN_STATUS_FILE, null) });
+    fetchWgzimmerDetailsInBackground();
+    res.json({ ok: true, status: scanStatus() });
   } catch (e) {
     res.status(500).json({ error: e.message.substring(0, 100) });
   } finally {
@@ -257,8 +270,13 @@ app.post("/api/scan", async (req, res) => {
   }
 });
 
+function scanStatus() {
+  const status = readJson(SCAN_STATUS_FILE, null);
+  return status && { ...status, fetchingDetails: detailFetchInProgress };
+}
+
 app.get("/api/scan-status", (req, res) => {
-  res.json(readJson(SCAN_STATUS_FILE, null));
+  res.json(scanStatus());
 });
 
 // ── API: Get config ───────────────────────────────────────────────────────
@@ -393,8 +411,6 @@ function isFetchableUrl(url) {
 app.get("/api/listing-details", (req, res) => {
   res.json(loadCachedListing(String(req.query.url || "")));
 });
-
-let detailFetchInProgress = false;
 
 app.post("/api/fetch-details", async (req, res) => {
   const { url } = req.body;

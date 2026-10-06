@@ -9,13 +9,13 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 
 ## Features
 
-- **LLM-generated application messages**: A local LLM (via [Ollama](https://ollama.com)) writes an application message per listing from your profile and the listing description. You enter your details once. Output is German or English, or both.
-- **Scrapes 4 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public API), [ronorp.net](https://ronorp.net) (public API), and [students.ch](https://www.students.ch/wohnen) (public pages)
-- **Filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and listings from bulk corporate posters (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
-- **Geocodes addresses** to compute walking distance from a target location (ETH Zentrum, UZH, or any coordinates)
-- **Tracks applications** to prevent duplicate applications to the same listing
-- **Web dashboard** with a map, a sortable and filterable listings table, and application tracking
-- **Desktop notifications** when new listings appear (macOS)
+- **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
+- **Application messages**: A local LLM writes a message for each listing from your profile and the listing's description, in German or English
+- **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
+- **Distances**: Each listing shows its distance and walking time from a location you choose
+- **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
+- **Web dashboard**: A map, a listings table, and application tracking in the browser
+- **Notifications** when new listings appear
 
 ## Setup
 
@@ -33,7 +33,7 @@ node server.js
 
 The dashboard is at http://localhost:3456.
 
-**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it. Message generation reads your details from `profile.json`, which the setup script creates from `profile.example.json` and which the dashboard's Profile tab can edit. The model is `llm.model` in `config.json` (default `llama3.2`). When that model is not installed, the smallest installed Ollama model is used.
+**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it.
 
 Edit `config.json` to set your target location:
 
@@ -123,11 +123,6 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-- The filter switches start from the `exclude` section of `config.json`.
-- After each scan, the server fetches the detail pages of up to 60 wgzimmer listings in the background, one per second. This gives them an address and a place on the map.
-- A listing that gives only a postcode is placed at the centre of that postcode area.
-- Auto scan runs while the page is open.
-
 ## File structure
 
 ```
@@ -137,12 +132,12 @@ fetch-listing.mjs     Fetch full listing details (wgzimmer + flatfox)
 track.js              Application tracker + dashboard
 server.js             Web dashboard server and API
 public/index.html     Web dashboard page
-wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
-wgzimmer-detail.mjs   wgzimmer listing detail pages (plain HTML)
-ronorp-scrape.mjs     ronorp listings via its public API
-students-scrape.mjs   students.ch listings from its public pages
-test/                 Tests (run with npm test)
-lib.js                Shared utilities (config, distance, geocoding, cache, listing filters)
+wgzimmer-scrape.mjs   wgzimmer.ch search
+wgzimmer-detail.mjs   wgzimmer.ch listing details
+ronorp-scrape.mjs     ronorp.net listings
+students-scrape.mjs   students.ch listings
+test/                 Tests
+lib.js                Shared utilities
 setup.sh              One-time setup
 config.json           Your config (gitignored)
 config.example.json   Config template

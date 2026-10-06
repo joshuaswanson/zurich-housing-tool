@@ -363,6 +363,11 @@
         background: var(--src-wgzimmer);
       }
 
+      .dot-approximate {
+        background: var(--surface);
+        border: 2px solid var(--muted);
+      }
+
       .dot-students {
         background: var(--src-students);
       }
@@ -1196,6 +1201,10 @@
           <span class="source"><i class="dot dot-flatfox"></i>flatfox.ch</span>
           <span class="source"><i class="dot dot-ronorp"></i>ronorp.net</span>
           <span class="source"><i class="dot dot-students"></i>students.ch</span>
+          <span class="source"
+            ><i class="dot dot-approximate"></i
+            ><span data-i18n="legend_approximate">postcode only</span></span
+          >
         </div>
       </section>
 
@@ -1563,6 +1572,9 @@
           showing_of: "{shown} of {total}",
           unmapped: "{n} without coordinates are not on the map",
           min_walk: "{n} min walk",
+          about: "about {value}",
+          approx_location: "Approximate. Only the postcode is known.",
+          legend_approximate: "postcode only",
           address_missing: "Address not fetched",
           until: "until {date}",
           open: "Open",
@@ -1708,6 +1720,9 @@
           showing_of: "{shown} von {total}",
           unmapped: "{n} ohne Koordinaten fehlen auf der Karte",
           min_walk: "{n} Min. zu Fuss",
+          about: "ca. {value}",
+          approx_location: "Ungefähr. Nur die Postleitzahl ist bekannt.",
+          legend_approximate: "nur Postleitzahl",
           address_missing: "Adresse nicht geladen",
           until: "bis {date}",
           open: "Öffnen",
@@ -2057,7 +2072,7 @@
                   ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
                 </td>
                 <td class="nowrap">
-                  ${l.dist !== null ? `<div>${l.dist.toFixed(1)} km</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
+                  ${l.dist !== null ? `<div>${l.approximate ? t("about", { value: `${l.dist.toFixed(1)} km` }) : `${l.dist.toFixed(1)} km`}</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
                 </td>
                 <td>
                   <div>
@@ -2582,6 +2597,17 @@
           true,
           false,
         ];
+        const sourceColor = [
+          "match",
+          ["get", "source"],
+          "flatfox",
+          cssVar("--src-flatfox"),
+          "wgzimmer",
+          cssVar("--src-wgzimmer"),
+          "students",
+          cssVar("--src-students"),
+          cssVar("--src-ronorp"),
+        ];
         const placeLabel = (id, classes, minzoom, font, size) => ({
           id,
           type: "symbol",
@@ -2776,18 +2802,18 @@
                   5.5,
                 ],
                 "circle-color": [
-                  "match",
-                  ["get", "source"],
-                  "flatfox",
-                  cssVar("--src-flatfox"),
-                  "wgzimmer",
-                  cssVar("--src-wgzimmer"),
-                  "students",
-                  cssVar("--src-students"),
-                  cssVar("--src-ronorp"),
+                  "case",
+                  ["get", "approximate"],
+                  cssVar("--surface"),
+                  sourceColor,
                 ],
-                "circle-stroke-color": cssVar("--surface"),
-                "circle-stroke-width": 1.5,
+                "circle-stroke-color": [
+                  "case",
+                  ["get", "approximate"],
+                  sourceColor,
+                  cssVar("--surface"),
+                ],
+                "circle-stroke-width": ["case", ["get", "approximate"], 2, 1.5],
               },
             },
           ],
@@ -2807,6 +2833,7 @@
                 source: l.source,
                 price: l.price,
                 place: l.address || l.source,
+                approximate: l.approximate,
                 url: l.url,
               },
             })),
@@ -2842,7 +2869,14 @@
         link.target = "_blank";
         link.rel = "noopener";
         link.textContent = t("open_listing");
-        node.append(rent, place, link);
+        node.append(rent, place);
+        if (properties.approximate) {
+          const note = document.createElement("div");
+          note.className = "popup-place";
+          note.textContent = t("approx_location");
+          node.append(note);
+        }
+        node.append(link);
         return node;
       }
 

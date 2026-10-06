@@ -57,6 +57,11 @@ function readJson(file, fallback) {
     : fallback;
 }
 
+// Such a listing is placed at the centre of its postcode area.
+function isPostcodeOnly(address) {
+  return !address || /^\d{4}(\s+\D.*)?$/.test(address.trim());
+}
+
 function listingFlags(text, dates) {
   return {
     genderRestricted: isGenderRestricted(text),
@@ -179,6 +184,10 @@ app.get("/api/listings", (req, res) => {
       wholeFlat: Boolean(l.isWholeFlat),
       ...listingFlags(l.description || "", l),
     });
+  }
+
+  for (const l of listings) {
+    l.approximate = Boolean(l.lat && l.lng) && isPostcodeOnly(l.address);
   }
 
   res.json(listings);

@@ -13,7 +13,7 @@
     "dashboard": "node server.js"
   },
   "dependencies": {
-    "cloakbrowser": "^0.3.19",
+    "cloakbrowser": "^0.5.12",
     "express": "^5.2.1",
     "playwright-core": "^1.58.2"
   }

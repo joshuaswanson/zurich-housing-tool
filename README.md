@@ -10,7 +10,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 ## What it does
 
 - **LLM-generated application messages**: A local LLM (via [Ollama](https://ollama.com)) writes an application message per listing from your profile and the listing description. You enter your details once. Output is German or English, or both.
-- **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public API), and [ronorp.net](https://ronorp.net) (public API)
+- **Scrapes 4 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public API), [ronorp.net](https://ronorp.net) (public API), and [students.ch](https://www.students.ch/wohnen) (public pages)
 - **Filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and listings from bulk corporate posters (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
 - **Geocodes addresses** to compute walking distance from a target location (ETH Zentrum, UZH, or any coordinates)
 - **Tracks applications** to prevent duplicate applications to the same listing
@@ -133,7 +133,7 @@ npm run dashboard                       # Same thing
 
 The dashboard follows the system light or dark setting and is available in English and German. The map sits on the left and the Listings and Applications tabs on the right. It covers nearly everything the command line tools do.
 
-- **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
+- **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
 - **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
 - **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with notes and the exclusion reason where one exists.
 - **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
@@ -156,6 +156,8 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 **ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped.
 
+**students.ch** has a small housing board for students. The tool reads its public list page for the Zurich area and the detail page of each listing, then geocodes the address. It carries about 10 listings at a time.
+
 **The dashboard map** uses [MapLibre GL JS](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org) vector tiles, which need no API key.
 
 **Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently, so later distance calculations need no network calls.
@@ -173,6 +175,7 @@ server.js             Web dashboard server and API
 public/index.html     Web dashboard page
 wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
 ronorp-scrape.mjs     ronorp listings via its public API
+students-scrape.mjs   students.ch listings from its public pages
 lib.js                Shared utilities (config, distance, geocoding, cache, listing filters)
 setup.sh              One-time setup
 config.json           Your config (gitignored)

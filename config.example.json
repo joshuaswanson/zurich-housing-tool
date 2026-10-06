@@ -18,6 +18,9 @@
     "east": 8.6003,
     "west": 8.4603
   },
+  "llm": {
+    "model": "llama3.2"
+  },
   "exclude": {
     "woko": true,
     "genderRestricted": true,

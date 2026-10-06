@@ -151,7 +151,9 @@ app.get("/api/listings", (req, res) => {
       url: l.url,
       firstSeen: seen[id]?.firstSeen || null,
       hasEndDate: Boolean(l.isTemporary),
+      pricePeriod: l.pricePeriod || null,
       ...listingFlags(l.description || "", {}),
+      ...(l.pricePeriod ? { shortSublet: true } : {}),
     });
   }
 
@@ -174,6 +176,7 @@ app.get("/api/listings", (req, res) => {
       url: l.url,
       firstSeen: seen[id]?.firstSeen || null,
       hasEndDate: Boolean(l.until),
+      wholeFlat: Boolean(l.isWholeFlat),
       ...listingFlags(l.description || "", l),
     });
   }
@@ -397,9 +400,70 @@ app.post("/api/fetch-details", async (req, res) => {
   }
 });
 
+// ── API: Applicant profile ───────────────────────────────────────────────
+
+const PROFILE_EXAMPLE_FILE = path.join(__dirname, "profile.example.json");
+
+app.get("/api/profile", (req, res) => {
+  const fields = Object.keys(readJson(PROFILE_EXAMPLE_FILE, {}));
+  res.json({ fields, profile: readJson(PROFILE_FILE, null) });
+});
+
+app.post("/api/profile", (req, res) => {
+  const fields = Object.keys(readJson(PROFILE_EXAMPLE_FILE, {}));
+  const profile = {};
+  for (const field of fields) {
+    if (req.body[field] !== undefined && req.body[field] !== "") {
+      profile[field] = req.body[field];
+    }
+  }
+  try {
+    fs.writeFileSync(PROFILE_FILE, JSON.stringify(profile, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Save an application message ─────────────────────────────────────
+
+app.post("/api/application", (req, res) => {
+  const { url, message } = req.body;
+  if (!url || !message) {
+    return res.status(400).json({ error: "url and message required" });
+  }
+  try {
+    const appDir = path.join(DATA_DIR, "applications");
+    fs.mkdirSync(appDir, { recursive: true });
+    const name = listingKey(url).replace(/[^a-zA-Z0-9-]/g, "_").slice(-80);
+    fs.writeFileSync(path.join(appDir, `${name}.md`), `${url}\n\n${message}\n`);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── API: Generate application message via Ollama ──────────────────────────
 
 const PROFILE_FILE = path.join(__dirname, "profile.json");
+const OLLAMA_URL = "http://localhost:11434";
+const DEFAULT_OLLAMA_MODEL = "llama3.2";
+
+/**
+ * The model from config.llm.model or the default when it is installed,
+ * otherwise the smallest installed model. Returns null when none is installed.
+ */
+async function chooseOllamaModel() {
+  const resp = await fetch(`${OLLAMA_URL}/api/tags`);
+  const { models } = await resp.json();
+  const preferred = config.llm?.model || DEFAULT_OLLAMA_MODEL;
+  const match = models.find(
+    (m) => m.name === preferred || m.name === `${preferred}:latest`,
+  );
+  if (match) return match.name;
+  const bySize = [...models].sort((a, b) => a.size - b.size);
+  return bySize[0]?.name || null;
+}
 
 app.post("/api/generate", async (req, res) => {
   const { url } = req.body;
@@ -409,7 +473,7 @@ app.post("/api/generate", async (req, res) => {
   if (!fs.existsSync(PROFILE_FILE)) {
     return res.status(400).json({
       error:
-        "No profile.json found. Copy profile.example.json to profile.json and fill in your details.",
+        "No profile yet. Fill in the Profile tab first, or create profile.json from profile.example.json.",
     });
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
@@ -463,30 +527,35 @@ ${listingDesc.substring(0, 2000)}
 
 Write the application message now. Do not include a subject line. Start with a greeting.`;
 
+  let model;
   try {
-    const ollamaRes = await fetch("http://localhost:11434/api/generate", {
+    model = await chooseOllamaModel();
+  } catch {
+    return res.status(500).json({
+      error: "Could not connect to Ollama. Start it with: ollama serve",
+    });
+  }
+  if (!model) {
+    return res.status(500).json({
+      error: `Ollama has no model installed. Run: ollama pull ${DEFAULT_OLLAMA_MODEL}`,
+    });
+  }
+
+  try {
+    const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "llama3.2",
-        prompt,
-        stream: false,
-      }),
+      body: JSON.stringify({ model, prompt, stream: false }),
     });
-
     if (!ollamaRes.ok) {
-      return res.status(500).json({
-        error: "Ollama not running. Start it with: ollama serve",
-      });
+      return res
+        .status(500)
+        .json({ error: `Ollama returned an error for model ${model}.` });
     }
-
     const result = await ollamaRes.json();
-    res.json({ message: result.response });
+    res.json({ message: result.response, model });
   } catch (e) {
-    res.status(500).json({
-      error:
-        "Could not connect to Ollama. Make sure it's running (ollama serve) and has llama3.2 pulled (ollama pull llama3.2).",
-    });
+    res.status(500).json({ error: `Ollama request failed. ${e.message}` });
   }
 });
 

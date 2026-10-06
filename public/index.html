@@ -1097,13 +1097,19 @@
             </svg>
           </summary>
           <div class="settings-menu">
-            <label class="settings-row">
-              <span data-i18n="language">Language</span>
-              <select id="language">
-                <option value="en">English</option>
-                <option value="de">Deutsch</option>
-              </select>
-            </label>
+            <div class="settings-row" role="radiogroup" aria-labelledby="language-label">
+              <span id="language-label" data-i18n="language">Language</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="language" value="en" />
+                  <span>English</span>
+                </label>
+                <label>
+                  <input type="radio" name="language" value="de" />
+                  <span>Deutsch</span>
+                </label>
+              </span>
+            </div>
             <div class="settings-row" role="radiogroup" aria-labelledby="theme-label">
               <span id="theme-label" data-i18n="theme">Theme</span>
               <span class="segmented">
@@ -2940,8 +2946,8 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") $("settings").open = false;
       });
-      $("language").addEventListener("change", (e) => {
-        setLanguage(e.target.value);
+      document.querySelectorAll("input[name='language']").forEach((radio) => {
+        radio.addEventListener("change", () => setLanguage(radio.value));
       });
       $("auto-scan").addEventListener("change", (e) => {
         setAutoScan(parseInt(e.target.value));
@@ -3057,7 +3063,9 @@
           $("f-student").checked = !config.exclude.studentHousing;
           $("f-short").checked = !config.exclude.shortSublets;
         } catch {}
-        $("language").value = language;
+        document.querySelector(
+          `input[name='language'][value='${language}']`,
+        ).checked = true;
         translatePage();
         restoreFilters();
         $("target-select").innerHTML = targets

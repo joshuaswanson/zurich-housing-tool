@@ -11,6 +11,7 @@
  *   node fetch-listing.mjs --all               # Summarize all cached listings
  */
 import { launch } from "cloakbrowser";
+import { fetchWgzimmerListing } from "./wgzimmer-detail.mjs";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -23,6 +24,9 @@ import {
 } from "./lib.js";
 
 ensureDataDir();
+
+const WGZIMMER_REQUEST_DELAY_MS = 1000;
+const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── Config-driven exclude settings ─────────────────────────────────────────
 
@@ -123,69 +127,6 @@ export async function fetchFlatfoxListing(page, url) {
     if (cityMatch) data.city = cityMatch[1].trim();
 
     data.source = "flatfox";
-    data.url = location.href;
-    return data;
-  });
-}
-
-// ── wgzimmer fetch ──────────────────────────────────────────────────────────
-
-export async function fetchWgzimmerListing(page, url) {
-  await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
-  await new Promise((r) => setTimeout(r, 2000));
-  try {
-    const c = await page.$(".fc-cta-consent");
-    if (c) await c.click();
-  } catch {}
-  await new Promise((r) => setTimeout(r, 1000));
-
-  return page.evaluate(() => {
-    const text = document.body.innerText;
-
-    const data = {};
-
-    // Address block
-    const addrMatch = text.match(/Address\s*\n(.*?)\nCity\s*\n(.*?)\n/s);
-    if (addrMatch) {
-      const allAddr = [...text.matchAll(/Address\s*\n(.+)/g)];
-      data.address =
-        allAddr.length > 1 ? allAddr[1][1].trim() : allAddr[0]?.[1]?.trim();
-    }
-    const cityMatch = text.match(/City\s*\n(.+)/);
-    if (cityMatch) data.city = cityMatch[1].trim();
-
-    const hoodMatch = text.match(/Neighbourhood\s*\n(.+)/);
-    if (hoodMatch) data.neighbourhood = hoodMatch[1].trim();
-
-    const nearMatch = text.match(/Nearby\s*\n([\s\S]*?)(?:\+|©|GOOGLE)/);
-    if (nearMatch) data.nearby = nearMatch[1].trim();
-
-    // Dates & price
-    const rentMatch =
-      text.match(/Rent per month\s*\n\s*(\d[\d.']*)/i) ||
-      text.match(/Miete pro Monat\s*\n\s*(\d[\d.']*)/i);
-    if (rentMatch) data.rent = parseInt(rentMatch[1].replace(/[.']/g, ""));
-
-    const dates = text.match(/(\d{1,2}\.\d{1,2}\.\d{4})/g);
-    if (dates && dates.length >= 1) data.availableFrom = dates[0];
-
-    const untilMatch = text.match(/Until\s*\n(.+)/);
-    if (untilMatch) data.until = untilMatch[1].trim();
-
-    // Content sections
-    const roomMatch = text.match(
-      /The room is\s*\n([\s\S]*?)(?=We are looking for|Contact)/,
-    );
-    if (roomMatch) data.room = roomMatch[1].trim();
-
-    const lookingMatch = text.match(
-      /We are looking for\s*\n([\s\S]*?)(?=We are\n|Contact)/,
-    );
-    if (lookingMatch) data.lookingFor = lookingMatch[1].trim();
-
-    const weAreMatch = text.match(/We are\s*\n([\s\S]*?)(?=Contact)/);
-    if (weAreMatch) data.weAre = weAreMatch[1].trim();
-
     data.url = location.href;
     return data;
   });
@@ -335,15 +276,25 @@ export async function fetchListings(urls) {
 
   if (toFetch.length > 0) {
     process.stderr.write(`Fetching ${toFetch.length} listing(s)...\n`);
-    const browser = await launch({ headless: true, humanize: true });
+    // Only flatfox pages need a browser, so it is launched on first use.
+    let browser = null;
     try {
       for (const url of toFetch) {
         process.stderr.write(`  ${cacheKey(url)}...`);
-        const page = await browser.newPage();
         try {
-          const data = isFlatfox(url)
-            ? await fetchFlatfoxListing(page, url)
-            : await fetchWgzimmerListing(page, url);
+          let data;
+          if (isFlatfox(url)) {
+            browser = browser || (await launch({ headless: true, humanize: true }));
+            const page = await browser.newPage();
+            try {
+              data = await fetchFlatfoxListing(page, url);
+            } finally {
+              await page.close();
+            }
+          } else {
+            data = await fetchWgzimmerListing(url);
+            await delay(WGZIMMER_REQUEST_DELAY_MS);
+          }
           saveCache(url, data);
           // Auto-geocode (adds lat/lng to cached data)
           await autoGeocode(url, data);
@@ -357,10 +308,9 @@ export async function fetchListings(urls) {
         } catch (e) {
           process.stderr.write(` error: ${e.message.substring(0, 50)}\n`);
         }
-        await page.close();
       }
     } finally {
-      await browser.close();
+      await browser?.close();
     }
   }
 

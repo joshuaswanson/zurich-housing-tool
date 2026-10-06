@@ -610,6 +610,40 @@
         font-size: 12.5px;
       }
 
+      #more-filters-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      #more-filters-count {
+        margin-left: 0;
+      }
+
+      #more-filters-count:empty {
+        display: none;
+      }
+
+      #more-filters-toggle::after {
+        content: "";
+        width: 6px;
+        height: 6px;
+        margin-top: -3px;
+        border-right: 1.6px solid var(--muted);
+        border-bottom: 1.6px solid var(--muted);
+        transform: rotate(45deg);
+      }
+
+      #more-filters-toggle[aria-expanded="true"] {
+        background: var(--row-hover);
+        border-color: var(--muted);
+      }
+
+      #more-filters-toggle[aria-expanded="true"]::after {
+        margin-top: 3px;
+        transform: rotate(-135deg);
+      }
+
       .more-filters {
         display: flex;
         flex-wrap: wrap;
@@ -1500,6 +1534,7 @@
           max_rent: "Max rent",
           max_distance: "Max distance",
           more_filters: "More filters",
+          fewer_filters: "Fewer filters",
           show: "Show",
           f_tracked: "Tracked",
           f_gender: "Gender-restricted",
@@ -1644,6 +1679,7 @@
           max_rent: "Max. Miete",
           max_distance: "Max. Distanz",
           more_filters: "Weitere Filter",
+          fewer_filters: "Weniger Filter",
           show: "Anzeigen",
           f_tracked: "Erfasste",
           f_gender: "Geschlechtsspezifische",
@@ -2935,6 +2971,9 @@
         const panel = $("more-filters");
         panel.hidden = !panel.hidden;
         e.currentTarget.setAttribute("aria-expanded", !panel.hidden);
+        const label = e.currentTarget.querySelector("[data-i18n]");
+        label.dataset.i18n = panel.hidden ? "more_filters" : "fewer_filters";
+        label.textContent = t(label.dataset.i18n);
       });
       document.querySelectorAll("input[name='theme']").forEach((radio) => {
         radio.checked = radio.value === themeChoice;

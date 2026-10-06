@@ -31,8 +31,8 @@
         --accent-ink: #ffffff;
         --danger: #b3261e;
 
-        --src-flatfox: #0b7f86;
-        --src-wgzimmer: #c2600f;
+        --src-flatfox: #c2600f;
+        --src-wgzimmer: #0b7f86;
         --src-ronorp: #7b4bb3;
 
         --map-land: #eef0ee;
@@ -58,8 +58,8 @@
           --accent-ink: #10203a;
           --danger: #f08a80;
 
-          --src-flatfox: #3fbfc4;
-          --src-wgzimmer: #f0994a;
+          --src-flatfox: #f0994a;
+          --src-wgzimmer: #3fbfc4;
           --src-ronorp: #b592e8;
 
           --map-land: #1b1e23;
@@ -211,12 +211,12 @@
 
       .logo-u i:first-child {
         left: 0.1em;
-        background: var(--src-wgzimmer);
+        background: var(--src-flatfox);
       }
 
       .logo-u i:last-child {
         right: 0.1em;
-        background: var(--src-flatfox);
+        background: var(--src-wgzimmer);
       }
 
       .logo-rest {
@@ -411,6 +411,86 @@
         border-bottom: 1px solid var(--line);
       }
 
+      select,
+      .text-input,
+      .filter input[type="search"] {
+        font: inherit;
+        color: inherit;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 4px 8px;
+      }
+
+      .filter input[type="search"] {
+        width: 220px;
+      }
+
+      select {
+        appearance: none;
+        padding-right: 28px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a929b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        cursor: pointer;
+      }
+
+      #target-select {
+        border: none;
+        background-color: transparent;
+        background-position: right 2px center;
+        padding: 0 18px 0 0;
+        font-weight: 500;
+      }
+
+      .auto-scan {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .detail {
+        display: grid;
+        gap: 12px;
+      }
+
+      .detail-sections {
+        display: grid;
+        gap: 8px;
+        max-width: 75ch;
+        font-size: 13px;
+      }
+
+      .detail-sections dt {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+
+      .detail-sections dd {
+        white-space: pre-line;
+      }
+
+      .detail-note {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .detail-note .text-input {
+        flex: 1;
+        max-width: 48ch;
+      }
+
+      .application-note {
+        grid-column: 1 / -1;
+        margin-top: -6px;
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+
       .filter-group {
         display: flex;
         flex-wrap: wrap;
@@ -589,7 +669,7 @@
         border-bottom-color: transparent;
       }
 
-      tbody tr.is-active .description {
+      tbody tr.is-active:not(.has-details) .description {
         display: block;
         max-width: 60ch;
       }
@@ -599,7 +679,7 @@
       }
 
       tbody tr.detail-row td {
-        padding: 2px 8px 12px;
+        padding: 4px 8px 14px;
       }
 
       .group-head {
@@ -731,6 +811,9 @@
       .page-footer {
         margin-top: 32px;
         font-size: 12.5px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
       }
 
       @media (max-width: 900px) {
@@ -802,30 +885,47 @@
           ></span
         >
       </h1>
-      <p class="summary">by Joshua Swanson</p>
+      <p class="summary"><span data-i18n="byline">by Joshua Swanson</span></p>
       <a
         class="header-link"
         href="https://github.com/joshuaswanson/zurich-housing-tool/issues"
         target="_blank"
         rel="noopener"
-        >Report an issue</a
+        ><span data-i18n="report_issue">Report an issue</span></a
       >
       <div class="scan">
         <span class="scan-status" id="scan-status" role="status"></span>
+        <select id="language" aria-label="Language" data-i18n-aria-label="language">
+          <option value="en">English</option>
+          <option value="de">Deutsch</option>
+        </select>
+        <label class="auto-scan">
+          <span data-i18n="auto_scan">Auto scan</span>
+          <select id="auto-scan">
+            <option value="0" data-i18n="auto_off">off</option>
+            <option value="15" data-i18n="auto_15">every 15 min</option>
+            <option value="30" data-i18n="auto_30">every 30 min</option>
+            <option value="60" data-i18n="auto_60">every hour</option>
+          </select>
+        </label>
         <button class="button button-primary" id="scan-button">
-          Scan for listings
+          <span data-i18n="scan">Scan for listings</span>
         </button>
       </div>
     </header>
 
     <div class="layout">
-      <section class="map-pane" aria-label="Map of listings">
+      <section class="map-pane" aria-label="Map of listings" data-i18n-aria-label="map_label">
         <div id="map"></div>
         <div class="legend">
           <span class="source"
             ><i class="dot dot-target"></i
-            ><span id="legend-target">Target</span></span
-          >
+            ><select
+              id="target-select"
+              aria-label="Measure distances from"
+              data-i18n-aria-label="target_label"
+            ></select
+          ></span>
           <span class="source"><i class="dot dot-wgzimmer"></i>wgzimmer</span>
           <span class="source"><i class="dot dot-flatfox"></i>flatfox</span>
           <span class="source"><i class="dot dot-ronorp"></i>ronorp</span>
@@ -842,7 +942,7 @@
             aria-controls="panel-listings"
             aria-selected="true"
           >
-            Listings <span class="tab-count" id="tab-listings-count"></span>
+            <span data-i18n="tab_listings">Listings</span> <span class="tab-count" id="tab-listings-count"></span>
           </button>
           <button
             class="tab"
@@ -853,7 +953,7 @@
             aria-selected="false"
             tabindex="-1"
           >
-            Applications
+            <span data-i18n="tab_applications">Applications</span>
             <span class="tab-count" id="tab-applications-count"></span>
           </button>
         </div>
@@ -865,8 +965,17 @@
           aria-labelledby="tab-listings"
         >
         <form class="filters" id="filters">
+          <label class="filter filter-search">
+            <span data-i18n="search">Search</span>
+            <input
+              type="search"
+              id="f-keyword"
+              placeholder="Seefeld, Kreis 8, balcony"
+              data-i18n-placeholder="search_placeholder"
+            />
+          </label>
           <label class="filter">
-            Max rent
+            <span data-i18n="max_rent">Max rent</span>
             <input
               type="range"
               id="f-price"
@@ -878,7 +987,7 @@
             <output id="f-price-val"></output>
           </label>
           <label class="filter">
-            Max distance
+            <span data-i18n="max_distance">Max distance</span>
             <input
               type="range"
               id="f-dist"
@@ -889,33 +998,45 @@
             />
             <output id="f-dist-val"></output>
           </label>
-          <div class="filter-group" role="group" aria-label="Show">
-            <span class="filter-group-label">Show</span>
+          <div class="filter-group" role="group" aria-labelledby="show-label">
+            <span class="filter-group-label" id="show-label" data-i18n="show">Show</span>
             <label class="filter">
               <input type="checkbox" role="switch" id="f-tracked" />
-              Tracked
+              <span data-i18n="f_tracked">Tracked</span>
             </label>
             <label class="filter">
               <input type="checkbox" role="switch" id="f-gender" />
-              Gender-restricted
+              <span data-i18n="f_gender">Gender-restricted</span>
             </label>
             <label class="filter">
               <input type="checkbox" role="switch" id="f-student" />
-              WOKO and JUWO
+              <span data-i18n="f_student">WOKO and JUWO</span>
             </label>
             <label class="filter">
               <input type="checkbox" role="switch" id="f-short" />
-              Short sublets
+              <span data-i18n="f_short">Short sublets</span>
             </label>
             <label class="filter">
               <input type="checkbox" role="switch" id="f-bulk" />
-              Bulk posters
+              <span data-i18n="f_bulk">Bulk posters</span>
             </label>
           </div>
-          <label class="filter">
-            <input type="checkbox" role="switch" id="f-new" />
-            Only new in the last 24 hours
-          </label>
+          <div class="filter-group" role="group" aria-labelledby="only-label">
+            <span class="filter-group-label" id="only-label" data-i18n="only">Only</span>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-permanent" />
+              <span data-i18n="f_permanent">Permanent</span>
+            </label>
+            <label class="filter">
+              <span data-i18n="first_seen">First seen</span>
+              <select id="f-new">
+                <option value="0" data-i18n="new_any">any time</option>
+                <option value="24" data-i18n="new_24">in the last 24 hours</option>
+                <option value="48" data-i18n="new_48">in the last 48 hours</option>
+                <option value="168" data-i18n="new_168">in the last 7 days</option>
+              </select>
+            </label>
+          </div>
         </form>
 
         <p class="section-note" id="listings-note"></p>
@@ -924,14 +1045,14 @@
             <thead>
               <tr>
                 <th data-sort="price" aria-sort="ascending">
-                  <button class="sort-button" type="button">Rent (CHF)</button>
+                  <button class="sort-button" type="button"><span data-i18n="col_rent">Rent (CHF)</span></button>
                 </th>
                 <th data-sort="distance">
-                  <button class="sort-button" type="button">Distance</button>
+                  <button class="sort-button" type="button"><span data-i18n="col_distance">Distance</span></button>
                 </th>
-                <th>Address</th>
-                <th>Available</th>
-                <th>Source</th>
+                <th><span data-i18n="col_address">Address</span></th>
+                <th><span data-i18n="col_available">Available</span></th>
+                <th><span data-i18n="col_source">Source</span></th>
                 <th></th>
               </tr>
             </thead>
@@ -953,9 +1074,11 @@
         </section>
 
         <footer class="page-footer">
+          <span id="search-links"></span>
           <a
             href="https://github.com/joshuaswanson/zurich-housing-tool"
             target="_blank"
+            rel="noopener"
             >github.com/joshuaswanson/zurich-housing-tool</a
           >
         </footer>
@@ -967,17 +1090,17 @@
       <pre id="dialog-body"></pre>
       <div class="dialog-actions">
         <button class="button" id="dialog-copy" type="button">
-          Copy message
+          <span data-i18n="copy_message">Copy message</span>
         </button>
         <form method="dialog">
-          <button class="button">Close</button>
+          <button class="button"><span data-i18n="close">Close</span></button>
         </form>
       </div>
     </dialog>
 
     <script>
       const MAX_ROWS = 200;
-      const SOURCES_LABEL = "wgzimmer.ch, flatfox.ch and ronorp.net";
+      const SOURCE_SITES = ["wgzimmer.ch", "flatfox.ch", "ronorp.net"];
 
       let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
       let allListings = [];
@@ -985,14 +1108,38 @@
       let appMessages = [];
       let sortBy = "price";
       const trackedStatus = new Map();
-      const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+      const TARGET_KEY = "zurich-housing-target";
+      const TARGET_PRESETS = [
+        { label: "ETH Zentrum", lat: 47.3764, lng: 8.5483 },
+        { label: "ETH Hönggerberg", lat: 47.4085, lng: 8.5075 },
+        { label: "UZH Zentrum", lat: 47.3744, lng: 8.5508 },
+        { label: "UZH Irchel", lat: 47.3975, lng: 8.5495 },
+      ];
+      const WALKING_MINUTES_PER_KM = 12;
+      const DETAIL_SECTIONS = [
+        "room",
+        "weAre",
+        "lookingFor",
+        "nearby",
+        "description",
+        "facilities",
+        "particulars",
+        "livingspace",
+        "floor",
+      ];
+      const FETCHABLE_SOURCES = ["wgzimmer", "flatfox"];
+      let targets = TARGET_PRESETS;
       const SHOW_FILTERS = {
         "f-gender": "genderRestricted",
         "f-student": "studentHousing",
         "f-short": "shortSublet",
         "f-bulk": "bulkPoster",
       };
-      const CHECKBOX_FILTERS = ["f-tracked", "f-new", ...Object.keys(SHOW_FILTERS)];
+      const CHECKBOX_FILTERS = [
+        "f-tracked",
+        "f-permanent",
+        ...Object.keys(SHOW_FILTERS),
+      ];
 
       // Tracker entries and listings can use different URLs for one listing,
       // so they are matched on the wgzimmer UUID or the flatfox number.
@@ -1010,15 +1157,276 @@
         return trackedStatus.get(listingKey(url));
       }
 
-      function isNew(l) {
-        return (
-          !l.firstSeen ||
-          Date.now() - new Date(l.firstSeen).getTime() < NEW_WINDOW_MS
-        );
-      }
-      const FILTERS_KEY = "zurich-housing-filters-2";
+      const FILTERS_KEY = "zurich-housing-filters-3";
 
       const $ = (id) => document.getElementById(id);
+
+      const LANGUAGE_KEY = "zurich-housing-language";
+      const STRINGS = {
+        en: {
+          byline: "by Joshua Swanson",
+          report_issue: "Report an issue",
+          language: "Language",
+          auto_scan: "Auto scan",
+          auto_off: "off",
+          auto_15: "every 15 min",
+          auto_30: "every 30 min",
+          auto_60: "every hour",
+          scan: "Scan for listings",
+          scanning: "Scanning",
+          scan_wait: "This takes a few minutes.",
+          scan_failed: "Scan failed. {error}",
+          last_scan: "Last scan {when}.",
+          sources_failed: "{sources} failed, showing older data.",
+          and: "and",
+          map_label: "Map of listings",
+          target_label: "Measure distances from",
+          tab_listings: "Listings",
+          tab_applications: "Applications",
+          search: "Search",
+          search_placeholder: "Seefeld, Kreis 8, balcony",
+          max_rent: "Max rent",
+          max_distance: "Max distance",
+          show: "Show",
+          f_tracked: "Tracked",
+          f_gender: "Gender-restricted",
+          f_student: "WOKO and JUWO",
+          f_short: "Short sublets",
+          f_bulk: "Bulk posters",
+          only: "Only",
+          f_permanent: "Permanent",
+          first_seen: "First seen",
+          new_any: "any time",
+          new_24: "in the last 24 hours",
+          new_48: "in the last 48 hours",
+          new_168: "in the last 7 days",
+          col_rent: "Rent (CHF)",
+          col_distance: "Distance",
+          col_address: "Address",
+          col_available: "Available",
+          col_source: "Source",
+          copy_message: "Copy message",
+          copied: "Copied",
+          close: "Close",
+          load_failed: "Could not load listings. Check that the server is running.",
+          empty_none: "No listings yet. Scan to fetch them from {sources}.",
+          empty_filtered: "No listings match these filters.",
+          showing_first: "Showing the first {max} of {total}",
+          showing_of: "{shown} of {total}",
+          unmapped: "{n} without coordinates are not on the map",
+          min_walk: "{n} min walk",
+          address_missing: "Address not fetched",
+          until: "until {date}",
+          open: "Open",
+          open_listing: "Open listing",
+          status_applied: "applied",
+          status_shortlisted: "shortlisted",
+          status_rejected: "rejected",
+          status_excluded: "excluded",
+          group_applied: "Applied",
+          group_shortlisted: "Shortlisted",
+          group_rejected: "Rejected",
+          group_excluded: "Excluded",
+          act_show_message: "Show message",
+          act_reject: "Mark rejected",
+          act_remove: "Remove",
+          act_restore: "Restore",
+          act_apply: "Mark applied",
+          act_draft: "Draft message",
+          act_shortlist: "Shortlist",
+          act_exclude: "Exclude",
+          act_untrack: "Stop tracking",
+          act_fetch: "Fetch full details",
+          nothing_tracked: "Nothing tracked yet. Select a listing to shortlist it or mark it as applied.",
+          note_prefix: "Note: {text}",
+          note_label: "Note",
+          note_placeholder: "Add a note",
+          save_note: "Save note",
+          saved: "Saved",
+          reason_label: "Reason",
+          reason_placeholder: "Reason, optional",
+          cancel: "Cancel",
+          fetching: "Fetching",
+          fetch_failed: "Could not fetch details",
+          sec_room: "Room",
+          sec_weAre: "We are",
+          sec_lookingFor: "Looking for",
+          sec_nearby: "Nearby",
+          sec_description: "Description",
+          sec_facilities: "Facilities",
+          sec_particulars: "Type",
+          sec_livingspace: "Size",
+          sec_floor: "Floor",
+          today: "today",
+          just_now: "just now",
+          minutes_ago_one: "{n} minute ago",
+          minutes_ago_other: "{n} minutes ago",
+          hours_ago_one: "{n} hour ago",
+          hours_ago_other: "{n} hours ago",
+          days_ago_one: "{n} day ago",
+          days_ago_other: "{n} days ago",
+          new_listings_one: "{n} new listing",
+          new_listings_other: "{n} new listings",
+          notify_body: "{count} since the last scan.",
+          avail_immediately: "Immediately",
+          avail_agreement: "By agreement",
+          sent_message: "Sent message",
+          no_saved_message: "No saved message for this listing.",
+          drafting: "Drafting",
+          draft_failed: "Could not draft a message",
+          application_message: "Application message",
+        },
+        de: {
+          byline: "von Joshua Swanson",
+          report_issue: "Problem melden",
+          language: "Sprache",
+          auto_scan: "Auto-Suche",
+          auto_off: "aus",
+          auto_15: "alle 15 Min.",
+          auto_30: "alle 30 Min.",
+          auto_60: "jede Stunde",
+          scan: "Inserate suchen",
+          scanning: "Suche läuft",
+          scan_wait: "Das dauert ein paar Minuten.",
+          scan_failed: "Suche fehlgeschlagen. {error}",
+          last_scan: "Letzte Suche {when}.",
+          sources_failed: "{sources} fehlgeschlagen, ältere Daten werden angezeigt.",
+          and: "und",
+          map_label: "Karte der Inserate",
+          target_label: "Distanzen messen ab",
+          tab_listings: "Inserate",
+          tab_applications: "Bewerbungen",
+          search: "Suche",
+          search_placeholder: "Seefeld, Kreis 8, Balkon",
+          max_rent: "Max. Miete",
+          max_distance: "Max. Distanz",
+          show: "Anzeigen",
+          f_tracked: "Erfasste",
+          f_gender: "Geschlechtsspezifische",
+          f_student: "WOKO und JUWO",
+          f_short: "Kurze Untermieten",
+          f_bulk: "Massenanbieter",
+          only: "Nur",
+          f_permanent: "Unbefristete",
+          first_seen: "Erstmals gesehen",
+          new_any: "jederzeit",
+          new_24: "in den letzten 24 Stunden",
+          new_48: "in den letzten 48 Stunden",
+          new_168: "in den letzten 7 Tagen",
+          col_rent: "Miete (CHF)",
+          col_distance: "Distanz",
+          col_address: "Adresse",
+          col_available: "Verfügbar",
+          col_source: "Quelle",
+          copy_message: "Nachricht kopieren",
+          copied: "Kopiert",
+          close: "Schliessen",
+          load_failed: "Inserate konnten nicht geladen werden. Prüfe, ob der Server läuft.",
+          empty_none: "Noch keine Inserate. Starte eine Suche, um sie von {sources} zu laden.",
+          empty_filtered: "Keine Inserate entsprechen diesen Filtern.",
+          showing_first: "Die ersten {max} von {total}",
+          showing_of: "{shown} von {total}",
+          unmapped: "{n} ohne Koordinaten fehlen auf der Karte",
+          min_walk: "{n} Min. zu Fuss",
+          address_missing: "Adresse nicht geladen",
+          until: "bis {date}",
+          open: "Öffnen",
+          open_listing: "Inserat öffnen",
+          status_applied: "beworben",
+          status_shortlisted: "vorgemerkt",
+          status_rejected: "abgelehnt",
+          status_excluded: "ausgeschlossen",
+          group_applied: "Beworben",
+          group_shortlisted: "Vorgemerkt",
+          group_rejected: "Abgelehnt",
+          group_excluded: "Ausgeschlossen",
+          act_show_message: "Nachricht anzeigen",
+          act_reject: "Als abgelehnt markieren",
+          act_remove: "Entfernen",
+          act_restore: "Wiederherstellen",
+          act_apply: "Als beworben markieren",
+          act_draft: "Nachricht entwerfen",
+          act_shortlist: "Vormerken",
+          act_exclude: "Ausschliessen",
+          act_untrack: "Nicht mehr erfassen",
+          act_fetch: "Alle Details laden",
+          nothing_tracked: "Noch nichts erfasst. Wähle ein Inserat aus, um es vorzumerken oder als beworben zu markieren.",
+          note_prefix: "Notiz: {text}",
+          note_label: "Notiz",
+          note_placeholder: "Notiz hinzufügen",
+          save_note: "Notiz speichern",
+          saved: "Gespeichert",
+          reason_label: "Grund",
+          reason_placeholder: "Grund, optional",
+          cancel: "Abbrechen",
+          fetching: "Wird geladen",
+          fetch_failed: "Details konnten nicht geladen werden",
+          sec_room: "Zimmer",
+          sec_weAre: "Wir sind",
+          sec_lookingFor: "Wir suchen",
+          sec_nearby: "In der Nähe",
+          sec_description: "Beschreibung",
+          sec_facilities: "Ausstattung",
+          sec_particulars: "Art",
+          sec_livingspace: "Grösse",
+          sec_floor: "Stockwerk",
+          today: "heute",
+          just_now: "gerade eben",
+          minutes_ago_one: "vor {n} Minute",
+          minutes_ago_other: "vor {n} Minuten",
+          hours_ago_one: "vor {n} Stunde",
+          hours_ago_other: "vor {n} Stunden",
+          days_ago_one: "vor {n} Tag",
+          days_ago_other: "vor {n} Tagen",
+          new_listings_one: "{n} neues Inserat",
+          new_listings_other: "{n} neue Inserate",
+          notify_body: "{count} seit der letzten Suche.",
+          avail_immediately: "Sofort",
+          avail_agreement: "Nach Vereinbarung",
+          sent_message: "Gesendete Nachricht",
+          no_saved_message: "Für dieses Inserat ist keine Nachricht gespeichert.",
+          drafting: "Entwurf läuft",
+          draft_failed: "Nachricht konnte nicht entworfen werden",
+          application_message: "Bewerbungsnachricht",
+        },
+      };
+      let language =
+        localStorage.getItem(LANGUAGE_KEY) ||
+        (navigator.language.startsWith("de") ? "de" : "en");
+
+      function t(key, values = {}) {
+        return STRINGS[language][key].replace(
+          /\{(\w+)\}/g,
+          (_, name) => values[name],
+        );
+      }
+
+      function counted(key, n) {
+        return t(`${key}_${n === 1 ? "one" : "other"}`, { n });
+      }
+
+      function translatePage() {
+        document.documentElement.lang = language;
+        document.querySelectorAll("[data-i18n]").forEach((el) => {
+          el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+          el.placeholder = t(el.dataset.i18nPlaceholder);
+        });
+        document.querySelectorAll("[data-i18n-aria-label]").forEach((el) => {
+          el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+        });
+      }
+
+      function setLanguage(next) {
+        language = next;
+        localStorage.setItem(LANGUAGE_KEY, next);
+        translatePage();
+        applyFilters();
+        renderApplications();
+        loadScanStatus();
+      }
+
 
       function esc(s) {
         return String(s ?? "").replace(
@@ -1034,8 +1442,54 @@
         );
       }
 
-      function plural(n, word) {
-        return `${n} ${word}${n === 1 ? "" : "s"}`;
+      function joinList(items) {
+        if (items.length < 2) return items.join("");
+        return `${items.slice(0, -1).join(", ")} ${t("and")} ${items.at(-1)}`;
+      }
+
+      // Same key that track.js uses for notes.
+      function noteKey(url) {
+        return (
+          url.match(
+            /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+          )?.[1] || url
+        );
+      }
+
+      function noteFor(url) {
+        return tracker.notes?.[noteKey(url)] || "";
+      }
+
+      function firstSeenWithin(l, hours) {
+        return (
+          !l.firstSeen ||
+          Date.now() - new Date(l.firstSeen).getTime() < hours * 3600 * 1000
+        );
+      }
+
+      function distanceKm(a, b) {
+        const toRad = (deg) => (deg * Math.PI) / 180;
+        const dLat = toRad(b.lat - a.lat);
+        const dLng = toRad(b.lng - a.lng);
+        const h =
+          Math.sin(dLat / 2) ** 2 +
+          Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      }
+
+      function measureDistances() {
+        for (const l of allListings) {
+          l.dist =
+            l.lat && l.lng
+              ? Math.round(distanceKm(target, l) * 100) / 100
+              : null;
+        }
+      }
+
+      function matchesKeywords(l, keywords) {
+        if (keywords.length === 0) return true;
+        const text = `${l.address || ""} ${l.description}`.toLowerCase();
+        return keywords.some((keyword) => text.includes(keyword));
       }
 
       async function load() {
@@ -1047,7 +1501,7 @@
           allListings = await listRes.json();
           tracker = await trackRes.json();
         } catch (e) {
-          showEmpty("Could not load listings. Check that the server is running.");
+          showEmpty(t("load_failed"));
           return;
         }
 
@@ -1060,6 +1514,7 @@
 
         // A price below 50 is a parsing error in the scraped listing.
         allListings = allListings.filter((l) => l.price >= 50);
+        measureDistances();
 
         applyFilters();
         renderApplications();
@@ -1068,13 +1523,19 @@
       function applyFilters() {
         const maxPrice = parseInt($("f-price").value);
         const maxDist = parseFloat($("f-dist").value);
+        const newHours = parseInt($("f-new").value);
+        const keywords = $("f-keyword")
+          .value.toLowerCase()
+          .split(",")
+          .map((keyword) => keyword.trim())
+          .filter(Boolean);
         const checked = Object.fromEntries(
           CHECKBOX_FILTERS.map((id) => [id, $(id).checked]),
         );
 
         localStorage.setItem(
           FILTERS_KEY,
-          JSON.stringify({ maxPrice, maxDist, checked, sortBy }),
+          JSON.stringify({ maxPrice, maxDist, newHours, checked, sortBy }),
         );
 
         $("f-price-val").textContent = `CHF ${maxPrice}`;
@@ -1084,7 +1545,9 @@
           if (l.price > maxPrice) return false;
           if (l.dist !== null && l.dist > maxDist) return false;
           if (!checked["f-tracked"] && statusOf(l.url)) return false;
-          if (checked["f-new"] && !isNew(l)) return false;
+          if (newHours && !firstSeenWithin(l, newHours)) return false;
+          if (checked["f-permanent"] && l.hasEndDate) return false;
+          if (!matchesKeywords(l, keywords)) return false;
           for (const [id, flag] of Object.entries(SHOW_FILTERS)) {
             if (!checked[id] && l[flag]) return false;
           }
@@ -1122,12 +1585,12 @@
       function renderTable(listings) {
         if (allListings.length === 0) {
           showEmpty(
-            `No listings yet. Scan to fetch them from ${SOURCES_LABEL}.`,
+            t("empty_none", { sources: joinList(SOURCE_SITES) }),
           );
           return;
         }
         if (listings.length === 0) {
-          showEmpty("No listings match these filters.");
+          showEmpty(t("empty_filtered"));
           return;
         }
 
@@ -1137,11 +1600,14 @@
         const unmapped = listings.filter((l) => !l.lat || !l.lng).length;
         const notes = [
           listings.length > MAX_ROWS
-            ? `Showing the first ${MAX_ROWS} of ${listings.length}`
-            : `${listings.length} of ${allListings.length}`,
+            ? t("showing_first", { max: MAX_ROWS, total: listings.length })
+            : t("showing_of", {
+                shown: listings.length,
+                total: allListings.length,
+              }),
         ];
         if (unmapped > 0) {
-          notes.push(`${unmapped} without coordinates are not on the map`);
+          notes.push(t("unmapped", { n: unmapped }));
         }
         $("listings-note").textContent = notes.join(". ");
 
@@ -1151,27 +1617,39 @@
             (l) => `
               <tr class="listing-row" data-id="${esc(l.id)}">
                 <td class="rent">${esc(l.price)}</td>
-                <td class="nowrap">${l.dist !== null ? l.dist.toFixed(1) + " km" : ""}</td>
+                <td class="nowrap">
+                  ${l.dist !== null ? `<div>${l.dist.toFixed(1)} km</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
+                </td>
                 <td>
                   <div>
-                    ${esc(l.address || "Address not fetched")}
-                    ${statusOf(l.url) ? `<span class="status">${statusOf(l.url)}</span>` : ""}
+                    ${esc(l.address || t("address_missing"))}
+                    ${statusOf(l.url) ? `<span class="status">${t(`status_${statusOf(l.url)}`)}</span>` : ""}
                   </div>
                   ${summary(l) ? `<div class="description">${esc(summary(l))}</div>` : ""}
                 </td>
                 <td class="available">
-                  <div>${esc(l.availableFrom || "")}</div>
-                  ${endDate(l) ? `<div class="secondary">until ${esc(endDate(l))}</div>` : ""}
+                  <div>${esc(availability(l))}</div>
+                  ${endDate(l) ? `<div class="secondary">${esc(t("until", { date: endDate(l) }))}</div>` : ""}
                 </td>
                 <td><span class="source"><i class="dot dot-${esc(l.source)}"></i>${esc(l.source)}</span></td>
                 <td>
                   <div class="row-actions">
-                    <a href="${esc(l.url)}" target="_blank" rel="noopener">Open</a>
+                    <a href="${esc(l.url)}" target="_blank" rel="noopener">${t("open")}</a>
                   </div>
                 </td>
               </tr>`,
           )
           .join("");
+      }
+
+      const AVAILABILITY_KEYS = {
+        Immediately: "avail_immediately",
+        "By agreement": "avail_agreement",
+      };
+
+      function availability(l) {
+        const key = AVAILABILITY_KEYS[l.availableFrom];
+        return key ? t(key) : l.availableFrom || "";
       }
 
       function endDate(l) {
@@ -1202,35 +1680,35 @@
         const days = Math.floor(
           (Date.now() - new Date(date).getTime()) / 86400000,
         );
-        if (days <= 0) return "today";
-        return `${plural(days, "day")} ago`;
+        if (days <= 0) return t("today");
+        return counted("days_ago", days);
       }
 
       const TRACKED_GROUPS = [
-        ["applied", "Applied"],
-        ["shortlisted", "Shortlisted"],
-        ["rejected", "Rejected"],
-        ["excluded", "Excluded"],
+        "applied",
+        "shortlisted",
+        "rejected",
+        "excluded",
       ];
       const TRACKED_ACTIONS = {
         applied: [
-          ["show-message", "Show message"],
-          ["reject", "Mark rejected"],
-          ["untrack", "Remove"],
+          ["show-message", "act_show_message"],
+          ["reject", "act_reject"],
+          ["untrack", "act_remove"],
         ],
         shortlisted: [
-          ["apply", "Mark applied"],
-          ["untrack", "Remove"],
+          ["apply", "act_apply"],
+          ["untrack", "act_remove"],
         ],
-        rejected: [["untrack", "Remove"]],
-        excluded: [["untrack", "Restore"]],
+        rejected: [["untrack", "act_remove"]],
+        excluded: [["untrack", "act_restore"]],
       };
 
       function actionButtons(actions) {
         return actions
           .map(
             ([action, label]) =>
-              `<button class="button" type="button" data-action="${action}">${label}</button>`,
+              `<button class="button" type="button" data-action="${action}">${t(label)}</button>`,
           )
           .join("");
       }
@@ -1239,18 +1717,18 @@
         $("tab-applications-count").textContent = (tracker.applied || []).length;
 
         const groups = TRACKED_GROUPS.filter(
-          ([category]) => (tracker[category] || []).length > 0,
+          (category) => (tracker[category] || []).length > 0,
         );
         if (groups.length === 0) {
           $("applied-list").innerHTML =
-            '<p class="empty">Nothing tracked yet. Select a listing to shortlist it or mark it as applied.</p>';
+            `<p class="empty">${t("nothing_tracked")}</p>`;
           return;
         }
 
         $("applied-list").innerHTML = groups
           .map(
-            ([category, label]) => `
-              <h3 class="group-head">${label} <span class="tab-count">${tracker[category].length}</span></h3>
+            (category) => `
+              <h3 class="group-head">${t(`group_${category}`)} <span class="tab-count">${tracker[category].length}</span></h3>
               ${tracker[category]
                 .map(
                   (e) => `
@@ -1259,6 +1737,7 @@
                       <span class="rent">${e.price ? "CHF " + esc(e.price) : ""}</span>
                       <span class="secondary">${esc(e.reason || daysAgo(e.date))}</span>
                       <span class="row-actions">${actionButtons(TRACKED_ACTIONS[category])}</span>
+                      ${noteFor(e.url) ? `<span class="application-note">${esc(t("note_prefix", { text: noteFor(e.url) }))}</span>` : ""}
                     </div>`,
                 )
                 .join("")}`,
@@ -1266,20 +1745,111 @@
           .join("");
       }
 
+      function detailSections(details) {
+        const sections = DETAIL_SECTIONS.filter((key) => details?.[key]);
+        if (sections.length === 0) return "";
+        return `<dl class="detail-sections">${sections
+          .map(
+            (key) =>
+              `<div><dt>${t(`sec_${key}`)}</dt><dd>${esc(details[key])}</dd></div>`,
+          )
+          .join("")}</dl>`;
+      }
+
       function detailRow(l) {
         const status = statusOf(l.url);
-        const actions = [["draft", "Draft message"]];
-        if (status !== "applied") actions.push(["apply", "Mark applied"]);
+        const actions = [["draft", "act_draft"]];
+        if (status !== "applied") actions.push(["apply", "act_apply"]);
         if (!status) {
-          actions.push(["shortlist", "Shortlist"], ["exclude", "Exclude"]);
+          actions.push(["shortlist", "act_shortlist"], ["exclude", "act_exclude"]);
         } else {
-          actions.push(["untrack", "Stop tracking"]);
+          actions.push(["untrack", "act_untrack"]);
         }
         const row = document.createElement("tr");
         row.className = "detail-row";
         row.dataset.url = l.url;
-        row.innerHTML = `<td colspan="6"><div class="row-actions">${actionButtons(actions)}</div></td>`;
+        row.dataset.id = l.id;
+        row.innerHTML = `
+          <td colspan="6">
+            <div class="detail">
+              <div data-role="sections"></div>
+              <div class="detail-note">
+                <input class="text-input" type="text" data-role="note" aria-label="${t("note_label")}" placeholder="${t("note_placeholder")}" value="${esc(noteFor(l.url))}" />
+                <button class="button" type="button" data-action="save-note">${t("save_note")}</button>
+              </div>
+              <div class="row-actions" data-role="actions">
+                ${actionButtons(actions)}
+                <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
+              </div>
+              <div class="row-actions" data-role="exclude-form" hidden>
+                <input class="text-input" type="text" data-role="reason" aria-label="${t("reason_label")}" placeholder="${t("reason_placeholder")}" />
+                <button class="button" type="button" data-action="confirm-exclude">${t("act_exclude")}</button>
+                <button class="button" type="button" data-action="cancel-exclude">${t("cancel")}</button>
+              </div>
+            </div>
+          </td>`;
+        loadDetails(row, l);
         return row;
+      }
+
+      async function loadDetails(row, l) {
+        let details = null;
+        try {
+          const res = await fetch(
+            `/api/listing-details?url=${encodeURIComponent(l.url)}`,
+          );
+          details = await res.json();
+        } catch {}
+        const sections = detailSections(details);
+        row.querySelector("[data-role='sections']").innerHTML = sections;
+        row.previousElementSibling?.classList.toggle(
+          "has-details",
+          sections !== "",
+        );
+        row.querySelector("[data-action='fetch-details']").hidden =
+          Boolean(details) || !FETCHABLE_SOURCES.includes(l.source);
+      }
+
+      async function fetchDetails(row, button) {
+        button.disabled = true;
+        button.textContent = t("fetching");
+        try {
+          const res = await fetch("/api/fetch-details", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: row.dataset.url }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          const id = row.dataset.id;
+          await load();
+          selectListing(id);
+        } catch (e) {
+          openDialog(t("fetch_failed"), e.message);
+          button.disabled = false;
+          button.textContent = t("act_fetch");
+        }
+      }
+
+      async function saveNote(row, button) {
+        const url = row.dataset.url;
+        const text = row.querySelector("[data-role='note']").value;
+        await fetch("/api/note", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, text }),
+        });
+        tracker.notes = tracker.notes || {};
+        if (text.trim()) tracker.notes[noteKey(url)] = text.trim();
+        else delete tracker.notes[noteKey(url)];
+        renderApplications();
+        button.textContent = t("saved");
+      }
+
+      function toggleExcludeForm(row, open) {
+        row.querySelector("[data-role='actions']").hidden = open;
+        row.querySelector("[data-role='exclude-form']").hidden = !open;
+        if (open) row.querySelector("[data-role='reason']").focus();
       }
 
       function selectListing(id) {
@@ -1291,7 +1861,7 @@
         flyToListing(id);
       }
 
-      async function track(url, action) {
+      async function track(url, action, reason) {
         const listing = allListings.find(
           (l) => listingKey(l.url) === listingKey(url),
         );
@@ -1303,6 +1873,7 @@
             action,
             address: listing?.address,
             price: listing?.price,
+            reason,
           }),
         });
         await load();
@@ -1314,14 +1885,14 @@
         const minutes = Math.floor(
           (Date.now() - new Date(isoTime).getTime()) / 60000,
         );
-        if (minutes < 1) return "just now";
-        if (minutes < 60) return `${plural(minutes, "minute")} ago`;
+        if (minutes < 1) return t("just_now");
+        if (minutes < 60) return counted("minutes_ago", minutes);
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${plural(hours, "hour")} ago`;
-        return `${plural(Math.floor(hours / 24), "day")} ago`;
+        if (hours < 24) return counted("hours_ago", hours);
+        return counted("days_ago", Math.floor(hours / 24));
       }
 
-      function renderScanStatus(scanStatus) {
+      function renderScanStatus(scanStatus, newCount = 0) {
         const status = $("scan-status");
         if (!scanStatus) {
           status.textContent = "";
@@ -1332,10 +1903,11 @@
           .map(([source]) => source);
         status.classList.toggle("is-error", failedSources.length > 0);
         status.textContent =
-          `Last scan ${timeAgo(scanStatus.finishedAt)}.` +
+          t("last_scan", { when: timeAgo(scanStatus.finishedAt) }) +
           (failedSources.length > 0
-            ? ` ${failedSources.join(" and ")} failed, showing older data.`
-            : "");
+            ? ` ${t("sources_failed", { sources: joinList(failedSources) })}`
+            : "") +
+          (newCount > 0 ? ` ${counted("new_listings", newCount)}.` : "");
       }
 
       async function loadScanStatus() {
@@ -1344,27 +1916,53 @@
         } catch {}
       }
 
+      let autoScanTimer = null;
+
+      function setAutoScan(minutes) {
+        clearInterval(autoScanTimer);
+        autoScanTimer = null;
+        if (!minutes) return;
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+        }
+        autoScanTimer = setInterval(() => {
+          if (!$("scan-button").disabled) scan();
+        }, minutes * 60000);
+      }
+
+      function notifyNewListings(newCount) {
+        if (!autoScanTimer || newCount === 0) return;
+        if (!("Notification" in window)) return;
+        if (Notification.permission !== "granted") return;
+        new Notification("Zurich housing tool", {
+          body: t("notify_body", { count: counted("new_listings", newCount) }),
+        });
+      }
+
       async function scan() {
         const button = $("scan-button");
         const status = $("scan-status");
         button.disabled = true;
-        button.textContent = "Scanning";
+        button.textContent = t("scanning");
         status.classList.remove("is-error");
-        status.textContent = "This takes a few minutes.";
+        status.textContent = t("scan_wait");
 
         try {
           const res = await fetch("/api/scan", { method: "POST" });
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          const knownIds = new Set(allListings.map((l) => l.id));
           await load();
-          renderScanStatus(data.status);
+          const newCount = allListings.filter((l) => !knownIds.has(l.id)).length;
+          renderScanStatus(data.status, newCount);
+          notifyNewListings(newCount);
         } catch (e) {
           status.classList.add("is-error");
-          status.textContent = `Scan failed. ${e.message}`;
+          status.textContent = t("scan_failed", { error: e.message });
         }
 
         button.disabled = false;
-        button.textContent = "Scan for listings";
+        button.textContent = t("scan");
       }
 
       // Messages
@@ -1373,7 +1971,7 @@
         $("dialog-title").textContent = title;
         $("dialog-body").textContent = body;
         $("dialog-copy").hidden = !copyable;
-        $("dialog-copy").textContent = "Copy message";
+        $("dialog-copy").textContent = t("copy_message");
         $("message-dialog").showModal();
       }
 
@@ -1389,14 +1987,14 @@
           (a) => a.content.includes(url) || url.includes(a.id.split("-")[0]),
         );
         openDialog(
-          "Sent message",
-          match ? match.content : "No saved message for this listing.",
+          t("sent_message"),
+          match ? match.content : t("no_saved_message"),
         );
       }
 
       async function draftMessage(url, button) {
         button.disabled = true;
-        button.textContent = "Drafting";
+        button.textContent = t("drafting");
         try {
           const res = await fetch("/api/generate", {
             method: "POST",
@@ -1405,15 +2003,15 @@
           });
           const data = await res.json();
           if (data.error) {
-            openDialog("Could not draft a message", data.error);
+            openDialog(t("draft_failed"), data.error);
           } else {
-            openDialog("Application message", data.message, { copyable: true });
+            openDialog(t("application_message"), data.message, { copyable: true });
           }
         } catch (e) {
-          openDialog("Could not draft a message", e.message);
+          openDialog(t("draft_failed"), e.message);
         } finally {
           button.disabled = false;
-          button.textContent = "Draft message";
+          button.textContent = t("act_draft");
         }
       }
 
@@ -1725,7 +2323,7 @@
         link.href = properties.url;
         link.target = "_blank";
         link.rel = "noopener";
-        link.textContent = "Open listing";
+        link.textContent = t("open_listing");
         node.append(rent, place, link);
         return node;
       }
@@ -1772,6 +2370,19 @@
         return row;
       }
 
+      let targetMarker = null;
+
+      function setTarget(next) {
+        target = next;
+        localStorage.setItem(TARGET_KEY, next.label);
+        measureDistances();
+        map.getSource("rings")?.setData(ringFeatures());
+        targetMarker.setLngLat([next.lng, next.lat]);
+        targetMarker.getPopup().setText(next.label);
+        map.flyTo({ center: [next.lng, next.lat], speed: 1.2 });
+        applyFilters();
+      }
+
       function initMap() {
         map = new maplibregl.Map({
           container: "map",
@@ -1800,7 +2411,7 @@
 
         const pin = document.createElement("div");
         pin.className = "target-pin";
-        new maplibregl.Marker({ element: pin })
+        targetMarker = new maplibregl.Marker({ element: pin })
           .setLngLat([target.lng, target.lat])
           .setPopup(new maplibregl.Popup({ offset: 14 }).setText(target.label))
           .addTo(map);
@@ -1847,6 +2458,15 @@
         });
       });
       $("filters").addEventListener("input", applyFilters);
+      $("target-select").addEventListener("change", (e) => {
+        setTarget(targets.find((t) => t.label === e.target.value));
+      });
+      $("language").addEventListener("change", (e) => {
+        setLanguage(e.target.value);
+      });
+      $("auto-scan").addEventListener("change", (e) => {
+        setAutoScan(parseInt(e.target.value));
+      });
       $("filters").addEventListener("submit", (e) => e.preventDefault());
 
       function setSort(column) {
@@ -1875,6 +2495,7 @@
         if (!saved) return;
         $("f-price").value = saved.maxPrice;
         $("f-dist").value = saved.maxDist;
+        $("f-new").value = saved.newHours || 0;
         for (const [id, value] of Object.entries(saved.checked || {})) {
           if ($(id)) $(id).checked = value;
         }
@@ -1884,9 +2505,17 @@
       $("listings-body").addEventListener("click", (e) => {
         const button = e.target.closest("[data-action]");
         if (button) {
-          const url = button.closest("tr").dataset.url;
-          if (button.dataset.action === "draft") draftMessage(url, button);
-          else track(url, button.dataset.action);
+          const row = button.closest("tr");
+          const url = row.dataset.url;
+          const action = button.dataset.action;
+          if (action === "draft") draftMessage(url, button);
+          else if (action === "fetch-details") fetchDetails(row, button);
+          else if (action === "save-note") saveNote(row, button);
+          else if (action === "exclude") toggleExcludeForm(row, true);
+          else if (action === "cancel-exclude") toggleExcludeForm(row, false);
+          else if (action === "confirm-exclude") {
+            track(url, "exclude", row.querySelector("[data-role='reason']").value);
+          } else track(url, action);
           return;
         }
         const row = e.target.closest("tr.listing-row");
@@ -1908,7 +2537,7 @@
 
       $("dialog-copy").addEventListener("click", () => {
         navigator.clipboard.writeText($("dialog-body").textContent);
-        $("dialog-copy").textContent = "Copied";
+        $("dialog-copy").textContent = t("copied");
       });
       $("message-dialog").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) e.currentTarget.close();
@@ -1917,14 +2546,35 @@
       async function init() {
         try {
           const config = await (await fetch("/api/config")).json();
-          target = { ...target, ...config.target };
+          const configured = { ...target, ...config.target };
+          const preset = TARGET_PRESETS.find(
+            (t) =>
+              Math.abs(t.lat - configured.lat) < 0.0005 &&
+              Math.abs(t.lng - configured.lng) < 0.0005,
+          );
+          targets = preset ? TARGET_PRESETS : [configured, ...TARGET_PRESETS];
+          target =
+            targets.find((t) => t.label === localStorage.getItem(TARGET_KEY)) ||
+            preset ||
+            configured;
+          $("search-links").innerHTML = config.links
+            .map(
+              (link) =>
+                `<a href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)}</a>`,
+            )
+            .join(" ");
           if (config.maxPrice) $("f-price").value = config.maxPrice;
           $("f-gender").checked = !config.exclude.genderRestricted;
           $("f-student").checked = !config.exclude.studentHousing;
           $("f-short").checked = !config.exclude.shortSublets;
         } catch {}
+        $("language").value = language;
+        translatePage();
         restoreFilters();
-        $("legend-target").textContent = target.label;
+        $("target-select").innerHTML = targets
+          .map((t) => `<option>${esc(t.label)}</option>`)
+          .join("");
+        $("target-select").value = target.label;
         initMap();
         loadMessages();
         loadScanStatus();

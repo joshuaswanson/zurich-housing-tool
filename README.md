@@ -33,7 +33,7 @@ node server.js
 
 The dashboard is at http://localhost:3456.
 
-**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it. Message generation reads your details from `profile.json`, which the setup script creates from `profile.example.json`.
+**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it. Message generation reads your details from `profile.json`, which the setup script creates from `profile.example.json` and which the dashboard's Profile tab can edit. The model is `llm.model` in `config.json` (default `llama3.2`). When that model is not installed, the smallest installed Ollama model is used.
 
 Edit `config.json` to set your target location:
 
@@ -133,9 +133,11 @@ npm run dashboard                       # Same thing
 
 The dashboard follows the system light or dark setting and is available in English and German. The map sits on the left and the Listings and Applications tabs on the right. It covers nearly everything the command line tools do.
 
-- **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
+- **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings and whole flats are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
 - **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
 - **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with notes and the exclusion reason where one exists.
+- **Profile tab**: A form for the details the LLM uses to draft application messages. Saving it writes `profile.json`.
+- **Drafting a message**: The draft opens in an editable dialog. It can be copied, or saved so that it shows up under "Show message" for that listing.
 - **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
 - **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
 - **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
@@ -152,9 +154,9 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 **flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. The pin API returns at most 1000 pins per request, so the scan splits the search area into quadrants whenever a response reaches that limit. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
 
-**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
+**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless. The reCAPTCHA library occasionally fails to download, so the scraper reloads the page once when that happens.
 
-**ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped.
+**ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped. A post whose price is a nightly or weekly rate is labelled as such and treated as a short sublet.
 
 **students.ch** has a small housing board for students. The tool reads its public list page for the Zurich area and the detail page of each listing, then geocodes the address. It carries about 10 listings at a time.
 

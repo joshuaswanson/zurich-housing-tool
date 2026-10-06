@@ -5,11 +5,11 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 ## What it does
 
 - **LLM-generated application messages**: A local LLM (via [Ollama](https://ollama.com)) writes an application message per listing from your profile and the listing description. You enter your details once. Output is German or English, or both.
-- **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public pin API), and [ronorp.net](https://ronorp.net)
+- **Scrapes 3 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public API), and [ronorp.net](https://ronorp.net) (public API)
 - **Filters**: Optionally hide WOKO/JUWO (age-restricted student housing), gender-restricted listings, short sublets (<2 months), and listings from bulk corporate posters (A/NTERIM, NextGen Properties, fake-address listings). All configurable.
 - **Geocodes addresses** to compute walking distance from a target location (ETH Zentrum, UZH, or any coordinates)
 - **Tracks applications** to prevent duplicate applications to the same listing
-- **Web dashboard** with a map, sortable listings table, and application tracker
+- **Web dashboard** with a map, a sortable and filterable listings table, and application tracking
 - **Desktop notifications** when new listings appear (macOS)
 
 ## Setup
@@ -28,7 +28,7 @@ node server.js
 
 The dashboard is at http://localhost:3456.
 
-**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it.
+**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it. Message generation reads your details from `profile.json`, which the setup script creates from `profile.example.json`.
 
 Edit `config.json` to set your target location:
 
@@ -126,7 +126,15 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-The dashboard follows the system light or dark setting and has a map, a sortable and filterable listings table, and the application tracker. Selecting a listing moves the map to it and shows buttons to shortlist it, mark it as applied, or exclude it. The Applications tab lists everything tracked. The "Scan for listings" button runs a full scrape and batch-fetches listing details for geocoding.
+The dashboard follows the system light or dark setting. The map sits on the left and the Listings and Applications tabs on the right.
+
+- **Listings tab**: A table sortable by rent or distance, with sliders for maximum rent and maximum distance. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Another switch limits the list to listings first seen in the last 24 hours.
+- **Selecting a listing**: The map moves to the listing and buttons appear to draft a message, shortlist it, mark it as applied, or exclude it.
+- **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with the exclusion reason where one exists.
+- **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target.
+- **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding.
+
+Filter and sort settings are saved in the browser.
 
 ### Useful links
 
@@ -136,11 +144,13 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 ## How it works
 
-**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally.
+**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
 
 **wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
 
 **ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped.
+
+**The dashboard map** uses [MapLibre GL JS](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org) vector tiles, which need no API key.
 
 **Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently, so later distance calculations need no network calls.
 
@@ -153,11 +163,16 @@ monitor.js            Scan all sources, watch mode, desktop notifications
 search.js             Search & filter cached listings
 fetch-listing.mjs     Fetch full listing details (wgzimmer + flatfox)
 track.js              Application tracker + dashboard
+server.js             Web dashboard server and API
+public/index.html     Web dashboard page
 wgzimmer-scrape.mjs   CloakBrowser wgzimmer scraper
 ronorp-scrape.mjs     ronorp listings via its public API
-lib.js                Shared utilities (config, distance, geocoding, cache)
+lib.js                Shared utilities (config, distance, geocoding, cache, listing filters)
+setup.sh              One-time setup
 config.json           Your config (gitignored)
 config.example.json   Config template
+profile.json          Your details for message generation (gitignored)
+profile.example.json  Profile template
 tracker.json          Your application data (gitignored)
 data/                 All cached data (gitignored)
 ```

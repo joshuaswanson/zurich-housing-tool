@@ -137,7 +137,7 @@ The dashboard follows the system light or dark setting. The map sits on the left
 - **Selecting a listing**: The map moves to the listing and buttons appear to draft a message, shortlist it, mark it as applied, or exclude it.
 - **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with the exclusion reason where one exists.
 - **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target.
-- **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding.
+- **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
 
 Filter and sort settings are saved in the browser.
 
@@ -149,7 +149,7 @@ node monitor.js links                   # Housing search URLs for Zurich
 
 ## How it works
 
-**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
+**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. The pin API returns at most 1000 pins per request, so the scan splits the search area into quadrants whenever a response reaches that limit. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
 
 **wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless.
 

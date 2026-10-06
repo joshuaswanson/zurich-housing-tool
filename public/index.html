@@ -2876,14 +2876,38 @@ function renderShowMore(total) {
         };
       }
 
+      const SPREAD_STEP_DEGREES = 0.0005;
+      const GOLDEN_ANGLE = 2.39996;
+
+      // Listings known only by postcode share one point. They are fanned out
+      // around it so that each dot can be seen and clicked.
+      function spreadSharedPoints(listings) {
+        const groups = new Map();
+        return listings.map((l) => {
+          if (!l.approximate) return [l.lng, l.lat];
+          const key = `${l.lat.toFixed(3)},${l.lng.toFixed(3)}`;
+          if (!groups.has(key)) groups.set(key, { centre: l, count: 0 });
+          const group = groups.get(key);
+          const index = group.count++;
+          const { lat, lng } = group.centre;
+          const radius = SPREAD_STEP_DEGREES * Math.sqrt(index);
+          const angle = index * GOLDEN_ANGLE;
+          return [
+            lng + (radius * Math.cos(angle)) / Math.cos((lat * Math.PI) / 180),
+            lat + radius * Math.sin(angle),
+          ];
+        });
+      }
+
       function setMapListings(listings) {
+        const mapped = listings.filter((l) => l.lat && l.lng);
+        const positions = spreadSharedPoints(mapped);
         listingsGeojson = {
           type: "FeatureCollection",
-          features: listings
-            .filter((l) => l.lat && l.lng)
-            .map((l) => ({
+          features: mapped
+            .map((l, i) => ({
               type: "Feature",
-              geometry: { type: "Point", coordinates: [l.lng, l.lat] },
+              geometry: { type: "Point", coordinates: positions[i] },
               properties: {
                 id: l.id,
                 source: l.source,

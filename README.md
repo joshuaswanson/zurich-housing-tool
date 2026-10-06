@@ -148,8 +148,10 @@ Filter, sort, target, language, and theme settings are saved in the browser.
 ### Tests
 
 ```bash
-npm test                                # Filters and the flatfox, ronorp, students.ch and wgzimmer parsers
+npm test                                # Filters, parsers, the wgzimmer search flow and the server endpoints
 ```
+
+The tests use no network. The server tests run against a temporary data directory, set through the `ZHT_HOME` environment variable. The wgzimmer search tests open a saved results page in the bundled browser.
 
 ### Useful links
 

@@ -143,7 +143,7 @@ The dashboard is available in English and German and follows the system light or
 - **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
 - **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
 
-Filter, sort, target, language, and theme settings are saved in the browser. The footer links to the search pages listed under `links` in `config.json`.
+Filter, sort, target, language, and theme settings are saved in the browser.
 
 ### Useful links
 

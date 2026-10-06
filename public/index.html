@@ -416,7 +416,7 @@
         background: var(--surface);
         color: var(--ink);
         border-radius: 8px;
-        padding: 10px 12px;
+        padding: 10px 34px 10px 12px;
         font-size: 13px;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
       }
@@ -438,7 +438,20 @@
       }
 
       .maplibregl-popup-close-button {
+        top: 6px;
+        right: 6px;
+        width: 22px;
+        height: 22px;
+        padding: 0 0 2px;
+        border-radius: 50%;
         color: var(--muted);
+        font-size: 17px;
+        line-height: 1;
+      }
+
+      .maplibregl-popup-close-button:hover {
+        background: var(--row-hover);
+        color: var(--ink);
       }
 
       .popup-rent {

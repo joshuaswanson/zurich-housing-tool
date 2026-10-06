@@ -59,14 +59,6 @@ Edit `config.json` to set your target location:
 }
 ```
 
-**Common target locations:**
-| Location | Lat | Lng |
-|----------|-----|-----|
-| ETH Zentrum | 47.3764 | 8.5483 |
-| ETH Honggerberg | 47.4085 | 8.5075 |
-| UZH Zentrum | 47.3744 | 8.5508 |
-| UZH Irchel | 47.3975 | 8.5495 |
-
 ## Commands
 
 ### Scan for listings

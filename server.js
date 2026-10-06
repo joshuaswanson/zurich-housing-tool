@@ -215,6 +215,28 @@ function runNodeScript(args) {
   });
 }
 
+const DETAILS_PER_SCAN = 50;
+
+/**
+ * wgzimmer listings carry no address until their detail page is fetched.
+ * Returns the cheapest untracked ones that have not been fetched yet.
+ */
+function unfetchedWgzimmerUrls(limit) {
+  const tracker = readJson(TRACKER_FILE, {});
+  const trackedKeys = new Set(
+    TRACKER_CATEGORIES.flatMap((category) => tracker[category] || []).map(
+      (entry) => listingKey(entry.url),
+    ),
+  );
+  const urls = readJson(WGZIMMER_LISTINGS_FILE, [])
+    .filter((l) => l.price && l.price <= MAX_PRICE)
+    .filter((l) => !loadCachedListing(l.url))
+    .filter((l) => !trackedKeys.has(listingKey(l.url)))
+    .sort((a, b) => a.price - b.price)
+    .map((l) => l.url);
+  return [...new Set(urls)].slice(0, limit);
+}
+
 app.post("/api/scan", async (req, res) => {
   if (scanInProgress) {
     return res.status(409).json({ error: "A scan is already running." });
@@ -223,16 +245,9 @@ app.post("/api/scan", async (req, res) => {
   try {
     // Scan all sources
     await runNodeScript(["monitor.js", "scan", "--fresh"]);
-    // Batch fetch top 50 unfetched listings for geocoding
     try {
-      await runNodeScript([
-        "search.js",
-        "--not-tracked",
-        "--fetch",
-        "50",
-        "--limit",
-        "50",
-      ]);
+      const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
+      if (urls.length > 0) await runNodeScript(["fetch-listing.mjs", ...urls]);
     } catch {}
     res.json({ ok: true, status: readJson(SCAN_STATUS_FILE, null) });
   } catch (e) {

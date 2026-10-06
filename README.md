@@ -131,7 +131,7 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-The dashboard follows the system light or dark setting and is available in English and German. The map sits on the left and the Listings, Applications, Excluded, and Profile tabs on the right. It covers nearly everything the command line tools do.
+The dashboard is available in English and German and follows the system light or dark setting. A settings menu in the header changes the language, forces the light or dark theme, and turns on auto scan. The map sits on the left and the Listings, Applications, Excluded, and Profile tabs on the right. It covers nearly everything the command line tools do.
 
 - **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. The remaining filters sit behind a "More filters" button, which shows how many of them are active. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings and whole flats are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
 - **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
@@ -143,7 +143,7 @@ The dashboard follows the system light or dark setting and is available in Engli
 - **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
 - **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
 
-Filter, sort, target, and language settings are saved in the browser. The footer links to the search pages listed under `links` in `config.json`.
+Filter, sort, target, language, and theme settings are saved in the browser. The footer links to the search pages listed under `links` in `config.json`.
 
 ### Useful links
 

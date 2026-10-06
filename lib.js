@@ -7,9 +7,13 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Where config.json, profile.json, tracker.json and data/ live. The tests
+// point this at a temporary directory.
+const HOME_DIR = process.env.ZHT_HOME || __dirname;
+
 // ── Config loading ────────────────────────────────────────────────────────
 
-const CONFIG_FILE = path.join(__dirname, "config.json");
+const CONFIG_FILE = path.join(HOME_DIR, "config.json");
 const CONFIG_EXAMPLE_FILE = path.join(__dirname, "config.example.json");
 
 /**
@@ -30,7 +34,7 @@ export const ETH_ZENTRUM = { lat: config.target.lat, lng: config.target.lng };
 export const MAX_PRICE = config.search.maxPrice || 2000;
 export const MAX_DISTANCE_KM = 5;
 
-export const DATA_DIR = path.join(__dirname, "data");
+export const DATA_DIR = path.join(HOME_DIR, "data");
 export const SEEN_FILE = path.join(DATA_DIR, "seen.json");
 export const LISTINGS_DIR = path.join(DATA_DIR, "listings");
 export const WGZIMMER_CACHE_FILE = path.join(DATA_DIR, "wgzimmer_cache.json");
@@ -44,7 +48,8 @@ export const STUDENTS_CACHE_FILE = path.join(
   DATA_DIR,
   "students_cache.json",
 );
-export const TRACKER_FILE = path.join(__dirname, "tracker.json");
+export const TRACKER_FILE = path.join(HOME_DIR, "tracker.json");
+export const PROFILE_FILE = path.join(HOME_DIR, "profile.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
 
 /**

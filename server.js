@@ -6,7 +6,7 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import {
@@ -16,6 +16,7 @@ import {
   RONORP_CACHE_FILE,
   STUDENTS_CACHE_FILE,
   TRACKER_FILE,
+  PROFILE_FILE,
   LISTINGS_DIR,
   ETH_ZENTRUM,
   MAX_PRICE,
@@ -459,7 +460,6 @@ app.post("/api/application", (req, res) => {
 
 // ── API: Generate application message via Ollama ──────────────────────────
 
-const PROFILE_FILE = path.join(__dirname, "profile.json");
 const OLLAMA_URL = "http://localhost:11434";
 const DEFAULT_OLLAMA_MODEL = "llama3.2";
 
@@ -573,7 +573,11 @@ Write the application message now. Do not include a subject line. Start with a g
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`\n  zurich-housing-tool dashboard`);
-  console.log(`  http://localhost:${PORT}\n`);
-});
+export { app };
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  app.listen(PORT, () => {
+    console.log(`\n  zurich-housing-tool dashboard`);
+    console.log(`  http://localhost:${PORT}\n`);
+  });
+}

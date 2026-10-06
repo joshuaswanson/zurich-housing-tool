@@ -7,7 +7,7 @@
 
 This tool scrapes the major Swiss housing platforms, filters the results, tracks your applications, and generates an application message for each listing from its description.
 
-## What it does
+## Features
 
 - **LLM-generated application messages**: A local LLM (via [Ollama](https://ollama.com)) writes an application message per listing from your profile and the listing description. You enter your details once. Output is German or English, or both.
 - **Scrapes 4 platforms**: [wgzimmer.ch](https://wgzimmer.ch) (reCAPTCHA v3 bypass via [CloakBrowser](https://github.com/CloakHQ/CloakBrowser)), [flatfox.ch](https://flatfox.ch) (public API), [ronorp.net](https://ronorp.net) (public API), and [students.ch](https://www.students.ch/wohnen) (public pages)

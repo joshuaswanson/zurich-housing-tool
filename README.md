@@ -150,22 +150,6 @@ The tests use no network. The server tests run against a temporary data director
 node monitor.js links                   # Housing search URLs for Zurich
 ```
 
-## How it works
-
-**flatfox.ch** has a public pin API (`/api/v1/pin/`) that returns listing coordinates and prices without authentication. The tool computes haversine distance from the target and caches pins locally. The pin API returns at most 1000 pins per request, so the scan splits the search area into quadrants whenever a response reaches that limit. A second public endpoint (`/api/v1/public-listing/`) returns the address, description, and move-in date for 50 listings per request, and the scan calls it for every pin.
-
-**wgzimmer.ch** uses Google reCAPTCHA v3, which rejects the standard headless browsers (Playwright, Puppeteer, Firefox, WebKit, puppeteer-extra-stealth). The tool uses [CloakBrowser](https://github.com/CloakHQ/CloakBrowser), a Chromium build with source-level anti-detection patches that passes reCAPTCHA v3 fully headless. The search page occasionally stalls and the reCAPTCHA library occasionally fails to download, so the scraper loads the page up to three times. A listing's detail page is plain HTML, so the tool reads it with an ordinary request. The page includes the address, the description, and the coordinates of the listing's own map.
-
-**ronorp.net** is a smaller Zurich classifieds site with lower listing volume. Its marketplace has a public JSON API with a category for shared flats, which the tool reads directly. Posts marked as "wanted" are dropped. A post whose price is a nightly or weekly rate is labelled as such and treated as a short sublet.
-
-**students.ch** has a small housing board for students. The tool reads its public list page for the Zurich area and the detail page of each listing, then geocodes the address. It carries about 10 listings at a time.
-
-**The dashboard map** uses [MapLibre GL JS](https://maplibre.org) with [OpenFreeMap](https://openfreemap.org) vector tiles, which need no API key.
-
-**Geocoding** uses Nominatim (OpenStreetMap). Addresses are geocoded on fetch and cached permanently, so later distance calculations need no network calls.
-
-**Spam detection** flags listings that give a city-center address but are located elsewhere (Ruschlikon, Wollishofen, and similar), a pattern common to bulk corporate posters.
-
 ## File structure
 
 ```

@@ -10,7 +10,8 @@
     "fetch": "node fetch-listing.mjs",
     "search": "node search.js",
     "track": "node track.js",
-    "dashboard": "node server.js"
+    "dashboard": "node server.js",
+    "test": "node --test"
   },
   "dependencies": {
     "cloakbrowser": "^0.5.12",

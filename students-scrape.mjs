@@ -35,7 +35,7 @@ async function fetchHtml(url) {
   return resp.text();
 }
 
-function parseListRows(html) {
+export function parseListRows(html) {
   const rows = html.match(/<tr class="list_row_\d+">[\s\S]*?<\/tr>/g) || [];
   return rows
     .map((row) => {
@@ -57,7 +57,7 @@ function parseListRows(html) {
     .filter(Boolean);
 }
 
-function parseDetails(html) {
+export function parseDetails(html) {
   const until = html.match(/Frei bis: <strong>([^<]*)<\/strong>/)?.[1];
   return {
     address: decodeEntities(

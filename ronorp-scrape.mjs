@@ -49,7 +49,7 @@ function pricePeriod(price, text) {
   return null;
 }
 
-function toListing(post) {
+export function toListing(post) {
   const location = post.location || {};
   const price = post.price ? Math.round(parseFloat(post.price)) : null;
   const description = `${post.title} ${htmlToText(post.description)}`;

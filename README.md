@@ -136,20 +136,6 @@ npm run dashboard                       # Same thing
 - A listing that gives only a postcode is placed at the centre of that postcode area.
 - Auto scan runs while the page is open.
 
-### Tests
-
-```bash
-npm test                                # Filters, parsers, the wgzimmer search flow and the server endpoints
-```
-
-The tests use no network. The server tests run against a temporary data directory, set through the `ZHT_HOME` environment variable. The wgzimmer search tests open a saved results page in the bundled browser.
-
-### Useful links
-
-```bash
-node monitor.js links                   # Housing search URLs for Zurich
-```
-
 ## File structure
 
 ```

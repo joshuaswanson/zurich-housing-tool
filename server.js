@@ -20,6 +20,7 @@ import {
   MAX_PRICE,
   FLATFOX_SLUG,
   SEEN_FILE,
+  loadCachedListing,
   SCAN_STATUS_FILE,
   STUDENT_HOUSING_PATTERN,
   isGenderRestricted,
@@ -43,6 +44,11 @@ app.use(express.json());
 
 const SPAM_PATTERNS = buildSpamPatterns(config.exclude?.spam || []);
 const MIN_DURATION_DAYS = config.search?.minDuration || 60;
+const DESCRIPTION_LENGTH = 400;
+
+function hasEndDate(until) {
+  return Boolean(until) && until !== "?" && !/no time|unbefristet/i.test(until);
+}
 
 function readJson(file, fallback) {
   return fs.existsSync(file)
@@ -86,11 +92,12 @@ app.get("/api/listings", (req, res) => {
       lat: cached?.lat || null,
       lng: cached?.lng || null,
       address: cached?.address || l.neighborhood || null,
-      description: l.description?.substring(0, 200) || "",
+      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
       availableFrom: l.availableFrom || null,
       until: l.until || null,
       url: l.url,
       firstSeen: seen[id]?.firstSeen || null,
+      hasEndDate: hasEndDate(l.until),
       ...listingFlags(text, l),
     });
   }
@@ -113,12 +120,13 @@ app.get("/api/listings", (req, res) => {
       address: cached?.address || p.address || null,
       description: (cached?.description || p.description || "").substring(
         0,
-        200,
+        DESCRIPTION_LENGTH,
       ),
       availableFrom: cached?.availableFrom || p.availableFrom || null,
       until: null,
       url: `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`,
       firstSeen: seen[id]?.firstSeen || null,
+      hasEndDate: false,
       ...listingFlags(text, {}),
     });
   }
@@ -136,11 +144,12 @@ app.get("/api/listings", (req, res) => {
       lat: l.lat || null,
       lng: l.lng || null,
       address: l.address || null,
-      description: l.description?.substring(0, 200) || "",
+      description: l.description?.substring(0, DESCRIPTION_LENGTH) || "",
       availableFrom: l.availableFrom || null,
       until: null,
       url: l.url,
       firstSeen: seen[id]?.firstSeen || null,
+      hasEndDate: Boolean(l.isTemporary),
       ...listingFlags(l.description || "", {}),
     });
   }
@@ -207,6 +216,7 @@ app.get("/api/config", (req, res) => {
   res.json({
     target: { ...ETH_ZENTRUM, label: config.target.label },
     maxPrice: MAX_PRICE,
+    links: config.links || [],
     exclude: {
       genderRestricted: config.exclude?.genderRestricted !== false,
       studentHousing: config.exclude?.woko === true,
@@ -290,6 +300,76 @@ app.post("/api/track", (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Notes ───────────────────────────────────────────────────────────
+
+// Same key that track.js uses for notes.
+function noteKey(url) {
+  return (
+    url.match(
+      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+    )?.[1] || url
+  );
+}
+
+app.post("/api/note", (req, res) => {
+  const { url, text } = req.body;
+  if (!url) return res.status(400).json({ error: "url required" });
+  try {
+    const tracker = { notes: {}, ...readJson(TRACKER_FILE, {}) };
+    if (text?.trim()) tracker.notes[noteKey(url)] = text.trim();
+    else delete tracker.notes[noteKey(url)];
+    fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Full listing details ────────────────────────────────────────────
+
+const FETCHABLE_HOSTS = ["www.wgzimmer.ch", "wgzimmer.ch", "flatfox.ch"];
+
+function isFetchableUrl(url) {
+  try {
+    return FETCHABLE_HOSTS.includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+app.get("/api/listing-details", (req, res) => {
+  res.json(loadCachedListing(String(req.query.url || "")));
+});
+
+let detailFetchInProgress = false;
+
+app.post("/api/fetch-details", async (req, res) => {
+  const { url } = req.body;
+  if (!url || !isFetchableUrl(url)) {
+    return res
+      .status(400)
+      .json({ error: "Details can be fetched for wgzimmer and flatfox only." });
+  }
+  if (scanInProgress || detailFetchInProgress) {
+    return res
+      .status(409)
+      .json({ error: "A scan or another fetch is already running." });
+  }
+  detailFetchInProgress = true;
+  try {
+    await runNodeScript(["fetch-listing.mjs", url]);
+    const details = loadCachedListing(url);
+    if (!details) {
+      return res.status(502).json({ error: "The listing page gave no details." });
+    }
+    res.json({ details });
+  } catch (e) {
+    res.status(500).json({ error: e.message.substring(0, 100) });
+  } finally {
+    detailFetchInProgress = false;
   }
 });
 

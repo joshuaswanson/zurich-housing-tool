@@ -1310,6 +1310,40 @@
 
             // Scan
 
+      function timeAgo(isoTime) {
+        const minutes = Math.floor(
+          (Date.now() - new Date(isoTime).getTime()) / 60000,
+        );
+        if (minutes < 1) return "just now";
+        if (minutes < 60) return `${plural(minutes, "minute")} ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${plural(hours, "hour")} ago`;
+        return `${plural(Math.floor(hours / 24), "day")} ago`;
+      }
+
+      function renderScanStatus(scanStatus) {
+        const status = $("scan-status");
+        if (!scanStatus) {
+          status.textContent = "";
+          return;
+        }
+        const failedSources = Object.entries(scanStatus.sources)
+          .filter(([, result]) => !result.ok)
+          .map(([source]) => source);
+        status.classList.toggle("is-error", failedSources.length > 0);
+        status.textContent =
+          `Last scan ${timeAgo(scanStatus.finishedAt)}.` +
+          (failedSources.length > 0
+            ? ` ${failedSources.join(" and ")} failed, showing older data.`
+            : "");
+      }
+
+      async function loadScanStatus() {
+        try {
+          renderScanStatus(await (await fetch("/api/scan-status")).json());
+        } catch {}
+      }
+
       async function scan() {
         const button = $("scan-button");
         const status = $("scan-status");
@@ -1323,7 +1357,7 @@
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
           await load();
-          status.textContent = "Scan finished.";
+          renderScanStatus(data.status);
         } catch (e) {
           status.classList.add("is-error");
           status.textContent = `Scan failed. ${e.message}`;
@@ -1893,6 +1927,7 @@
         $("legend-target").textContent = target.label;
         initMap();
         loadMessages();
+        loadScanStatus();
         load();
       }
 

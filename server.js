@@ -20,6 +20,7 @@ import {
   MAX_PRICE,
   FLATFOX_SLUG,
   SEEN_FILE,
+  SCAN_STATUS_FILE,
   STUDENT_HOUSING_PATTERN,
   isGenderRestricted,
   isShortSublet,
@@ -188,12 +189,16 @@ app.post("/api/scan", async (req, res) => {
         "50",
       ]);
     } catch {}
-    res.json({ ok: true });
+    res.json({ ok: true, status: readJson(SCAN_STATUS_FILE, null) });
   } catch (e) {
     res.status(500).json({ error: e.message.substring(0, 100) });
   } finally {
     scanInProgress = false;
   }
+});
+
+app.get("/api/scan-status", (req, res) => {
+  res.json(readJson(SCAN_STATUS_FILE, null));
 });
 
 // ── API: Get config ───────────────────────────────────────────────────────

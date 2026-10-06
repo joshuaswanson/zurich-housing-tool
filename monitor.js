@@ -24,6 +24,7 @@ import {
   WGZIMMER_CACHE_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
+  SCAN_STATUS_FILE,
   fetchFlatfoxDetails,
   RONORP_CACHE_FILE,
   ensureDataDir,
@@ -44,20 +45,51 @@ const searchRegion = cfgSearch.region || "zurich-stadt";
 
 // ── Flatfox Source ──────────────────────────────────────────────────────────
 
-async function fetchFlatfox() {
+const FLATFOX_PIN_LIMIT = 1000;
+const FLATFOX_MAX_SPLIT_DEPTH = 4;
+
+/**
+ * Fetch every pin inside the bounds. A response that reaches the API limit
+ * may be truncated, so the area is then split into quadrants and each one
+ * fetched separately.
+ */
+async function fetchFlatfoxPins(bounds, depth = 0) {
   const url = new URL("https://flatfox.ch/api/v1/pin/");
-  url.searchParams.set("north", FLATFOX_BOUNDS.north);
-  url.searchParams.set("south", FLATFOX_BOUNDS.south);
-  url.searchParams.set("east", FLATFOX_BOUNDS.east);
-  url.searchParams.set("west", FLATFOX_BOUNDS.west);
+  url.searchParams.set("north", bounds.north);
+  url.searchParams.set("south", bounds.south);
+  url.searchParams.set("east", bounds.east);
+  url.searchParams.set("west", bounds.west);
   url.searchParams.set("object_category", "SHARED");
   url.searchParams.set("max_price", MAX_PRICE);
   url.searchParams.set("ordering", "-created");
-  url.searchParams.set("max_count", "400");
+  url.searchParams.set("max_count", FLATFOX_PIN_LIMIT);
 
   const resp = await fetch(url.toString());
   if (!resp.ok) throw new Error(`Flatfox API ${resp.status}`);
   const pins = await resp.json();
+  if (pins.length < FLATFOX_PIN_LIMIT || depth >= FLATFOX_MAX_SPLIT_DEPTH) {
+    return pins;
+  }
+
+  const midLat = (bounds.north + bounds.south) / 2;
+  const midLng = (bounds.east + bounds.west) / 2;
+  const quadrants = [
+    { ...bounds, south: midLat, east: midLng },
+    { ...bounds, south: midLat, west: midLng },
+    { ...bounds, north: midLat, east: midLng },
+    { ...bounds, north: midLat, west: midLng },
+  ];
+  const all = [];
+  for (const quadrant of quadrants) {
+    all.push(...(await fetchFlatfoxPins(quadrant, depth + 1)));
+  }
+  return all;
+}
+
+async function fetchFlatfox() {
+  const pinsByPk = new Map();
+  for (const p of await fetchFlatfoxPins(FLATFOX_BOUNDS)) pinsByPk.set(p.pk, p);
+  const pins = [...pinsByPk.values()];
 
   try {
     const details = await fetchFlatfoxDetails(pins.map((p) => p.pk));
@@ -208,6 +240,9 @@ function printListings(
 
 export async function refresh() {
   const allListings = [];
+  const sources = {};
+  const succeeded = (count) => ({ ok: true, count });
+  const failed = (error) => ({ ok: false, error });
 
   // Flatfox
   process.stdout.write("  Scanning flatfox.ch...");
@@ -215,8 +250,10 @@ export async function refresh() {
     const ff = await fetchFlatfox();
     console.log(` ${ff.length} listings found`);
     allListings.push(...ff);
+    sources.flatfox = succeeded(ff.length);
   } catch (e) {
     console.log(` error: ${e.message}`);
+    sources.flatfox = failed(e.message);
   }
 
   // wgzimmer
@@ -226,11 +263,14 @@ export async function refresh() {
     if (wg.length > 0) {
       console.log(` ${wg.length} listings found`);
       allListings.push(...wg);
+      sources.wgzimmer = succeeded(wg.length);
     } else {
       console.log(" 0 listings (scraper may have failed)");
+      sources.wgzimmer = failed("0 listings returned");
     }
   } catch (e) {
     console.log(` blocked (${e.message.substring(0, 50)})`);
+    sources.wgzimmer = failed(e.message);
   }
 
   // ronorp
@@ -252,9 +292,17 @@ export async function refresh() {
       }));
     console.log(` ${rnFormatted.length} listings found`);
     allListings.push(...rnFormatted);
+    sources.ronorp = succeeded(rnFormatted.length);
   } catch (e) {
     console.log(` error (${e.message.substring(0, 50)})`);
+    sources.ronorp = failed(e.message);
   }
+
+  ensureDataDir();
+  fs.writeFileSync(
+    SCAN_STATUS_FILE,
+    JSON.stringify({ finishedAt: new Date().toISOString(), sources }, null, 2),
+  );
 
   // Update seen.json
   const seen = loadSeen();

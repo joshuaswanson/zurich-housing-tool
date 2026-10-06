@@ -139,7 +139,7 @@ The dashboard is available in English and German and follows the system light or
 - **Excluded tab**: Excluded listings with the reason, each with a button to restore it.
 - **Profile tab**: A form for the details the LLM uses to draft application messages. Saving it writes `profile.json`.
 - **Drafting a message**: The draft opens in an editable dialog. It can be copied, or saved so that it shows up under "Show message" for that listing.
-- **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
+- **Map**: Listings with known coordinates appear as dots coloured by source. A listing that gives only a postcode sits at the centre of that postcode area, drawn as a hollow dot, and its distance reads "about". The map also shows rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
 - **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
 - **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
 

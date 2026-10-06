@@ -15,9 +15,19 @@
       href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
     />
     <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+    <script>
+      (() => {
+        const choice = localStorage.getItem("zurich-housing-theme") || "system";
+        const dark =
+          choice === "dark" ||
+          (choice === "system" &&
+            matchMedia("(prefers-color-scheme: dark)").matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+      })();
+    </script>
     <style>
       :root {
-        color-scheme: light dark;
+        color-scheme: light;
         --header-h: 64px;
 
         --bg: #f5f6f6;
@@ -47,34 +57,33 @@
         --map-control-filter: none;
       }
 
-      @media (prefers-color-scheme: dark) {
-        :root {
-          --bg: #15181c;
-          --surface: #1c2025;
-          --ink: #e7e9eb;
-          --muted: #939ba4;
-          --line: #2e333a;
-          --line-soft: #24282e;
-          --row-hover: #222831;
-          --accent: #8ab4f0;
-          --accent-ink: #10203a;
-          --danger: #f08a80;
-          --report: #c9372c;
+      :root[data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #15181c;
+        --surface: #1c2025;
+        --ink: #e7e9eb;
+        --muted: #939ba4;
+        --line: #2e333a;
+        --line-soft: #24282e;
+        --row-hover: #222831;
+        --accent: #8ab4f0;
+        --accent-ink: #10203a;
+        --danger: #f08a80;
+        --report: #c9372c;
 
-          --src-flatfox: #f0994a;
-          --src-wgzimmer: #3fbfc4;
-          --src-ronorp: #b592e8;
-          --src-students: #ef7fa8;
+        --src-flatfox: #f0994a;
+        --src-wgzimmer: #3fbfc4;
+        --src-ronorp: #b592e8;
+        --src-students: #ef7fa8;
 
-          --map-land: #1b1e23;
-          --map-water: #0e2233;
-          --map-green: #1c2b22;
-          --map-road: #3d444d;
-          --map-road-minor: #2b3037;
-          --map-rail: #2f353c;
-          --map-label: #99a1aa;
-          --map-control-filter: invert(1);
-        }
+        --map-land: #1b1e23;
+        --map-water: #0e2233;
+        --map-green: #1c2b22;
+        --map-road: #3d444d;
+        --map-road-minor: #2b3037;
+        --map-rail: #2f353c;
+        --map-label: #99a1aa;
+        --map-control-filter: invert(1);
       }
 
       * {
@@ -160,6 +169,8 @@
       /* Header */
 
       .page-header {
+        position: relative;
+        z-index: 10;
         height: var(--header-h);
         padding: 0 24px;
         display: flex;
@@ -471,13 +482,83 @@
         font-weight: 500;
       }
 
-      .auto-scan {
+      .settings {
+        position: relative;
+      }
+
+      .settings summary {
+        list-style: none;
+      }
+
+      .settings summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .icon-button {
+        display: flex;
+        padding: 8px;
+      }
+
+      .icon-button svg {
+        width: 18px;
+        height: 18px;
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 1.8;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .settings-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        right: 0;
+        z-index: 20;
+        display: grid;
+        gap: 12px;
+        min-width: 280px;
+        padding: 14px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+      }
+
+      .settings-row {
         display: flex;
         align-items: center;
-        gap: 8px;
-        color: var(--muted);
-        font-size: 13px;
+        justify-content: space-between;
+        gap: 16px;
         white-space: nowrap;
+      }
+
+      .segmented {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+
+      .segmented input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .segmented span {
+        display: block;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+
+      .segmented input:checked + span {
+        background: var(--accent);
+        color: var(--accent-ink);
+      }
+
+      .segmented input:focus-visible + span {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
       }
 
       .detail {
@@ -915,6 +996,14 @@
           white-space: normal;
         }
 
+        .settings-menu {
+          position: fixed;
+          top: auto;
+          left: 16px;
+          right: 16px;
+          margin-top: 8px;
+        }
+
         .legend {
           right: 56px;
           flex-wrap: wrap;
@@ -968,19 +1057,6 @@
       <p class="summary"><span data-i18n="byline">by Joshua Swanson</span></p>
       <div class="scan">
         <span class="scan-status" id="scan-status" role="status"></span>
-        <select id="language" aria-label="Language" data-i18n-aria-label="language">
-          <option value="en">English</option>
-          <option value="de">Deutsch</option>
-        </select>
-        <label class="auto-scan">
-          <span data-i18n="auto_scan">Auto scan</span>
-          <select id="auto-scan">
-            <option value="0" data-i18n="auto_off">off</option>
-            <option value="15" data-i18n="auto_15">every 15 min</option>
-            <option value="30" data-i18n="auto_30">every 30 min</option>
-            <option value="60" data-i18n="auto_60">every hour</option>
-          </select>
-        </label>
         <button class="button button-primary" id="scan-button" data-i18n="scan">
           Scan for listings
         </button>
@@ -992,6 +1068,55 @@
           data-i18n="report_issue"
           >Report an issue</a
         >
+        <details class="settings" id="settings">
+          <summary
+            class="button icon-button"
+            aria-label="Settings"
+            data-i18n-aria-label="settings"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </summary>
+          <div class="settings-menu">
+            <label class="settings-row">
+              <span data-i18n="language">Language</span>
+              <select id="language">
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </label>
+            <div class="settings-row" role="radiogroup" aria-labelledby="theme-label">
+              <span id="theme-label" data-i18n="theme">Theme</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="theme" value="system" />
+                  <span data-i18n="theme_system">System</span>
+                </label>
+                <label>
+                  <input type="radio" name="theme" value="light" />
+                  <span data-i18n="theme_light">Light</span>
+                </label>
+                <label>
+                  <input type="radio" name="theme" value="dark" />
+                  <span data-i18n="theme_dark">Dark</span>
+                </label>
+              </span>
+            </div>
+            <label class="settings-row">
+              <span data-i18n="auto_scan">Auto scan</span>
+              <select id="auto-scan">
+                <option value="0" data-i18n="auto_off">off</option>
+                <option value="15" data-i18n="auto_15">every 15 min</option>
+                <option value="30" data-i18n="auto_30">every 30 min</option>
+                <option value="60" data-i18n="auto_60">every hour</option>
+              </select>
+            </label>
+          </div>
+        </details>
       </div>
     </header>
 
@@ -1327,6 +1452,11 @@
           byline: "by Joshua Swanson",
           report_issue: "Report an issue",
           language: "Language",
+          settings: "Settings",
+          theme: "Theme",
+          theme_system: "System",
+          theme_light: "Light",
+          theme_dark: "Dark",
           auto_scan: "Auto scan",
           auto_off: "off",
           auto_15: "every 15 min",
@@ -1466,6 +1596,11 @@
           byline: "von Joshua Swanson",
           report_issue: "Problem melden",
           language: "Sprache",
+          settings: "Einstellungen",
+          theme: "Design",
+          theme_system: "System",
+          theme_light: "Hell",
+          theme_dark: "Dunkel",
           auto_scan: "Auto-Suche",
           auto_off: "aus",
           auto_15: "alle 15 Min.",
@@ -2669,6 +2804,24 @@
         return row;
       }
 
+      const THEME_KEY = "zurich-housing-theme";
+      const systemDark = matchMedia("(prefers-color-scheme: dark)");
+      let themeChoice = localStorage.getItem(THEME_KEY) || "system";
+
+      function applyTheme() {
+        const dark =
+          themeChoice === "dark" ||
+          (themeChoice === "system" && systemDark.matches);
+        document.documentElement.dataset.theme = dark ? "dark" : "light";
+        map?.setStyle(buildMapStyle());
+      }
+
+      function setTheme(choice) {
+        themeChoice = choice;
+        localStorage.setItem(THEME_KEY, choice);
+        applyTheme();
+      }
+
       let targetMarker = null;
 
       function setTarget(next) {
@@ -2736,10 +2889,7 @@
           if (row && listing) row.after(detailRow(listing));
         });
 
-        matchMedia("(prefers-color-scheme: dark)").addEventListener(
-          "change",
-          () => map.setStyle(buildMapStyle()),
-        );
+        systemDark.addEventListener("change", applyTheme);
       }
 
       // Events
@@ -2764,6 +2914,16 @@
         const panel = $("more-filters");
         panel.hidden = !panel.hidden;
         e.currentTarget.setAttribute("aria-expanded", !panel.hidden);
+      });
+      document.querySelectorAll("input[name='theme']").forEach((radio) => {
+        radio.checked = radio.value === themeChoice;
+        radio.addEventListener("change", () => setTheme(radio.value));
+      });
+      document.addEventListener("click", (e) => {
+        if (!$("settings").contains(e.target)) $("settings").open = false;
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") $("settings").open = false;
       });
       $("language").addEventListener("change", (e) => {
         setLanguage(e.target.value);

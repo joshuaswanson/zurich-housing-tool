@@ -27,6 +27,10 @@ import {
   isGenderRestricted,
   isShortSublet,
   buildSpamPatterns,
+  hasEndDate,
+  isPostcodeOnly,
+  listingKey,
+  noteKey,
   config,
   distKm,
   ensureDataDir,
@@ -47,19 +51,10 @@ const SPAM_PATTERNS = buildSpamPatterns(config.exclude?.spam || []);
 const MIN_DURATION_DAYS = config.search?.minDuration || 60;
 const DESCRIPTION_LENGTH = 400;
 
-function hasEndDate(until) {
-  return Boolean(until) && until !== "?" && !/no time|unbefristet/i.test(until);
-}
-
 function readJson(file, fallback) {
   return fs.existsSync(file)
     ? JSON.parse(fs.readFileSync(file, "utf8"))
     : fallback;
-}
-
-// Such a listing is placed at the centre of its postcode area.
-function isPostcodeOnly(address) {
-  return !address || /^\d{4}(\s+\D.*)?$/.test(address.trim());
 }
 
 function listingFlags(text, dates) {
@@ -215,9 +210,8 @@ function runNodeScript(args, timeout = SCAN_STEP_TIMEOUT_MS) {
   });
 }
 
-// A detail page takes about 12 seconds, so the batch runs after the scan
-// has answered.
-const DETAILS_PER_SCAN = 25;
+// The detail pages are fetched one per second, after the scan has answered.
+const DETAILS_PER_SCAN = 60;
 const DETAILS_TIMEOUT_MS = 480000;
 let detailFetchInProgress = false;
 
@@ -317,16 +311,6 @@ const TRACK_ACTIONS = {
   untrack: null,
 };
 
-function listingKey(url) {
-  return (
-    url.match(
-      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
-    )?.[1] ||
-    url.match(/\/(\d{5,})\/?$/)?.[1] ||
-    url
-  );
-}
-
 app.post("/api/track", (req, res) => {
   const { url, action, address, price, reason } = req.body;
   if (!url) return res.status(400).json({ error: "url required" });
@@ -372,15 +356,6 @@ app.post("/api/track", (req, res) => {
 });
 
 // ── API: Notes ───────────────────────────────────────────────────────────
-
-// Same key that track.js uses for notes.
-function noteKey(url) {
-  return (
-    url.match(
-      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
-    )?.[1] || url
-  );
-}
 
 app.post("/api/note", (req, res) => {
   const { url, text } = req.body;

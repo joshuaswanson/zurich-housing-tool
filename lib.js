@@ -180,6 +180,21 @@ function flatfoxAvailableFrom(listing) {
   return null;
 }
 
+export function toFlatfoxDetails(l) {
+  const locality = [l.zipcode, l.city].filter(Boolean).join(" ");
+  return {
+    address:
+      [l.street, locality].filter(Boolean).join(", ") ||
+      l.public_address ||
+      null,
+    description: [l.description_title, l.description]
+      .filter(Boolean)
+      .join("\n\n")
+      .substring(0, 400),
+    availableFrom: flatfoxAvailableFrom(l),
+  };
+}
+
 /**
  * Fetch address, description and availability for flatfox listings from the
  * public listing API, which accepts many pks per request.
@@ -196,20 +211,7 @@ export async function fetchFlatfoxDetails(pks) {
     const resp = await fetch(url.toString());
     if (!resp.ok) throw new Error(`Flatfox API ${resp.status}`);
     const { results } = await resp.json();
-    for (const l of results) {
-      const locality = [l.zipcode, l.city].filter(Boolean).join(" ");
-      details.set(l.pk, {
-        address:
-          [l.street, locality].filter(Boolean).join(", ") ||
-          l.public_address ||
-          null,
-        description: [l.description_title, l.description]
-          .filter(Boolean)
-          .join("\n\n")
-          .substring(0, 400),
-        availableFrom: flatfoxAvailableFrom(l),
-      });
-    }
+    for (const l of results) details.set(l.pk, toFlatfoxDetails(l));
   }
   return details;
 }
@@ -315,4 +317,35 @@ export function buildSpamPatterns(configSpamList) {
     }
   }
   return patterns;
+}
+
+// ── Listing identity and location precision ───────────────────────────────
+
+/** Tracker entries and listings can use different URLs for one listing. */
+export function listingKey(url) {
+  return (
+    url.match(
+      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+    )?.[1] ||
+    url.match(/\/(\d{5,})\/?$/)?.[1] ||
+    url
+  );
+}
+
+// Same key that track.js uses for notes.
+export function noteKey(url) {
+  return (
+    url.match(
+      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+    )?.[1] || url
+  );
+}
+
+export function hasEndDate(until) {
+  return Boolean(until) && until !== "?" && !/no time|unbefristet/i.test(until);
+}
+
+// Such a listing is placed at the centre of its postcode area.
+export function isPostcodeOnly(address) {
+  return !address || /^\d{4}(\s+\D.*)?$/.test(address.trim());
 }

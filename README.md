@@ -131,15 +131,16 @@ node server.js                          # Start dashboard at http://localhost:34
 npm run dashboard                       # Same thing
 ```
 
-The dashboard follows the system light or dark setting. The map sits on the left and the Listings and Applications tabs on the right.
+The dashboard follows the system light or dark setting and is available in English and German. The map sits on the left and the Listings and Applications tabs on the right. It covers nearly everything the command line tools do.
 
-- **Listings tab**: A table sortable by rent or distance, with sliders for maximum rent and maximum distance. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Another switch limits the list to listings first seen in the last 24 hours.
-- **Selecting a listing**: The map moves to the listing and buttons appear to draft a message, shortlist it, mark it as applied, or exclude it.
-- **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with the exclusion reason where one exists.
-- **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target.
+- **Listings tab**: A table sortable by rent or distance, showing the walking time next to each distance. A search box matches comma-separated words against the address and description. Sliders set the maximum rent and maximum distance. Switches control whether tracked, gender-restricted, WOKO/JUWO, short-sublet, and bulk-poster listings are shown. Their defaults come from the `exclude` section of `config.json`. Further controls limit the list to permanent listings or to listings first seen in the last 24 hours, 48 hours, or 7 days.
+- **Selecting a listing**: The map moves to the listing and a panel opens under the row. It shows the full details when they have been fetched, a field for a note, and buttons to draft a message, shortlist the listing, mark it as applied, or exclude it with an optional reason. A further button fetches the full details of a wgzimmer or flatfox listing.
+- **Applications tab**: Everything tracked, grouped into applied, shortlisted, rejected, and excluded, with notes and the exclusion reason where one exists.
+- **Map**: Listings with known coordinates appear as dots coloured by source, with rings at 500 m, 1 km, and 1.5 km around the target. A dropdown on the map switches the target between the configured location, ETH Zentrum, ETH Hönggerberg, UZH Zentrum, and UZH Irchel, and all distances update.
 - **Scan for listings**: Runs a full scrape and batch-fetches listing details for geocoding. The header shows when the last scan finished and names any source that failed.
+- **Auto scan**: Repeats the scan every 15, 30, or 60 minutes while the page is open, with a browser notification when new listings appear.
 
-Filter and sort settings are saved in the browser.
+Filter, sort, target, and language settings are saved in the browser. The footer links to the search pages listed under `links` in `config.json`.
 
 ### Useful links
 

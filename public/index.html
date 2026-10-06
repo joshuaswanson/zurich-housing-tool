@@ -3,14 +3,75 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>zurich-housing-tool</title>
+    <title>Zurich housing tool</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
     />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css"
+    />
+    <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
     <style>
-      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap");
+      :root {
+        color-scheme: light dark;
+        --header-h: 64px;
+
+        --bg: #f5f6f6;
+        --surface: #ffffff;
+        --ink: #171a1e;
+        --muted: #636b74;
+        --line: #dcdfe3;
+        --line-soft: #eceef0;
+        --row-hover: #eef2f8;
+        --accent: #1f4fa3;
+        --accent-ink: #ffffff;
+        --danger: #b3261e;
+
+        --src-flatfox: #0b7f86;
+        --src-wgzimmer: #c2600f;
+        --src-ronorp: #7b4bb3;
+
+        --map-land: #eef0ee;
+        --map-water: #c5d7e6;
+        --map-green: #dbe6d6;
+        --map-road: #ffffff;
+        --map-road-minor: #f8f9f8;
+        --map-rail: #cfd3d6;
+        --map-label: #5c646d;
+        --map-control-filter: none;
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #15181c;
+          --surface: #1c2025;
+          --ink: #e7e9eb;
+          --muted: #939ba4;
+          --line: #2e333a;
+          --line-soft: #24282e;
+          --row-hover: #222831;
+          --accent: #8ab4f0;
+          --accent-ink: #10203a;
+          --danger: #f08a80;
+
+          --src-flatfox: #3fbfc4;
+          --src-wgzimmer: #f0994a;
+          --src-ronorp: #b592e8;
+
+          --map-land: #1b1e23;
+          --map-water: #0e2233;
+          --map-green: #1c2b22;
+          --map-road: #3d444d;
+          --map-road-minor: #2b3037;
+          --map-rail: #2f353c;
+          --map-label: #99a1aa;
+          --map-control-filter: invert(1);
+        }
+      }
 
       * {
         margin: 0;
@@ -18,590 +79,964 @@
         box-sizing: border-box;
       }
 
-      :root {
-        --bg: #0a0a0a;
-        --surface: #111;
-        --surface2: #1a1a1a;
-        --border: #222;
-        --text: #ccc;
-        --text-dim: #666;
-        --text-bright: #eee;
-        --green: #4ade80;
-        --green-dim: #1a3a2a;
-        --red: #f87171;
-        --yellow: #fbbf24;
-        --blue: #60a5fa;
-        --orange: #fb923c;
-      }
-
       body {
-        font-family: "JetBrains Mono", monospace;
+        font-family: "IBM Plex Sans", system-ui, sans-serif;
         background: var(--bg);
-        color: var(--text);
+        color: var(--ink);
+        font-size: 14px;
+        line-height: 1.45;
+        font-variant-numeric: tabular-nums;
+      }
+
+      button,
+      input {
+        font: inherit;
+        color: inherit;
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      .button {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 10px;
         font-size: 13px;
-        line-height: 1.5;
-        min-height: 100vh;
-      }
-
-      /* ── Header ─────────────────────────────── */
-
-      header {
-        border-bottom: 1px solid var(--border);
-        padding: 20px 32px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        position: sticky;
-        top: 0;
-        background: var(--bg);
-        z-index: 100;
-      }
-
-      h1 {
-        font-size: 16px;
-        font-weight: 500;
-        color: var(--green);
-        letter-spacing: -0.5px;
-      }
-
-      h1 span {
-        color: var(--text-dim);
-        font-weight: 300;
-      }
-
-      .scan-btn {
-        background: var(--green);
-        color: #000;
-        border: none;
-        padding: 8px 20px;
-        font-family: inherit;
-        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
-        transition: opacity 0.15s;
-      }
-
-      .scan-btn:hover {
-        opacity: 0.85;
-      }
-      .scan-btn:disabled {
-        opacity: 0.4;
-        cursor: wait;
-      }
-      .scan-btn.scanning {
-        animation: pulse 1.5s ease infinite;
-      }
-
-      @keyframes pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.5;
-        }
-      }
-
-      /* ── Stats Bar ──────────────────────────── */
-
-      .stats {
-        display: flex;
-        gap: 32px;
-        padding: 16px 32px;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface);
-        font-size: 12px;
-        overflow-x: auto;
-      }
-
-      .stat {
-        display: flex;
-        gap: 8px;
-        align-items: center;
         white-space: nowrap;
       }
-      .stat-value {
-        color: var(--green);
-        font-weight: 700;
-        font-size: 18px;
-      }
-      .stat-label {
-        color: var(--text-dim);
+
+      .button:hover:not(:disabled) {
+        border-color: var(--muted);
       }
 
-      /* ── Filters ────────────────────────────── */
+      .button:disabled {
+        color: var(--muted);
+        cursor: progress;
+      }
+
+      .button-primary {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--accent-ink);
+        padding: 8px 14px;
+      }
+
+      .button-primary:hover:not(:disabled) {
+        border-color: var(--accent);
+        filter: brightness(1.1);
+      }
+
+      .button-primary:disabled {
+        color: var(--accent-ink);
+        opacity: 0.6;
+      }
+
+      .button-danger {
+        color: var(--danger);
+      }
+
+      /* Header */
+
+      .page-header {
+        height: var(--header-h);
+        padding: 0 24px;
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        background: var(--surface);
+        border-bottom: 1px solid var(--line);
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: "Bricolage Grotesque", "IBM Plex Sans", sans-serif;
+        font-size: 25px;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.045em;
+        white-space: nowrap;
+        padding-top: 0.12em;
+      }
+
+      .logo-mark {
+        width: 28px;
+        height: 28px;
+        flex: none;
+        margin-top: -0.12em;
+      }
+
+      .logo-mark-light {
+        fill: var(--surface);
+      }
+
+      .logo-mark-blue {
+        fill: var(--accent);
+      }
+
+      .logo-mark-outline {
+        fill: none;
+        stroke: var(--accent);
+        stroke-width: 2;
+        stroke-linejoin: round;
+      }
+
+      .logo-u {
+        position: relative;
+        display: inline-block;
+      }
+
+      .logo-u i {
+        position: absolute;
+        top: 0.07em;
+        width: 0.17em;
+        height: 0.17em;
+        border-radius: 50%;
+      }
+
+      .logo-u i:first-child {
+        left: 0.1em;
+        background: var(--src-wgzimmer);
+      }
+
+      .logo-u i:last-child {
+        right: 0.1em;
+        background: var(--src-flatfox);
+      }
+
+      .logo-rest {
+        margin-left: 0.22em;
+        color: var(--muted);
+      }
+
+      .summary {
+        color: var(--muted);
+        flex: 1;
+        min-width: 0;
+      }
+
+      .header-link {
+        color: var(--muted);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .header-link:hover {
+        color: var(--ink);
+      }
+
+      .scan {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .scan-status {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .scan-status.is-error {
+        color: var(--danger);
+      }
+
+      /* Layout */
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+        height: calc(100dvh - var(--header-h));
+      }
+
+      .map-pane {
+        position: relative;
+        border-right: 1px solid var(--line);
+        background: var(--map-land);
+      }
+
+      #map {
+        position: absolute;
+        inset: 0;
+      }
+
+      .content {
+        overflow-y: auto;
+        padding: 20px 24px 32px;
+      }
+
+      /* Map */
+
+      .legend {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        display: flex;
+        gap: 14px;
+        padding: 6px 10px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-size: 12.5px;
+      }
+
+      .source {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+      }
+
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--muted);
+        flex: none;
+      }
+
+      .dot-flatfox {
+        background: var(--src-flatfox);
+      }
+
+      .dot-wgzimmer {
+        background: var(--src-wgzimmer);
+      }
+
+      .dot-ronorp {
+        background: var(--src-ronorp);
+      }
+
+      .dot-target {
+        background: var(--surface);
+        border: 3px solid var(--accent);
+      }
+
+      .target-pin {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--surface);
+        border: 4px solid var(--accent);
+        cursor: pointer;
+      }
+
+      .maplibregl-map {
+        font: inherit;
+      }
+
+      .maplibregl-ctrl-group,
+      .maplibregl-ctrl.maplibregl-ctrl-attrib {
+        background: var(--surface);
+        color: var(--muted);
+      }
+
+      .maplibregl-ctrl-group:not(:empty) {
+        box-shadow: 0 0 0 1px var(--line);
+      }
+
+      .maplibregl-ctrl-group button + button {
+        border-top-color: var(--line);
+      }
+
+      .maplibregl-ctrl button .maplibregl-ctrl-icon,
+      .maplibregl-ctrl-attrib-button {
+        filter: var(--map-control-filter);
+      }
+
+      .maplibregl-ctrl-attrib a {
+        color: var(--muted);
+      }
+
+      .maplibregl-popup-content {
+        background: var(--surface);
+        color: var(--ink);
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+      }
+
+      .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
+        border-top-color: var(--surface);
+      }
+
+      .maplibregl-popup-anchor-top .maplibregl-popup-tip {
+        border-bottom-color: var(--surface);
+      }
+
+      .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+        border-right-color: var(--surface);
+      }
+
+      .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+        border-left-color: var(--surface);
+      }
+
+      .maplibregl-popup-close-button {
+        color: var(--muted);
+      }
+
+      .popup-rent {
+        font-weight: 600;
+      }
+
+      .popup-place {
+        color: var(--muted);
+        margin: 2px 0 6px;
+      }
+
+      /* Filters */
 
       .filters {
-        padding: 16px 32px;
-        border-bottom: 1px solid var(--border);
         display: flex;
-        gap: 24px;
-        align-items: center;
         flex-wrap: wrap;
+        align-items: center;
+        gap: 12px 28px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line);
       }
 
       .filter-group {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 8px;
+        gap: 8px 18px;
+        flex-basis: 100%;
       }
 
-      .filter-group label {
-        color: var(--text-dim);
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+      .filter-group-label {
+        color: var(--muted);
       }
 
-      input[type="range"] {
-        -webkit-appearance: none;
-        background: var(--border);
-        height: 4px;
-        width: 120px;
-        border-radius: 2px;
-        outline: none;
+      .filter-group .filter {
+        gap: 6px;
       }
 
-      input[type="range"]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        width: 14px;
-        height: 14px;
-        background: var(--green);
-        border-radius: 50%;
-        cursor: pointer;
+      .filter {
+        display: flex;
+        align-items: center;
+        gap: 10px;
       }
 
-      .filter-value {
-        color: var(--text-bright);
-        min-width: 50px;
-        font-size: 12px;
+      .filter input[type="range"] {
+        width: 130px;
+        accent-color: var(--accent);
       }
 
-      select {
-        background: var(--surface2);
-        color: var(--text);
-        border: 1px solid var(--border);
-        padding: 4px 8px;
-        font-family: inherit;
-        font-size: 12px;
-        cursor: pointer;
-      }
-
-      .toggle {
+      .filter input[role="switch"] {
+        appearance: none;
         position: relative;
-        width: 36px;
-        height: 20px;
-        background: var(--border);
-        border-radius: 10px;
+        flex: none;
+        width: 30px;
+        height: 18px;
+        border-radius: 9px;
+        background: var(--line);
         cursor: pointer;
-        transition: background 0.2s;
+        transition: background 0.15s;
       }
 
-      .toggle.active {
-        background: var(--green-dim);
-      }
-
-      .toggle::after {
+      .filter input[role="switch"]::before {
         content: "";
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 16px;
-        height: 16px;
-        background: var(--text-dim);
+        width: 14px;
+        height: 14px;
         border-radius: 50%;
-        transition: all 0.2s;
+        background: var(--surface);
+        box-shadow: 0 0 0 1px var(--muted);
+        transition: transform 0.15s;
       }
 
-      .toggle.active::after {
-        left: 18px;
-        background: var(--green);
+      .filter input[role="switch"]:checked {
+        background: var(--accent);
       }
 
-      /* ── Table ──────────────────────────────── */
-
-      .table-wrap {
-        overflow-x: auto;
-        padding: 0 32px;
+      .filter input[role="switch"]:checked::before {
+        transform: translateX(12px);
+        box-shadow: none;
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        .filter input[role="switch"],
+        .filter input[role="switch"]::before {
+          transition: none;
+        }
+      }
+
+      .filter output {
+        font-weight: 500;
+        min-width: 4.5em;
+      }
+
+      /* Sections */
+
+      .tabs {
+        display: flex;
+        gap: 24px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .tab {
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        padding: 4px 0 10px;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--muted);
+        cursor: pointer;
+      }
+
+      .tab:hover {
+        color: var(--ink);
+      }
+
+      .tab[aria-selected="true"] {
+        color: var(--ink);
+        border-bottom-color: var(--accent);
+      }
+
+      .tab-count {
+        margin-left: 4px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+
+      .tab-panel {
+        padding-top: 16px;
+      }
+
+      .section-note {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 14px 0 6px;
+      }
+
+      .section-note:empty {
+        display: none;
+      }
+
+      /* Listings table */
 
       table {
         width: 100%;
         border-collapse: collapse;
-        margin: 16px 0;
       }
 
       th {
         text-align: left;
-        padding: 10px 12px;
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        color: var(--text-dim);
-        border-bottom: 1px solid var(--border);
-        cursor: pointer;
-        user-select: none;
+        padding: 8px 12px 8px 0;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--muted);
+        border-bottom: 1px solid var(--line);
         white-space: nowrap;
       }
 
-      th:hover {
-        color: var(--text);
+      .sort-button {
+        background: none;
+        border: none;
+        font-weight: 500;
+        color: var(--muted);
+        cursor: pointer;
       }
-      th.sorted {
-        color: var(--green);
+
+      .sort-button:hover {
+        color: var(--ink);
       }
-      th.sorted::after {
-        content: " ^";
+
+      th[aria-sort="ascending"] .sort-button {
+        color: var(--ink);
       }
-      th.sorted.desc::after {
-        content: " v";
+
+      th[aria-sort="ascending"] .sort-button::after {
+        content: " \2191";
       }
 
       td {
-        padding: 10px 12px;
-        border-bottom: 1px solid #151515;
+        padding: 10px 12px 10px 0;
+        border-bottom: 1px solid var(--line-soft);
         vertical-align: top;
-        max-width: 400px;
       }
 
-      tr:hover {
-        background: var(--surface);
+      th:first-child,
+      td:first-child {
+        padding-left: 8px;
       }
 
-      .source-badge {
-        display: inline-block;
-        padding: 2px 6px;
-        font-size: 10px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-        text-transform: uppercase;
+      tbody tr.listing-row {
+        cursor: pointer;
       }
 
-      .source-wgzimmer {
-        color: var(--orange);
-        border: 1px solid var(--orange);
-      }
-      .source-flatfox {
-        color: var(--blue);
-        border: 1px solid var(--blue);
-      }
-      .source-ronorp {
-        color: var(--yellow);
-        border: 1px solid var(--yellow);
+      tbody tr.is-active td {
+        border-bottom-color: transparent;
       }
 
-      .price {
-        color: var(--green);
-        font-weight: 700;
-      }
-      .dist {
-        color: var(--text-dim);
+      tbody tr.is-active .description {
+        display: block;
+        max-width: 60ch;
       }
 
-      td a {
-        color: var(--text-dim);
-        text-decoration: none;
-        font-size: 11px;
-        transition: color 0.15s;
+      tbody tr.detail-row {
+        background: var(--row-hover);
       }
 
-      td a:hover {
-        color: var(--green);
+      tbody tr.detail-row td {
+        padding: 2px 8px 12px;
       }
 
-      .desc {
-        color: var(--text-dim);
-        font-size: 11px;
-        line-height: 1.4;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-      }
-
-      .no-data {
-        padding: 48px 32px;
-        text-align: center;
-        color: var(--text-dim);
-      }
-
-      /* ── Tracker Section ────────────────────── */
-
-      .tracker {
-        padding: 24px 32px;
-        border-top: 2px solid var(--border);
-        margin-top: 16px;
-      }
-
-      .tracker h2 {
+      .group-head {
+        margin: 18px 0 2px;
+        padding: 0 8px;
         font-size: 13px;
-        font-weight: 500;
-        color: var(--text-dim);
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 16px;
+        font-weight: 600;
       }
 
-      .tracker-counts {
-        display: flex;
-        gap: 24px;
-        margin-bottom: 20px;
+      .group-head:first-child {
+        margin-top: 4px;
       }
 
-      .tracker-count {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
+      tbody tr:hover,
+      tbody tr.is-active {
+        background: var(--row-hover);
       }
 
-      .tracker-count .n {
-        font-size: 24px;
-        font-weight: 700;
-      }
-      .tracker-count .l {
-        color: var(--text-dim);
-        font-size: 11px;
-      }
-      .applied-n {
-        color: var(--green);
-      }
-      .excluded-n {
-        color: var(--text-dim);
-      }
-      .rejected-n {
-        color: var(--red);
-      }
-
-      .applied-list {
-        display: grid;
-        gap: 4px;
-      }
-
-      .applied-item {
-        display: flex;
-        gap: 16px;
-        padding: 6px 0;
-        border-bottom: 1px solid #151515;
-        font-size: 12px;
-        align-items: baseline;
-      }
-
-      .applied-item .ap-price {
-        color: var(--green);
-        min-width: 70px;
-      }
-      .applied-item .ap-addr {
-        color: var(--text);
-        flex: 1;
-      }
-      .applied-item .ap-days {
-        color: var(--text-dim);
+      .rent {
+        font-weight: 600;
         white-space: nowrap;
       }
 
-      /* ── Footer ─────────────────────────────── */
-
-      footer {
-        padding: 20px 32px;
-        border-top: 1px solid var(--border);
-        color: var(--text-dim);
-        font-size: 11px;
-        text-align: center;
+      .nowrap {
+        white-space: nowrap;
       }
 
-      footer a {
-        color: var(--green);
-        text-decoration: none;
-      }
-      footer a:hover {
-        text-decoration: underline;
+      .secondary {
+        color: var(--muted);
+        font-size: 12.5px;
       }
 
-      /* ── Responsive ─────────────────────────── */
+      .status {
+        margin-left: 6px;
+        padding: 1px 6px;
+        border: 1px solid var(--line);
+        border-radius: 4px;
+        color: var(--muted);
+        font-size: 12px;
+        text-transform: capitalize;
+      }
 
-      @media (max-width: 768px) {
-        header,
-        .stats,
-        .filters,
-        .table-wrap,
-        .tracker,
-        footer {
-          padding-left: 16px;
-          padding-right: 16px;
+      .available {
+        min-width: 9ch;
+        max-width: 20ch;
+      }
+
+      .table-scroll {
+        overflow-x: auto;
+      }
+
+      .description {
+        color: var(--muted);
+        font-size: 12.5px;
+        max-width: 46ch;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .row-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        white-space: nowrap;
+      }
+
+      .empty {
+        padding: 40px 8px;
+        color: var(--muted);
+      }
+
+      /* Applications */
+
+      .application {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 8px;
+        border-bottom: 1px solid var(--line-soft);
+      }
+
+      .application-place {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      /* Message dialog */
+
+      dialog {
+        margin: auto;
+        width: min(680px, calc(100vw - 32px));
+        max-height: 80dvh;
+        background: var(--surface);
+        color: var(--ink);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 20px 24px;
+        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+      }
+
+      dialog::backdrop {
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      dialog h2 {
+        font-size: 15px;
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+
+      dialog pre {
+        font: inherit;
+        white-space: pre-wrap;
+        max-height: 56dvh;
+        overflow-y: auto;
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 16px;
+      }
+
+      .page-footer {
+        margin-top: 32px;
+        font-size: 12.5px;
+      }
+
+      @media (max-width: 900px) {
+        .page-header {
+          height: auto;
+          padding: 12px 16px;
+          flex-wrap: wrap;
+          gap: 8px 16px;
         }
-        .stats {
-          gap: 16px;
+
+        .logo {
+          font-size: 21px;
         }
-        .filters {
-          gap: 12px;
+
+        .summary,
+        .header-link {
+          order: 3;
         }
-        input[type="range"] {
-          width: 80px;
+
+        .summary {
+          flex-basis: 60%;
+        }
+
+        .scan {
+          margin-left: auto;
+        }
+
+        .layout {
+          display: block;
+          height: auto;
+        }
+
+        .map-pane {
+          height: 50dvh;
+          border-right: none;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .content {
+          overflow: visible;
+          padding: 16px;
+        }
+
+        .application {
+          grid-template-columns: minmax(0, 1fr) auto;
         }
       }
     </style>
   </head>
   <body>
-    <header>
-      <h1>zurich-housing-tool <span>// dashboard</span></h1>
-      <button class="scan-btn" onclick="scan()">Scan Now</button>
+    <header class="page-header">
+      <h1 class="logo" aria-label="Zurich housing tool">
+        <svg class="logo-mark" viewBox="0 0 28 28" aria-hidden="true">
+          <defs>
+            <clipPath id="logo-house">
+              <path d="M2 12.5 14 2l12 10.5V26H2Z" />
+            </clipPath>
+          </defs>
+          <g clip-path="url(#logo-house)">
+            <rect class="logo-mark-light" width="28" height="28" />
+            <path class="logo-mark-blue" d="M0 0 28 28H0Z" />
+          </g>
+          <path class="logo-mark-outline" d="M2 12.5 14 2l12 10.5V26H2Z" />
+        </svg>
+        <span class="logo-text" aria-hidden="true"
+          >z<span class="logo-u">u<i></i><i></i></span>rich<span
+            class="logo-rest"
+            >housing tool</span
+          ></span
+        >
+      </h1>
+      <p class="summary">by Joshua Swanson</p>
+      <a
+        class="header-link"
+        href="https://github.com/joshuaswanson/zurich-housing-tool/issues"
+        target="_blank"
+        rel="noopener"
+        >Report an issue</a
+      >
+      <div class="scan">
+        <span class="scan-status" id="scan-status" role="status"></span>
+        <button class="button button-primary" id="scan-button">
+          Scan for listings
+        </button>
+      </div>
     </header>
 
-    <div class="stats" id="stats">
-      <div class="stat">
-        <span class="stat-value" id="total-count">-</span
-        ><span class="stat-label">listings</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value" id="under1k">-</span
-        ><span class="stat-label">under 1000</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value" id="nearby">-</span
-        ><span class="stat-label">within 1.5km</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value" id="applied-count">-</span
-        ><span class="stat-label">applied</span>
-      </div>
-      <div class="stat">
-        <span class="stat-value" id="excluded-count">-</span
-        ><span class="stat-label">excluded</span>
-      </div>
-    </div>
-
-    <div class="filters">
-      <div class="filter-group">
-        <label>Max Price</label>
-        <input
-          type="range"
-          id="f-price"
-          min="500"
-          max="3000"
-          step="50"
-          value="2000"
-          oninput="applyFilters()"
-        />
-        <span class="filter-value" id="f-price-val">2000</span>
-      </div>
-      <div class="filter-group">
-        <label>Max Dist</label>
-        <input
-          type="range"
-          id="f-dist"
-          min="0.5"
-          max="5"
-          step="0.1"
-          value="5"
-          oninput="applyFilters()"
-        />
-        <span class="filter-value" id="f-dist-val">5 km</span>
-      </div>
-      <div class="filter-group">
-        <label>Sort</label>
-        <select id="f-sort" onchange="applyFilters()">
-          <option value="price">Price</option>
-          <option value="distance">Distance</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>Hide tracked</label>
-        <div
-          class="toggle active"
-          id="f-tracked"
-          onclick="toggleFilter(this)"
-        ></div>
-      </div>
-    </div>
-
-    <!-- Radar Map -->
-    <div
-      id="radar-section"
-      style="
-        position: relative;
-        height: 500px;
-        border-bottom: 1px solid var(--border);
-        overflow: hidden;
-      "
-    >
-      <div id="map" style="width: 100%; height: 100%"></div>
-      <!-- Radar sweep overlay -->
-      <div
-        id="radar-overlay"
-        style="
-          position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          z-index: 500;
-        "
-      >
-        <canvas id="radar-canvas"></canvas>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Source</th>
-            <th class="sorted" data-col="price">Price</th>
-            <th data-col="dist">Distance</th>
-            <th>Address</th>
-            <th>Available</th>
-            <th>Until</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="listings-body"></tbody>
-      </table>
-      <div class="no-data" id="no-data" style="display: none">
-        No listings loaded. Hit Scan Now or run
-        <code>node monitor.js scan</code>
-      </div>
-    </div>
-
-    <div class="tracker">
-      <h2>Application Tracker</h2>
-      <div class="tracker-counts">
-        <div class="tracker-count">
-          <span class="n applied-n" id="t-applied">0</span
-          ><span class="l">applied</span>
+    <div class="layout">
+      <section class="map-pane" aria-label="Map of listings">
+        <div id="map"></div>
+        <div class="legend">
+          <span class="source"
+            ><i class="dot dot-target"></i
+            ><span id="legend-target">Target</span></span
+          >
+          <span class="source"><i class="dot dot-wgzimmer"></i>wgzimmer</span>
+          <span class="source"><i class="dot dot-flatfox"></i>flatfox</span>
+          <span class="source"><i class="dot dot-ronorp"></i>ronorp</span>
         </div>
-        <div class="tracker-count">
-          <span class="n excluded-n" id="t-excluded">0</span
-          ><span class="l">excluded</span>
+      </section>
+
+      <main class="content">
+        <div class="tabs" role="tablist">
+          <button
+            class="tab"
+            type="button"
+            role="tab"
+            id="tab-listings"
+            aria-controls="panel-listings"
+            aria-selected="true"
+          >
+            Listings <span class="tab-count" id="tab-listings-count"></span>
+          </button>
+          <button
+            class="tab"
+            type="button"
+            role="tab"
+            id="tab-applications"
+            aria-controls="panel-applications"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            Applications
+            <span class="tab-count" id="tab-applications-count"></span>
+          </button>
         </div>
-        <div class="tracker-count">
-          <span class="n rejected-n" id="t-rejected">0</span
-          ><span class="l">rejected</span>
+
+        <section
+          class="tab-panel"
+          role="tabpanel"
+          id="panel-listings"
+          aria-labelledby="tab-listings"
+        >
+        <form class="filters" id="filters">
+          <label class="filter">
+            Max rent
+            <input
+              type="range"
+              id="f-price"
+              min="500"
+              max="3000"
+              step="50"
+              value="2000"
+            />
+            <output id="f-price-val"></output>
+          </label>
+          <label class="filter">
+            Max distance
+            <input
+              type="range"
+              id="f-dist"
+              min="0.5"
+              max="5"
+              step="0.1"
+              value="5"
+            />
+            <output id="f-dist-val"></output>
+          </label>
+          <div class="filter-group" role="group" aria-label="Show">
+            <span class="filter-group-label">Show</span>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-tracked" />
+              Tracked
+            </label>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-gender" />
+              Gender-restricted
+            </label>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-student" />
+              WOKO and JUWO
+            </label>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-short" />
+              Short sublets
+            </label>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-bulk" />
+              Bulk posters
+            </label>
+          </div>
+          <label class="filter">
+            <input type="checkbox" role="switch" id="f-new" />
+            Only new in the last 24 hours
+          </label>
+        </form>
+
+        <p class="section-note" id="listings-note"></p>
+        <div class="table-scroll">
+          <table id="listings-table">
+            <thead>
+              <tr>
+                <th data-sort="price" aria-sort="ascending">
+                  <button class="sort-button" type="button">Rent (CHF)</button>
+                </th>
+                <th data-sort="distance">
+                  <button class="sort-button" type="button">Distance</button>
+                </th>
+                <th>Address</th>
+                <th>Available</th>
+                <th>Source</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="listings-body"></tbody>
+          </table>
         </div>
-      </div>
-      <div class="applied-list" id="applied-list"></div>
+        <p class="empty" id="listings-empty" hidden></p>
+
+        </section>
+
+        <section
+          class="tab-panel"
+          role="tabpanel"
+          id="panel-applications"
+          aria-labelledby="tab-applications"
+          hidden
+        >
+        <div id="applied-list"></div>
+        </section>
+
+        <footer class="page-footer">
+          <a
+            href="https://github.com/joshuaswanson/zurich-housing-tool"
+            target="_blank"
+            >github.com/joshuaswanson/zurich-housing-tool</a
+          >
+        </footer>
+      </main>
     </div>
 
-    <footer>
-      <a
-        href="https://github.com/joshuaswanson/zurich-housing-tool"
-        target="_blank"
-        >github.com/joshuaswanson/zurich-housing-tool</a
-      >
-    </footer>
+    <dialog id="message-dialog">
+      <h2 id="dialog-title"></h2>
+      <pre id="dialog-body"></pre>
+      <div class="dialog-actions">
+        <button class="button" id="dialog-copy" type="button">
+          Copy message
+        </button>
+        <form method="dialog">
+          <button class="button">Close</button>
+        </form>
+      </div>
+    </dialog>
 
     <script>
+      const MAX_ROWS = 200;
+      const SOURCES_LABEL = "wgzimmer.ch, flatfox.ch and ronorp.net";
+
+      let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
       let allListings = [];
-      let tracker = {
-        applied: [],
-        excluded: [],
-        rejected: [],
-        shortlisted: [],
+      let tracker = { applied: [], excluded: [], rejected: [], shortlisted: [] };
+      let appMessages = [];
+      let sortBy = "price";
+      const trackedStatus = new Map();
+      const NEW_WINDOW_MS = 24 * 60 * 60 * 1000;
+      const SHOW_FILTERS = {
+        "f-gender": "genderRestricted",
+        "f-student": "studentHousing",
+        "f-short": "shortSublet",
+        "f-bulk": "bulkPoster",
       };
-      const trackedUrls = new Set();
+      const CHECKBOX_FILTERS = ["f-tracked", "f-new", ...Object.keys(SHOW_FILTERS)];
+
+      // Tracker entries and listings can use different URLs for one listing,
+      // so they are matched on the wgzimmer UUID or the flatfox number.
+      function listingKey(url) {
+        return (
+          url.match(
+            /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
+          )?.[1] ||
+          url.match(/\/(\d{5,})\/?$/)?.[1] ||
+          url
+        );
+      }
+
+      function statusOf(url) {
+        return trackedStatus.get(listingKey(url));
+      }
+
+      function isNew(l) {
+        return (
+          !l.firstSeen ||
+          Date.now() - new Date(l.firstSeen).getTime() < NEW_WINDOW_MS
+        );
+      }
+      const FILTERS_KEY = "zurich-housing-filters-2";
+
+      const $ = (id) => document.getElementById(id);
+
+      function esc(s) {
+        return String(s ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      }
+
+      function plural(n, word) {
+        return `${n} ${word}${n === 1 ? "" : "s"}`;
+      }
 
       async function load() {
         try {
@@ -611,61 +1046,48 @@
           ]);
           allListings = await listRes.json();
           tracker = await trackRes.json();
-
-          // Build tracked URL set
-          trackedUrls.clear();
-          for (const cat of [
-            "applied",
-            "excluded",
-            "rejected",
-            "shortlisted",
-          ]) {
-            for (const e of tracker[cat] || []) trackedUrls.add(e.url);
-          }
-
-          // Filter out garbage (price < 50 is clearly a parsing error)
-          allListings = allListings.filter((l) => l.price >= 50);
-
-          updateStats();
-          applyFilters();
-          renderTracker();
-          plotListings(allListings);
         } catch (e) {
-          document.getElementById("no-data").style.display = "block";
+          showEmpty("Could not load listings. Check that the server is running.");
+          return;
         }
-      }
 
-      function updateStats() {
-        document.getElementById("total-count").textContent = allListings.length;
-        document.getElementById("under1k").textContent = allListings.filter(
-          (l) => l.price < 1000,
-        ).length;
-        document.getElementById("nearby").textContent = allListings.filter(
-          (l) => l.dist && l.dist <= 1.5,
-        ).length;
-        document.getElementById("applied-count").textContent = (
-          tracker.applied || []
-        ).length;
-        document.getElementById("excluded-count").textContent = (
-          tracker.excluded || []
-        ).length;
+        trackedStatus.clear();
+        for (const cat of ["shortlisted", "excluded", "rejected", "applied"]) {
+          for (const e of tracker[cat] || []) {
+            trackedStatus.set(listingKey(e.url), cat);
+          }
+        }
+
+        // A price below 50 is a parsing error in the scraped listing.
+        allListings = allListings.filter((l) => l.price >= 50);
+
+        applyFilters();
+        renderApplications();
       }
 
       function applyFilters() {
-        const maxPrice = parseInt(document.getElementById("f-price").value);
-        const maxDist = parseFloat(document.getElementById("f-dist").value);
-        const sortBy = document.getElementById("f-sort").value;
-        const hideTracked = document
-          .getElementById("f-tracked")
-          .classList.contains("active");
+        const maxPrice = parseInt($("f-price").value);
+        const maxDist = parseFloat($("f-dist").value);
+        const checked = Object.fromEntries(
+          CHECKBOX_FILTERS.map((id) => [id, $(id).checked]),
+        );
 
-        document.getElementById("f-price-val").textContent = maxPrice;
-        document.getElementById("f-dist-val").textContent = maxDist + " km";
+        localStorage.setItem(
+          FILTERS_KEY,
+          JSON.stringify({ maxPrice, maxDist, checked, sortBy }),
+        );
 
-        let filtered = allListings.filter((l) => {
+        $("f-price-val").textContent = `CHF ${maxPrice}`;
+        $("f-dist-val").textContent = `${maxDist} km`;
+
+        const filtered = allListings.filter((l) => {
           if (l.price > maxPrice) return false;
           if (l.dist !== null && l.dist > maxDist) return false;
-          if (hideTracked && trackedUrls.has(l.url)) return false;
+          if (!checked["f-tracked"] && statusOf(l.url)) return false;
+          if (checked["f-new"] && !isNew(l)) return false;
+          for (const [id, flag] of Object.entries(SHOW_FILTERS)) {
+            if (!checked[id] && l[flag]) return false;
+          }
           return true;
         });
 
@@ -675,286 +1097,252 @@
           filtered.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999));
         }
 
+        $("tab-listings-count").textContent = filtered.length;
         renderTable(filtered);
+        setMapListings(filtered);
+      }
+
+      function selectTab(tab) {
+        document.querySelectorAll(".tab").forEach((other) => {
+          const selected = other === tab;
+          other.setAttribute("aria-selected", selected);
+          other.tabIndex = selected ? 0 : -1;
+          $(other.getAttribute("aria-controls")).hidden = !selected;
+        });
+      }
+
+      function showEmpty(text) {
+        $("listings-body").innerHTML = "";
+        $("listings-table").hidden = true;
+        $("listings-empty").hidden = false;
+        $("listings-empty").textContent = text;
+        $("listings-note").textContent = "";
       }
 
       function renderTable(listings) {
-        const tbody = document.getElementById("listings-body");
-        const noData = document.getElementById("no-data");
-
+        if (allListings.length === 0) {
+          showEmpty(
+            `No listings yet. Scan to fetch them from ${SOURCES_LABEL}.`,
+          );
+          return;
+        }
         if (listings.length === 0) {
-          tbody.innerHTML = "";
-          noData.style.display = "block";
+          showEmpty("No listings match these filters.");
           return;
         }
 
-        noData.style.display = "none";
-        tbody.innerHTML = listings
-          .slice(0, 200)
+        $("listings-table").hidden = false;
+        $("listings-empty").hidden = true;
+
+        const unmapped = listings.filter((l) => !l.lat || !l.lng).length;
+        const notes = [
+          listings.length > MAX_ROWS
+            ? `Showing the first ${MAX_ROWS} of ${listings.length}`
+            : `${listings.length} of ${allListings.length}`,
+        ];
+        if (unmapped > 0) {
+          notes.push(`${unmapped} without coordinates are not on the map`);
+        }
+        $("listings-note").textContent = notes.join(". ");
+
+        $("listings-body").innerHTML = listings
+          .slice(0, MAX_ROWS)
           .map(
             (l) => `
-    <tr>
-      <td><span class="source-badge source-${l.source}">${l.source}</span></td>
-      <td class="price">${l.price}</td>
-      <td class="dist">${l.dist !== null ? l.dist.toFixed(1) + " km" : "-"}</td>
-      <td>
-        <div>${l.address || "-"}</div>
-        ${l.description ? `<div class="desc">${esc(l.description)}</div>` : ""}
-      </td>
-      <td>${l.availableFrom || "-"}</td>
-      <td>${l.until || "-"}</td>
-      <td style="white-space:nowrap"><a href="${l.url}" target="_blank" style="border:1px solid var(--text-dim);padding:1px 6px;font-size:10px;display:inline-block;text-decoration:none;transition:border-color 0.15s,color 0.15s" onmouseover="this.style.borderColor='var(--green)';this.style.color='var(--green)'" onmouseout="this.style.borderColor='var(--text-dim)';this.style.color='var(--text-dim)'">open</a> <button onclick="generateMessage('${l.url}')" style="background:none;border:1px solid var(--green);color:var(--green);padding:1px 6px;font-family:inherit;font-size:10px;cursor:pointer;margin-left:4px;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">generate</button></td>
-    </tr>
-  `,
+              <tr class="listing-row" data-id="${esc(l.id)}">
+                <td class="rent">${esc(l.price)}</td>
+                <td class="nowrap">${l.dist !== null ? l.dist.toFixed(1) + " km" : ""}</td>
+                <td>
+                  <div>
+                    ${esc(l.address || "Address not fetched")}
+                    ${statusOf(l.url) ? `<span class="status">${statusOf(l.url)}</span>` : ""}
+                  </div>
+                  ${summary(l) ? `<div class="description">${esc(summary(l))}</div>` : ""}
+                </td>
+                <td class="available">
+                  <div>${esc(l.availableFrom || "")}</div>
+                  ${endDate(l) ? `<div class="secondary">until ${esc(endDate(l))}</div>` : ""}
+                </td>
+                <td><span class="source"><i class="dot dot-${esc(l.source)}"></i>${esc(l.source)}</span></td>
+                <td>
+                  <div class="row-actions">
+                    <a href="${esc(l.url)}" target="_blank" rel="noopener">Open</a>
+                  </div>
+                </td>
+              </tr>`,
           )
           .join("");
       }
 
-      function renderTracker() {
-        document.getElementById("t-applied").textContent = (
-          tracker.applied || []
-        ).length;
-        document.getElementById("t-excluded").textContent = (
-          tracker.excluded || []
-        ).length;
-        document.getElementById("t-rejected").textContent = (
-          tracker.rejected || []
-        ).length;
+      function endDate(l) {
+        return /no time restriction/i.test(l.until || "") ? "" : l.until;
+      }
 
-        const list = document.getElementById("applied-list");
-        const applied = tracker.applied || [];
+      // wgzimmer descriptions are pipe-separated fields. Only the free-text
+      // fields are shown, since the rest repeat other columns.
+      function summary(l) {
+        if (l.source !== "wgzimmer") return l.description;
+        return l.description
+          .split(" | ")
+          .map((part) => part.trim())
+          .filter(
+            (part) =>
+              part &&
+              part !== l.address &&
+              !/^\d{1,2}\.\d{1,2}\.\d{4}$/.test(part) &&
+              !/^[\d,.']+$/.test(part) &&
+              !/^until:/i.test(part) &&
+              !/^zürich \(stadt\)$/i.test(part),
+          )
+          .join(", ");
+      }
 
-        if (applied.length === 0) {
-          list.innerHTML =
-            '<div style="color:var(--text-dim)">No applications yet.</div>';
-          return;
-        }
+      function daysAgo(date) {
+        if (!date) return "";
+        const days = Math.floor(
+          (Date.now() - new Date(date).getTime()) / 86400000,
+        );
+        if (days <= 0) return "today";
+        return `${plural(days, "day")} ago`;
+      }
 
-        list.innerHTML = applied
-          .map((a) => {
-            const days = a.date
-              ? Math.floor((Date.now() - new Date(a.date).getTime()) / 86400000)
-              : "?";
-            const urlEnc = esc(a.url);
-            return `
-      <div class="applied-item">
-        <span class="ap-price">${a.price ? "CHF " + a.price : "?"}</span>
-        <span class="ap-addr">${esc(a.address || a.url.substring(0, 60))}</span>
-        <span class="ap-days">${days}d ago</span>
-        <button onclick="rejectApp('${urlEnc}')" style="background:none;border:1px solid var(--red);color:var(--red);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">rejected</button>
-        <button onclick="showMessage('${urlEnc}')" style="background:none;border:1px solid var(--text-dim);color:var(--text-dim);padding:2px 8px;font-family:inherit;font-size:10px;cursor:pointer;opacity:0.6" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">msg</button>
-      </div>
-    `;
-          })
+      const TRACKED_GROUPS = [
+        ["applied", "Applied"],
+        ["shortlisted", "Shortlisted"],
+        ["rejected", "Rejected"],
+        ["excluded", "Excluded"],
+      ];
+      const TRACKED_ACTIONS = {
+        applied: [
+          ["show-message", "Show message"],
+          ["reject", "Mark rejected"],
+          ["untrack", "Remove"],
+        ],
+        shortlisted: [
+          ["apply", "Mark applied"],
+          ["untrack", "Remove"],
+        ],
+        rejected: [["untrack", "Remove"]],
+        excluded: [["untrack", "Restore"]],
+      };
+
+      function actionButtons(actions) {
+        return actions
+          .map(
+            ([action, label]) =>
+              `<button class="button" type="button" data-action="${action}">${label}</button>`,
+          )
           .join("");
       }
 
-      function toggleFilter(el) {
-        el.classList.toggle("active");
-        applyFilters();
-      }
+      function renderApplications() {
+        $("tab-applications-count").textContent = (tracker.applied || []).length;
 
-      async function scan() {
-        const btn = document.querySelector(".scan-btn");
-        btn.disabled = true;
-        btn.classList.add("scanning");
-        btn.textContent = "Scanning...";
-
-        try {
-          await fetch("/api/scan", { method: "POST" });
-          await load();
-        } catch (e) {
-          console.error("Scan failed:", e);
-        }
-
-        btn.disabled = false;
-        btn.classList.remove("scanning");
-        btn.textContent = "Scan Now";
-      }
-
-      function esc(s) {
-        const d = document.createElement("div");
-        d.textContent = s;
-        return d.innerHTML;
-      }
-
-      // Column sort
-      document.querySelectorAll("th[data-col]").forEach((th) => {
-        th.addEventListener("click", () => {
-          const col = th.dataset.col;
-          document.getElementById("f-sort").value =
-            col === "dist" ? "distance" : col;
-          document
-            .querySelectorAll("th")
-            .forEach((t) => t.classList.remove("sorted", "desc"));
-          th.classList.add("sorted");
-          applyFilters();
-        });
-      });
-
-      // ── Radar Map ──────────────────────────────────────
-      const TARGET = { lat: 47.3764, lng: 8.5483 };
-      const map = L.map("map", {
-        center: [TARGET.lat, TARGET.lng],
-        zoom: 14,
-        minZoom: 12,
-        maxBounds: [
-          [47.32, 8.44],
-          [47.43, 8.62],
-        ],
-        maxBoundsViscosity: 1.0,
-        zoomControl: false,
-        attributionControl: false,
-      });
-
-      L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        {
-          maxZoom: 19,
-        },
-      ).addTo(map);
-
-      L.control.zoom({ position: "topright" }).addTo(map);
-
-      // Target marker (crosshair)
-      L.circleMarker([TARGET.lat, TARGET.lng], {
-        radius: 8,
-        color: "#4ade80",
-        fillColor: "#4ade80",
-        fillOpacity: 0.3,
-        weight: 2,
-      })
-        .addTo(map)
-        .bindPopup("Target: ETH Zentrum");
-
-      // Range rings
-      [0.5, 1.0, 1.5].forEach((km) => {
-        L.circle([TARGET.lat, TARGET.lng], {
-          radius: km * 1000,
-          color: "#4ade8033",
-          fill: false,
-          weight: 1,
-          dashArray: "4 4",
-        }).addTo(map);
-      });
-
-      const listingMarkers = L.layerGroup().addTo(map);
-
-      function updateMap(listings) {
-        listingMarkers.clearLayers();
-        listings.forEach((l) => {
-          if (!l.dist) return; // no coordinates
-          // Reverse geocode from distance isn't possible, but we have flatfox coords
-          // For flatfox: we can get lat/lng from the API response
-        });
-
-        // Use the raw data which has coordinates
-        fetch("/api/listings")
-          .then((r) => r.json())
-          .then((all) => {
-            listingMarkers.clearLayers();
-            // We need lat/lng - flatfox has it in the pin data, wgzimmer has it cached
-            // Let's add a coords endpoint
-          });
-      }
-
-      // Better approach: add lat/lng to the listings API response
-      function plotListings(listings) {
-        listingMarkers.clearLayers();
-        let plotted = 0;
-        for (const l of listings) {
-          if (!l.lat || !l.lng) continue;
-          const color =
-            l.source === "flatfox"
-              ? "#60a5fa"
-              : l.source === "wgzimmer"
-                ? "#fb923c"
-                : "#fbbf24";
-          const marker = L.circleMarker([l.lat, l.lng], {
-            radius: 5,
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.7,
-            weight: 1,
-          }).addTo(listingMarkers);
-          marker.bindPopup(
-            `<b>CHF ${l.price}</b><br>${l.address || l.source}<br><a href="${l.url}" target="_blank">open</a>`,
-          );
-          plotted++;
-        }
-        return plotted;
-      }
-
-      // ── Radar sweep animation ──────────────────────
-      const canvas = document.getElementById("radar-canvas");
-      const ctx = canvas.getContext("2d");
-      let radarAngle = 0;
-
-      function resizeCanvas() {
-        const section = document.getElementById("radar-section");
-        canvas.width = section.offsetWidth;
-        canvas.height = section.offsetHeight;
-      }
-      resizeCanvas();
-      window.addEventListener("resize", resizeCanvas);
-
-      function drawRadar() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Get map center in pixels
-        const centerPoint = map.latLngToContainerPoint([
-          TARGET.lat,
-          TARGET.lng,
-        ]);
-        const cx = centerPoint.x;
-        const cy = centerPoint.y;
-        const radius = Math.max(canvas.width, canvas.height);
-
-        // Sweep gradient
-        const sweepAngle = radarAngle;
-        const gradient = ctx.createConicGradient(sweepAngle, cx, cy);
-        gradient.addColorStop(0, "rgba(74, 222, 128, 0)");
-        gradient.addColorStop(0.55, "rgba(74, 222, 128, 0)");
-        gradient.addColorStop(0.7, "rgba(74, 222, 128, 0.03)");
-        gradient.addColorStop(0.82, "rgba(74, 222, 128, 0.08)");
-        gradient.addColorStop(0.91, "rgba(74, 222, 128, 0.18)");
-        gradient.addColorStop(0.97, "rgba(74, 222, 128, 0.35)");
-        gradient.addColorStop(1, "rgba(74, 222, 128, 0.5)");
-
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Sweep line
-        ctx.strokeStyle = "rgba(74, 222, 128, 0.6)";
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(
-          cx + Math.cos(sweepAngle) * radius,
-          cy + Math.sin(sweepAngle) * radius,
+        const groups = TRACKED_GROUPS.filter(
+          ([category]) => (tracker[category] || []).length > 0,
         );
-        ctx.stroke();
+        if (groups.length === 0) {
+          $("applied-list").innerHTML =
+            '<p class="empty">Nothing tracked yet. Select a listing to shortlist it or mark it as applied.</p>';
+          return;
+        }
 
-        radarAngle += 0.015;
-        requestAnimationFrame(drawRadar);
+        $("applied-list").innerHTML = groups
+          .map(
+            ([category, label]) => `
+              <h3 class="group-head">${label} <span class="tab-count">${tracker[category].length}</span></h3>
+              ${tracker[category]
+                .map(
+                  (e) => `
+                    <div class="application" data-url="${esc(e.url)}">
+                      <a class="application-place" href="${esc(e.url)}" target="_blank" rel="noopener">${esc(e.address || e.url.substring(0, 60))}</a>
+                      <span class="rent">${e.price ? "CHF " + esc(e.price) : ""}</span>
+                      <span class="secondary">${esc(e.reason || daysAgo(e.date))}</span>
+                      <span class="row-actions">${actionButtons(TRACKED_ACTIONS[category])}</span>
+                    </div>`,
+                )
+                .join("")}`,
+          )
+          .join("");
       }
-      drawRadar();
 
-      // ── Reject application ──────────────────────────
-      async function rejectApp(url) {
-        if (!confirm("Mark as rejected?")) return;
-        await fetch("/api/reject", {
+      function detailRow(l) {
+        const status = statusOf(l.url);
+        const actions = [["draft", "Draft message"]];
+        if (status !== "applied") actions.push(["apply", "Mark applied"]);
+        if (!status) {
+          actions.push(["shortlist", "Shortlist"], ["exclude", "Exclude"]);
+        } else {
+          actions.push(["untrack", "Stop tracking"]);
+        }
+        const row = document.createElement("tr");
+        row.className = "detail-row";
+        row.dataset.url = l.url;
+        row.innerHTML = `<td colspan="6"><div class="row-actions">${actionButtons(actions)}</div></td>`;
+        return row;
+      }
+
+      function selectListing(id) {
+        const listing = allListings.find((l) => l.id === id);
+        const row = focusRow(id);
+        document.querySelector("#listings-body .detail-row")?.remove();
+        if (!listing || !row) return;
+        row.after(detailRow(listing));
+        flyToListing(id);
+      }
+
+      async function track(url, action) {
+        const listing = allListings.find(
+          (l) => listingKey(l.url) === listingKey(url),
+        );
+        await fetch("/api/track", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url }),
+          body: JSON.stringify({
+            url,
+            action,
+            address: listing?.address,
+            price: listing?.price,
+          }),
         });
         await load();
       }
 
-      // ── Show sent message ─────────────────────────
-      let appMessages = [];
+            // Scan
+
+      async function scan() {
+        const button = $("scan-button");
+        const status = $("scan-status");
+        button.disabled = true;
+        button.textContent = "Scanning";
+        status.classList.remove("is-error");
+        status.textContent = "This takes a few minutes.";
+
+        try {
+          const res = await fetch("/api/scan", { method: "POST" });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          await load();
+          status.textContent = "Scan finished.";
+        } catch (e) {
+          status.classList.add("is-error");
+          status.textContent = `Scan failed. ${e.message}`;
+        }
+
+        button.disabled = false;
+        button.textContent = "Scan for listings";
+      }
+
+      // Messages
+
+      function openDialog(title, body, { copyable = false } = {}) {
+        $("dialog-title").textContent = title;
+        $("dialog-body").textContent = body;
+        $("dialog-copy").hidden = !copyable;
+        $("dialog-copy").textContent = "Copy message";
+        $("message-dialog").showModal();
+      }
+
       async function loadMessages() {
         try {
           const res = await fetch("/api/applications");
@@ -966,26 +1354,15 @@
         const match = appMessages.find(
           (a) => a.content.includes(url) || url.includes(a.id.split("-")[0]),
         );
-        const modal = document.createElement("div");
-        modal.style.cssText =
-          "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-        modal.onclick = () => modal.remove();
-        const box = document.createElement("pre");
-        box.style.cssText =
-          "background:var(--surface);border:1px solid var(--border);padding:24px;max-width:700px;max-height:80vh;overflow:auto;white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);cursor:text;";
-        box.onclick = (e) => e.stopPropagation();
-        box.textContent = match
-          ? match.content
-          : "No saved message found for this listing.";
-        modal.appendChild(box);
-        document.body.appendChild(modal);
+        openDialog(
+          "Sent message",
+          match ? match.content : "No saved message for this listing.",
+        );
       }
 
-      // ── Generate message via Ollama ───────────────
-      async function generateMessage(url) {
-        const btn = event.target;
-        btn.style.opacity = "0.4";
-        btn.disabled = true;
+      async function draftMessage(url, button) {
+        button.disabled = true;
+        button.textContent = "Drafting";
         try {
           const res = await fetch("/api/generate", {
             method: "POST",
@@ -994,43 +1371,532 @@
           });
           const data = await res.json();
           if (data.error) {
-            alert(data.error);
-            return;
+            openDialog("Could not draft a message", data.error);
+          } else {
+            openDialog("Application message", data.message, { copyable: true });
           }
-          const modal = document.createElement("div");
-          modal.style.cssText =
-            "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:1000;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-          modal.onclick = () => modal.remove();
-          const box = document.createElement("div");
-          box.style.cssText =
-            "background:var(--surface);border:1px solid var(--green);padding:24px;max-width:700px;max-height:80vh;overflow:auto;cursor:text;";
-          box.onclick = (e) => e.stopPropagation();
-          const pre = document.createElement("pre");
-          pre.style.cssText =
-            "white-space:pre-wrap;font-family:inherit;font-size:12px;color:var(--text);margin-bottom:16px;";
-          pre.textContent = data.message;
-          const copyBtn = document.createElement("button");
-          copyBtn.textContent = "COPY TO CLIPBOARD";
-          copyBtn.style.cssText =
-            "background:var(--green);color:#000;border:none;padding:8px 16px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;letter-spacing:0.5px;";
-          copyBtn.onclick = () => {
-            navigator.clipboard.writeText(data.message);
-            copyBtn.textContent = "COPIED";
-          };
-          box.appendChild(pre);
-          box.appendChild(copyBtn);
-          modal.appendChild(box);
-          document.body.appendChild(modal);
         } catch (e) {
-          alert("Failed to generate: " + e.message);
+          openDialog("Could not draft a message", e.message);
         } finally {
-          btn.style.opacity = "0.6";
-          btn.disabled = false;
+          button.disabled = false;
+          button.textContent = "Draft message";
         }
       }
 
-      loadMessages();
-      load();
+      // Map
+
+      const RING_KM = [0.5, 1, 1.5];
+      let map;
+      let listingsGeojson = { type: "FeatureCollection", features: [] };
+      let hoveredId = null;
+
+      function cssVar(name) {
+        return getComputedStyle(document.documentElement)
+          .getPropertyValue(name)
+          .trim();
+      }
+
+      function ringFeatures() {
+        const kmPerDegLat = 111.32;
+        const kmPerDegLng = kmPerDegLat * Math.cos((target.lat * Math.PI) / 180);
+        const features = [];
+        for (const km of RING_KM) {
+          const coordinates = [];
+          for (let i = 0; i <= 96; i++) {
+            const a = (i / 96) * 2 * Math.PI;
+            coordinates.push([
+              target.lng + (km * Math.sin(a)) / kmPerDegLng,
+              target.lat + (km * Math.cos(a)) / kmPerDegLat,
+            ]);
+          }
+          features.push({
+            type: "Feature",
+            geometry: { type: "LineString", coordinates },
+            properties: {},
+          });
+          features.push({
+            type: "Feature",
+            geometry: { type: "Point", coordinates: coordinates[0] },
+            properties: { label: km < 1 ? `${km * 1000} m` : `${km} km` },
+          });
+        }
+        return { type: "FeatureCollection", features };
+      }
+
+      function buildMapStyle() {
+        const land = cssVar("--map-land");
+        const label = cssVar("--map-label");
+        const accent = cssVar("--accent");
+        const isLine = [
+          "match",
+          ["geometry-type"],
+          ["LineString", "MultiLineString"],
+          true,
+          false,
+        ];
+        const placeLabel = (id, classes, minzoom, font, size) => ({
+          id,
+          type: "symbol",
+          source: "basemap",
+          "source-layer": "place",
+          minzoom,
+          filter: ["match", ["get", "class"], classes, true, false],
+          layout: {
+            "text-field": ["get", "name"],
+            "text-font": [font],
+            "text-size": size,
+            "text-max-width": 8,
+          },
+          paint: {
+            "text-color": label,
+            "text-halo-color": land,
+            "text-halo-width": 1.5,
+          },
+        });
+
+        return {
+          version: 8,
+          glyphs: "https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf",
+          sources: {
+            basemap: {
+              type: "vector",
+              url: "https://tiles.openfreemap.org/planet",
+            },
+            rings: { type: "geojson", data: ringFeatures() },
+            listings: {
+              type: "geojson",
+              data: listingsGeojson,
+              promoteId: "id",
+            },
+          },
+          layers: [
+            {
+              id: "land",
+              type: "background",
+              paint: { "background-color": land },
+            },
+            {
+              id: "wood",
+              type: "fill",
+              source: "basemap",
+              "source-layer": "landcover",
+              filter: ["==", ["get", "class"], "wood"],
+              paint: { "fill-color": cssVar("--map-green") },
+            },
+            {
+              id: "park",
+              type: "fill",
+              source: "basemap",
+              "source-layer": "park",
+              paint: { "fill-color": cssVar("--map-green") },
+            },
+            {
+              id: "water",
+              type: "fill",
+              source: "basemap",
+              "source-layer": "water",
+              paint: { "fill-color": cssVar("--map-water") },
+            },
+            {
+              id: "river",
+              type: "line",
+              source: "basemap",
+              "source-layer": "waterway",
+              filter: ["==", ["get", "class"], "river"],
+              paint: { "line-color": cssVar("--map-water"), "line-width": 2 },
+            },
+            {
+              id: "rail",
+              type: "line",
+              source: "basemap",
+              "source-layer": "transportation",
+              minzoom: 12,
+              filter: [
+                "all",
+                isLine,
+                ["==", ["get", "class"], "rail"],
+                ["!", ["has", "service"]],
+              ],
+              paint: { "line-color": cssVar("--map-rail"), "line-width": 1 },
+            },
+            {
+              id: "road-minor",
+              type: "line",
+              source: "basemap",
+              "source-layer": "transportation",
+              minzoom: 14,
+              filter: ["all", isLine, ["==", ["get", "class"], "minor"]],
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: {
+                "line-color": cssVar("--map-road-minor"),
+                "line-width": [
+                  "interpolate",
+                  ["exponential", 1.5],
+                  ["zoom"],
+                  14,
+                  0.8,
+                  18,
+                  7,
+                ],
+              },
+            },
+            {
+              id: "road-major",
+              type: "line",
+              source: "basemap",
+              "source-layer": "transportation",
+              filter: [
+                "all",
+                isLine,
+                [
+                  "match",
+                  ["get", "class"],
+                  ["motorway", "trunk", "primary", "secondary", "tertiary"],
+                  true,
+                  false,
+                ],
+                ["!=", ["get", "brunnel"], "tunnel"],
+              ],
+              layout: { "line-cap": "round", "line-join": "round" },
+              paint: {
+                "line-color": cssVar("--map-road"),
+                "line-width": [
+                  "interpolate",
+                  ["exponential", 1.4],
+                  ["zoom"],
+                  10,
+                  0.6,
+                  14,
+                  2.5,
+                  18,
+                  14,
+                ],
+              },
+            },
+            placeLabel(
+              "label-district",
+              ["suburb", "quarter", "neighbourhood"],
+              12.5,
+              "Noto Sans Regular",
+              11.5,
+            ),
+            placeLabel(
+              "label-town",
+              ["city", "town", "village"],
+              0,
+              "Noto Sans Bold",
+              13,
+            ),
+            {
+              id: "ring",
+              type: "line",
+              source: "rings",
+              filter: ["==", ["geometry-type"], "LineString"],
+              paint: {
+                "line-color": accent,
+                "line-opacity": 0.45,
+                "line-width": 1,
+                "line-dasharray": [3, 3],
+              },
+            },
+            {
+              id: "ring-label",
+              type: "symbol",
+              source: "rings",
+              filter: ["==", ["geometry-type"], "Point"],
+              layout: {
+                "text-field": ["get", "label"],
+                "text-font": ["Noto Sans Regular"],
+                "text-size": 11,
+                "text-allow-overlap": true,
+              },
+              paint: {
+                "text-color": accent,
+                "text-halo-color": land,
+                "text-halo-width": 2,
+              },
+            },
+            {
+              id: "listing",
+              type: "circle",
+              source: "listings",
+              paint: {
+                "circle-radius": [
+                  "case",
+                  ["boolean", ["feature-state", "hover"], false],
+                  9,
+                  5.5,
+                ],
+                "circle-color": [
+                  "match",
+                  ["get", "source"],
+                  "flatfox",
+                  cssVar("--src-flatfox"),
+                  "wgzimmer",
+                  cssVar("--src-wgzimmer"),
+                  cssVar("--src-ronorp"),
+                ],
+                "circle-stroke-color": cssVar("--surface"),
+                "circle-stroke-width": 1.5,
+              },
+            },
+          ],
+        };
+      }
+
+      function setMapListings(listings) {
+        listingsGeojson = {
+          type: "FeatureCollection",
+          features: listings
+            .filter((l) => l.lat && l.lng)
+            .map((l) => ({
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [l.lng, l.lat] },
+              properties: {
+                id: l.id,
+                source: l.source,
+                price: l.price,
+                place: l.address || l.source,
+                url: l.url,
+              },
+            })),
+        };
+        hoveredId = null;
+        map?.getSource("listings")?.setData(listingsGeojson);
+      }
+
+      function setHovered(id) {
+        if (!map?.getSource("listings")) return;
+        if (hoveredId !== null) {
+          map.setFeatureState(
+            { source: "listings", id: hoveredId },
+            { hover: false },
+          );
+        }
+        hoveredId = id;
+        if (id !== null) {
+          map.setFeatureState({ source: "listings", id }, { hover: true });
+        }
+      }
+
+      function listingPopup(properties) {
+        const node = document.createElement("div");
+        const rent = document.createElement("div");
+        rent.className = "popup-rent";
+        rent.textContent = `CHF ${properties.price}`;
+        const place = document.createElement("div");
+        place.className = "popup-place";
+        place.textContent = properties.place;
+        const link = document.createElement("a");
+        link.href = properties.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = "Open listing";
+        node.append(rent, place, link);
+        return node;
+      }
+
+      let listingPopupOnMap = null;
+
+      function showListingPopup(lngLat, properties) {
+        listingPopupOnMap?.remove();
+        listingPopupOnMap = new maplibregl.Popup({
+          offset: 10,
+          focusAfterOpen: false,
+        })
+          .setLngLat(lngLat)
+          .setDOMContent(listingPopup(properties))
+          .addTo(map);
+      }
+
+      function flyToListing(id) {
+        const feature = listingsGeojson.features.find(
+          (f) => f.properties.id === id,
+        );
+        if (!feature) return;
+        showListingPopup(feature.geometry.coordinates, feature.properties);
+        map.flyTo({
+          center: feature.geometry.coordinates,
+          zoom: Math.max(map.getZoom(), 15.5),
+          speed: 1.4,
+        });
+        if (matchMedia("(max-width: 900px)").matches) {
+          $("map").scrollIntoView({ block: "start", behavior: "smooth" });
+        }
+      }
+
+      function focusRow(id, { scroll = false } = {}) {
+        document
+          .querySelectorAll("#listings-body tr.is-active")
+          .forEach((tr) => tr.classList.remove("is-active"));
+        const row = [...document.querySelectorAll("#listings-body tr")].find(
+          (tr) => tr.dataset.id === id,
+        );
+        if (!row) return null;
+        row.classList.add("is-active");
+        if (scroll) row.scrollIntoView({ block: "center", behavior: "smooth" });
+        return row;
+      }
+
+      function initMap() {
+        map = new maplibregl.Map({
+          container: "map",
+          style: buildMapStyle(),
+          center: [target.lng, target.lat],
+          zoom: 13.5,
+          minZoom: 11,
+          maxZoom: 18,
+          maxBounds: [
+            [8.38, 47.29],
+            [8.68, 47.46],
+          ],
+          dragRotate: false,
+          pitchWithRotate: false,
+          attributionControl: false,
+        });
+        map.touchZoomRotate.disableRotation();
+        map.addControl(
+          new maplibregl.NavigationControl({ showCompass: false }),
+          "top-right",
+        );
+        map.addControl(
+          new maplibregl.AttributionControl({ compact: true }),
+          "bottom-right",
+        );
+
+        const pin = document.createElement("div");
+        pin.className = "target-pin";
+        new maplibregl.Marker({ element: pin })
+          .setLngLat([target.lng, target.lat])
+          .setPopup(new maplibregl.Popup({ offset: 14 }).setText(target.label))
+          .addTo(map);
+
+        map.on("style.load", () => {
+          map.getSource("listings").setData(listingsGeojson);
+        });
+
+        map.on("mouseenter", "listing", () => {
+          map.getCanvas().style.cursor = "pointer";
+        });
+        map.on("mouseleave", "listing", () => {
+          map.getCanvas().style.cursor = "";
+        });
+        map.on("click", "listing", (e) => {
+          const feature = e.features[0];
+          showListingPopup(feature.geometry.coordinates, feature.properties);
+          document.querySelector("#listings-body .detail-row")?.remove();
+          const row = focusRow(feature.properties.id, { scroll: true });
+          const listing = allListings.find(
+            (l) => l.id === feature.properties.id,
+          );
+          if (row && listing) row.after(detailRow(listing));
+        });
+
+        matchMedia("(prefers-color-scheme: dark)").addEventListener(
+          "change",
+          () => map.setStyle(buildMapStyle()),
+        );
+      }
+
+      // Events
+
+      $("scan-button").addEventListener("click", scan);
+
+      document.querySelectorAll(".tab").forEach((tab, index, tabs) => {
+        tab.addEventListener("click", () => selectTab(tab));
+        tab.addEventListener("keydown", (e) => {
+          if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+          const step = e.key === "ArrowRight" ? 1 : -1;
+          const next = tabs[(index + step + tabs.length) % tabs.length];
+          selectTab(next);
+          next.focus();
+        });
+      });
+      $("filters").addEventListener("input", applyFilters);
+      $("filters").addEventListener("submit", (e) => e.preventDefault());
+
+      function setSort(column) {
+        sortBy = column;
+        document.querySelectorAll("th[data-sort]").forEach((th) => {
+          if (th.dataset.sort === column) {
+            th.setAttribute("aria-sort", "ascending");
+          } else {
+            th.removeAttribute("aria-sort");
+          }
+        });
+      }
+
+      document.querySelectorAll("th[data-sort]").forEach((th) => {
+        th.querySelector("button").addEventListener("click", () => {
+          setSort(th.dataset.sort);
+          applyFilters();
+        });
+      });
+
+      function restoreFilters() {
+        let saved;
+        try {
+          saved = JSON.parse(localStorage.getItem(FILTERS_KEY));
+        } catch {}
+        if (!saved) return;
+        $("f-price").value = saved.maxPrice;
+        $("f-dist").value = saved.maxDist;
+        for (const [id, value] of Object.entries(saved.checked || {})) {
+          if ($(id)) $(id).checked = value;
+        }
+        setSort(saved.sortBy === "distance" ? "distance" : "price");
+      }
+
+      $("listings-body").addEventListener("click", (e) => {
+        const button = e.target.closest("[data-action]");
+        if (button) {
+          const url = button.closest("tr").dataset.url;
+          if (button.dataset.action === "draft") draftMessage(url, button);
+          else track(url, button.dataset.action);
+          return;
+        }
+        const row = e.target.closest("tr.listing-row");
+        if (row && !e.target.closest("a")) selectListing(row.dataset.id);
+      });
+      $("listings-body").addEventListener("mouseover", (e) => {
+        const row = e.target.closest("tr.listing-row");
+        if (row && row.dataset.id !== hoveredId) setHovered(row.dataset.id);
+      });
+      $("listings-body").addEventListener("mouseleave", () => setHovered(null));
+
+      $("applied-list").addEventListener("click", (e) => {
+        const button = e.target.closest("[data-action]");
+        if (!button) return;
+        const url = button.closest(".application").dataset.url;
+        if (button.dataset.action === "show-message") showMessage(url);
+        else track(url, button.dataset.action);
+      });
+
+      $("dialog-copy").addEventListener("click", () => {
+        navigator.clipboard.writeText($("dialog-body").textContent);
+        $("dialog-copy").textContent = "Copied";
+      });
+      $("message-dialog").addEventListener("click", (e) => {
+        if (e.target === e.currentTarget) e.currentTarget.close();
+      });
+
+      async function init() {
+        try {
+          const config = await (await fetch("/api/config")).json();
+          target = { ...target, ...config.target };
+          if (config.maxPrice) $("f-price").value = config.maxPrice;
+          $("f-gender").checked = !config.exclude.genderRestricted;
+          $("f-student").checked = !config.exclude.studentHousing;
+          $("f-short").checked = !config.exclude.shortSublets;
+        } catch {}
+        restoreFilters();
+        $("legend-target").textContent = target.label;
+        initMap();
+        loadMessages();
+        load();
+      }
+
+      init();
     </script>
   </body>
 </html>

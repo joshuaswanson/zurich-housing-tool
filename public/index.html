@@ -704,6 +704,11 @@
         cursor: pointer;
       }
 
+      tbody tr.listing-row:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
+      }
+
       tbody tr.is-active td {
         border-bottom-color: transparent;
       }
@@ -867,16 +872,20 @@
           font-size: 21px;
         }
 
-        .summary {
-          order: 3;
-        }
-
-        .summary {
-          flex-basis: 60%;
-        }
-
         .scan {
-          margin-left: auto;
+          flex-basis: 100%;
+          flex-wrap: wrap;
+        }
+
+        .scan .scan-status {
+          flex-basis: 100%;
+          white-space: normal;
+        }
+
+        .legend {
+          right: 56px;
+          flex-wrap: wrap;
+          gap: 4px 12px;
         }
 
         .layout {
@@ -1307,6 +1316,7 @@
           cancel: "Cancel",
           fetching: "Fetching",
           fetch_failed: "Could not fetch details",
+          save_failed: "Could not save the change",
           sec_room: "Room",
           sec_weAre: "We are",
           sec_lookingFor: "Looking for",
@@ -1422,6 +1432,7 @@
           cancel: "Abbrechen",
           fetching: "Wird geladen",
           fetch_failed: "Details konnten nicht geladen werden",
+          save_failed: "Die Änderung konnte nicht gespeichert werden",
           sec_room: "Zimmer",
           sec_weAre: "Wir sind",
           sec_lookingFor: "Wir suchen",
@@ -1680,7 +1691,7 @@
           .slice(0, MAX_ROWS)
           .map(
             (l) => `
-              <tr class="listing-row" data-id="${esc(l.id)}">
+              <tr class="listing-row" data-id="${esc(l.id)}" tabindex="0">
                 <td class="rent">${esc(l.price)}</td>
                 <td class="nowrap">
                   ${l.dist !== null ? `<div>${l.dist.toFixed(1)} km</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
@@ -1896,14 +1907,25 @@
         }
       }
 
+      async function postJson(path, payload) {
+        try {
+          const res = await fetch(path, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error((await res.json()).error);
+          return true;
+        } catch (e) {
+          openDialog(t("save_failed"), e.message);
+          return false;
+        }
+      }
+
       async function saveNote(row, button) {
         const url = row.dataset.url;
         const text = row.querySelector("[data-role='note']").value;
-        await fetch("/api/note", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, text }),
-        });
+        if (!(await postJson("/api/note", { url, text }))) return;
         tracker.notes = tracker.notes || {};
         if (text.trim()) tracker.notes[noteKey(url)] = text.trim();
         else delete tracker.notes[noteKey(url)];
@@ -1930,18 +1952,14 @@
         const listing = allListings.find(
           (l) => listingKey(l.url) === listingKey(url),
         );
-        await fetch("/api/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            url,
-            action,
-            address: listing?.address,
-            price: listing?.price,
-            reason,
-          }),
+        const saved = await postJson("/api/track", {
+          url,
+          action,
+          address: listing?.address,
+          price: listing?.price,
+          reason,
         });
-        await load();
+        if (saved) await load();
       }
 
             // Scan
@@ -2596,6 +2614,12 @@
         }
         const row = e.target.closest("tr.listing-row");
         if (row && !e.target.closest("a")) selectListing(row.dataset.id);
+      });
+      $("listings-body").addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        if (!e.target.matches("tr.listing-row")) return;
+        e.preventDefault();
+        selectListing(e.target.dataset.id);
       });
       $("listings-body").addEventListener("mouseover", (e) => {
         const row = e.target.closest("tr.listing-row");

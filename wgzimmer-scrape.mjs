@@ -127,7 +127,9 @@ export async function scrapeWgzimmer(maxPrice = 1500, region = "zurich-stadt") {
     }
 
     process.stderr.write("\n");
-    return allListings;
+    // A listing can appear on two result pages when new posts shift the
+    // pagination during the scrape.
+    return [...new Map(allListings.map((l) => [l.url, l])).values()];
   } finally {
     await browser.close();
   }

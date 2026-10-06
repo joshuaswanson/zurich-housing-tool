@@ -1,5 +1,5 @@
 /**
- * wgzimmer.ch scraper using CloakBrowser (headless, bypasses reCAPTCHA v3).
+ * wgzimmer.ch search scraper.
  *
  * Exports: scrapeWgzimmer(maxPrice, region) for programmatic use.
  * Standalone: node wgzimmer-scrape.mjs [maxPrice]

@@ -1,7 +1,7 @@
 {
   "name": "zurich-housing-monitor",
   "version": "2.0.0",
-  "description": "Monitor Zurich housing listings from flatfox.ch and wgzimmer.ch",
+  "description": "Find shared housing in Zurich across wgzimmer.ch, flatfox.ch, ronorp.net and students.ch",
   "type": "module",
   "scripts": {
     "scan": "node monitor.js scan",

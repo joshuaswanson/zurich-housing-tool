@@ -1010,14 +1010,6 @@
         margin-top: 16px;
       }
 
-      .page-footer {
-        margin-top: 32px;
-        font-size: 12.5px;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px 16px;
-      }
-
       @media (max-width: 900px) {
         .page-header {
           height: auto;
@@ -1404,16 +1396,6 @@
             </div>
           </form>
         </section>
-
-        <footer class="page-footer">
-          <span id="search-links"></span>
-          <a
-            href="https://github.com/joshuaswanson/zurich-housing-tool"
-            target="_blank"
-            rel="noopener"
-            >github.com/joshuaswanson/zurich-housing-tool</a
-          >
-        </footer>
       </main>
     </div>
 
@@ -3091,12 +3073,6 @@
             targets.find((t) => t.label === localStorage.getItem(TARGET_KEY)) ||
             preset ||
             configured;
-          $("search-links").innerHTML = config.links
-            .map(
-              (link) =>
-                `<a href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.label)}</a>`,
-            )
-            .join(" ");
           if (config.maxPrice) $("f-price").value = config.maxPrice;
           $("f-gender").checked = !config.exclude.genderRestricted;
           $("f-student").checked = !config.exclude.studentHousing;

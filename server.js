@@ -243,7 +243,6 @@ app.get("/api/config", (req, res) => {
   res.json({
     target: { ...ETH_ZENTRUM, label: config.target.label },
     maxPrice: MAX_PRICE,
-    links: config.links || [],
     exclude: {
       genderRestricted: config.exclude?.genderRestricted !== false,
       studentHousing: config.exclude?.woko === true,

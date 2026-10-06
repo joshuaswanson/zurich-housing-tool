@@ -83,6 +83,10 @@
         box-sizing: border-box;
       }
 
+      [hidden] {
+        display: none !important;
+      }
+
       body {
         font-family: "IBM Plex Sans", system-ui, sans-serif;
         background: var(--bg);
@@ -230,8 +234,8 @@
 
       .summary {
         color: var(--muted);
-        flex: 1;
-        min-width: 0;
+        flex: 1 0 auto;
+        white-space: nowrap;
       }
 
       .button-report,
@@ -251,6 +255,19 @@
         display: flex;
         align-items: center;
         gap: 12px;
+        min-width: 0;
+      }
+
+      .scan > * {
+        flex: none;
+      }
+
+      .scan .scan-status {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
       .scan-status {
@@ -509,10 +526,6 @@
         flex-basis: 100%;
       }
 
-      .more-filters[hidden] {
-        display: none;
-      }
-
       .filter-group {
         display: flex;
         flex-wrap: wrap;
@@ -619,6 +632,10 @@
         margin-left: 4px;
         font-weight: 400;
         color: var(--muted);
+      }
+
+      .detail .row-actions {
+        flex-wrap: wrap;
       }
 
       .tab-panel {
@@ -1217,7 +1234,8 @@
           scan_wait: "This takes a few minutes.",
           scan_failed: "Scan failed. {error}",
           last_scan: "Last scan {when}.",
-          sources_failed: "{sources} failed, showing older data.",
+          sources_failed: "{sources} failed.",
+          sources_failed_detail: "The listings shown for {sources} are from an earlier scan.",
           and: "and",
           map_label: "Map of listings",
           target_label: "Measure distances from",
@@ -1331,7 +1349,8 @@
           scan_wait: "Das dauert ein paar Minuten.",
           scan_failed: "Suche fehlgeschlagen. {error}",
           last_scan: "Letzte Suche {when}.",
-          sources_failed: "{sources} fehlgeschlagen, ältere Daten werden angezeigt.",
+          sources_failed: "{sources} fehlgeschlagen.",
+          sources_failed_detail: "Die angezeigten Inserate von {sources} stammen aus einer früheren Suche.",
           and: "und",
           map_label: "Karte der Inserate",
           target_label: "Distanzen messen ab",
@@ -1954,6 +1973,10 @@
             ? ` ${t("sources_failed", { sources: joinList(failedSources) })}`
             : "") +
           (newCount > 0 ? ` ${counted("new_listings", newCount)}.` : "");
+        status.title =
+          failedSources.length > 0
+            ? t("sources_failed_detail", { sources: joinList(failedSources) })
+            : "";
       }
 
       async function loadScanStatus() {

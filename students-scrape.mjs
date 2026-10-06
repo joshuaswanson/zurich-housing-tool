@@ -43,6 +43,7 @@ function parseListRows(html) {
       if (!link) return null;
       return {
         id: link[2],
+        isWholeFlat: !/title="WG-Zimmer"/.test(row),
         url: BASE_URL + link[1],
         title: decodeEntities(
           row.match(/<span[^>]*title="([^"]*)"/)?.[1] ||
@@ -81,6 +82,7 @@ export async function scrapeStudents() {
     listings.push({
       url: row.url,
       price: row.price,
+      isWholeFlat: row.isWholeFlat,
       address: details.address || null,
       lat: coords?.lat ?? null,
       lng: coords?.lng ?? null,

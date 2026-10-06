@@ -34,22 +34,32 @@ function formatDate(isoDate) {
   return `${day}.${month}.${year}`;
 }
 
+const SHORT_TERM_PRICE_LIMIT = 400;
+
+// Some posters enter a nightly or weekly price in the monthly price field.
+function pricePeriod(price, text) {
+  if (!price || price >= SHORT_TERM_PRICE_LIMIT) return null;
+  if (/(pro|per|\/)\s*(Nacht|night|Tag|day)\b/i.test(text)) return "night";
+  if (/(pro|per|\/)\s*(Woche|week)\b/i.test(text)) return "week";
+  return null;
+}
+
 function toListing(post) {
   const location = post.location || {};
+  const price = post.price ? Math.round(parseFloat(post.price)) : null;
+  const description = `${post.title} ${htmlToText(post.description)}`;
   const address =
     location.address?.replace(/,\s*(Schweiz|Suiza|Switzerland|Suisse)$/i, "") ||
     (post.zip_code ? String(post.zip_code) : null);
   return {
     url: `https://ronorp.net/market/posts/${post.seo_slug || post.slug}`,
-    price: post.price ? Math.round(parseFloat(post.price)) : null,
+    price,
+    pricePeriod: pricePeriod(price, description),
     address,
     lat: location.latitude ?? null,
     lng: location.longitude ?? null,
     isOffer: post.post_type === "offer",
-    description: `${post.title} ${htmlToText(post.description)}`.substring(
-      0,
-      400,
-    ),
+    description: description.substring(0, 400),
     availableFrom: formatDate(post.housing_detail?.ready_to_move),
     isTemporary: post.housing_detail?.contract === "temporary",
     source: "ronorp",

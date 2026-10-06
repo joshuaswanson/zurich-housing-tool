@@ -845,6 +845,39 @@
         overflow-y: auto;
       }
 
+      dialog textarea {
+        width: 100%;
+        height: 46dvh;
+        padding: 10px 12px;
+        font: inherit;
+        color: inherit;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        resize: vertical;
+      }
+
+      .profile-form {
+        display: grid;
+        gap: 14px;
+        max-width: 60ch;
+      }
+
+      #profile-fields {
+        display: grid;
+        gap: 12px;
+      }
+
+      .profile-field {
+        display: grid;
+        gap: 4px;
+      }
+
+      .profile-field span {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+
       .dialog-actions {
         display: flex;
         justify-content: flex-end;
@@ -1005,6 +1038,17 @@
             <span data-i18n="tab_applications">Applications</span>
             <span class="tab-count" id="tab-applications-count"></span>
           </button>
+          <button
+            class="tab"
+            type="button"
+            role="tab"
+            id="tab-profile"
+            aria-controls="panel-profile"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span data-i18n="tab_profile">Profile</span>
+          </button>
         </div>
 
         <section
@@ -1080,6 +1124,10 @@
               <input type="checkbox" role="switch" id="f-bulk" />
               <span data-i18n="f_bulk">Bulk posters</span>
             </label>
+            <label class="filter">
+              <input type="checkbox" role="switch" id="f-flats" />
+              <span data-i18n="f_flats">Whole flats</span>
+            </label>
           </div>
           <div class="filter-group" role="group" aria-labelledby="only-label">
             <span class="filter-group-label" id="only-label" data-i18n="only">Only</span>
@@ -1134,6 +1182,27 @@
         <div id="applied-list"></div>
         </section>
 
+        <section
+          class="tab-panel"
+          role="tabpanel"
+          id="panel-profile"
+          aria-labelledby="tab-profile"
+          hidden
+        >
+          <p class="section-note" data-i18n="profile_intro">
+            These details are used by the LLM to draft application messages.
+          </p>
+          <form class="profile-form" id="profile-form">
+            <div id="profile-fields"></div>
+            <div class="row-actions">
+              <button class="button button-primary" data-i18n="save_profile">
+                Save profile
+              </button>
+              <span class="secondary" id="profile-status" role="status"></span>
+            </div>
+          </form>
+        </section>
+
         <footer class="page-footer">
           <span id="search-links"></span>
           <a
@@ -1149,7 +1218,9 @@
     <dialog id="message-dialog">
       <h2 id="dialog-title"></h2>
       <pre id="dialog-body"></pre>
+      <textarea id="dialog-editor" aria-labelledby="dialog-title" hidden></textarea>
       <div class="dialog-actions">
+        <button class="button" id="dialog-save" type="button" hidden></button>
         <button class="button" id="dialog-copy" type="button">
           <span data-i18n="copy_message">Copy message</span>
         </button>
@@ -1200,6 +1271,7 @@
         "f-student": "studentHousing",
         "f-short": "shortSublet",
         "f-bulk": "bulkPoster",
+        "f-flats": "wholeFlat",
       };
       const CHECKBOX_FILTERS = [
         "f-tracked",
@@ -1339,6 +1411,27 @@
           notify_body: "{count} since the last scan.",
           avail_immediately: "Immediately",
           avail_agreement: "By agreement",
+          tab_profile: "Profile",
+          profile_intro: "These details are used by the LLM to draft application messages. They are stored in profile.json on this computer.",
+          save_profile: "Save profile",
+          profile_saved: "Saved",
+          pf_name: "Name",
+          pf_age: "Age",
+          pf_occupation: "Occupation",
+          pf_situation: "Current situation",
+          pf_futurePlans: "Future plans",
+          pf_hobbies: "Hobbies, separated by commas",
+          pf_personality: "Personality",
+          pf_nationality: "Nationality",
+          pf_languages: "Languages",
+          pf_wgExperience: "Experience with shared flats",
+          pf_extras: "Anything else",
+          per_night: "per night",
+          per_week: "per week",
+          f_flats: "Whole flats",
+          status_flat: "whole flat",
+          save_message: "Save message",
+          message_saved: "Saved",
           sent_message: "Sent message",
           no_saved_message: "No saved message for this listing.",
           drafting: "Drafting",
@@ -1455,6 +1548,27 @@
           notify_body: "{count} seit der letzten Suche.",
           avail_immediately: "Sofort",
           avail_agreement: "Nach Vereinbarung",
+          tab_profile: "Profil",
+          profile_intro: "Diese Angaben verwendet das LLM, um Bewerbungsnachrichten zu entwerfen. Sie werden in profile.json auf diesem Computer gespeichert.",
+          save_profile: "Profil speichern",
+          profile_saved: "Gespeichert",
+          pf_name: "Name",
+          pf_age: "Alter",
+          pf_occupation: "Beruf oder Studium",
+          pf_situation: "Aktuelle Situation",
+          pf_futurePlans: "Zukunftspläne",
+          pf_hobbies: "Hobbys, durch Kommas getrennt",
+          pf_personality: "Persönlichkeit",
+          pf_nationality: "Nationalität",
+          pf_languages: "Sprachen",
+          pf_wgExperience: "WG-Erfahrung",
+          pf_extras: "Sonstiges",
+          per_night: "pro Nacht",
+          per_week: "pro Woche",
+          f_flats: "Ganze Wohnungen",
+          status_flat: "ganze Wohnung",
+          save_message: "Nachricht speichern",
+          message_saved: "Gespeichert",
           sent_message: "Gesendete Nachricht",
           no_saved_message: "Für dieses Inserat ist keine Nachricht gespeichert.",
           drafting: "Entwurf läuft",
@@ -1496,6 +1610,7 @@
         translatePage();
         applyFilters();
         renderApplications();
+        renderProfile(readProfileForm());
         loadScanStatus();
       }
 
@@ -1692,7 +1807,10 @@
           .map(
             (l) => `
               <tr class="listing-row" data-id="${esc(l.id)}" tabindex="0">
-                <td class="rent">${esc(l.price)}</td>
+                <td class="rent">
+                  <div>${esc(l.price)}</div>
+                  ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
+                </td>
                 <td class="nowrap">
                   ${l.dist !== null ? `<div>${l.dist.toFixed(1)} km</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
                 </td>
@@ -1700,6 +1818,7 @@
                   <div>
                     ${esc(l.address || t("address_missing"))}
                     ${statusOf(l.url) ? `<span class="status">${t(`status_${statusOf(l.url)}`)}</span>` : ""}
+                    ${l.wholeFlat ? `<span class="status">${t("status_flat")}</span>` : ""}
                   </div>
                   ${summary(l) ? `<div class="description">${esc(summary(l))}</div>` : ""}
                 </td>
@@ -2054,12 +2173,76 @@
 
       // Messages
 
-      function openDialog(title, body, { copyable = false } = {}) {
+      let dialogListingUrl = null;
+
+      // With a draftFor url the text is editable and can be saved for that listing.
+      function openDialog(title, body, { draftFor = null } = {}) {
+        dialogListingUrl = draftFor;
+        const isDraft = Boolean(draftFor);
         $("dialog-title").textContent = title;
         $("dialog-body").textContent = body;
-        $("dialog-copy").hidden = !copyable;
+        $("dialog-body").hidden = isDraft;
+        $("dialog-editor").value = body;
+        $("dialog-editor").hidden = !isDraft;
+        $("dialog-copy").hidden = !isDraft;
         $("dialog-copy").textContent = t("copy_message");
+        $("dialog-save").hidden = !isDraft;
+        $("dialog-save").textContent = t("save_message");
         $("message-dialog").showModal();
+      }
+
+      async function saveDraft() {
+        const saved = await postJson("/api/application", {
+          url: dialogListingUrl,
+          message: $("dialog-editor").value,
+        });
+        if (!saved) return;
+        await loadMessages();
+        $("dialog-save").textContent = t("message_saved");
+      }
+
+      let profileFields = [];
+
+      function renderProfile(profile) {
+        $("profile-fields").innerHTML = profileFields
+          .map((field) => {
+            const value = profile?.[field];
+            const text = Array.isArray(value) ? value.join(", ") : (value ?? "");
+            return `
+              <label class="profile-field">
+                <span>${t(`pf_${field}`)}</span>
+                <input class="text-input" type="${field === "age" ? "number" : "text"}" name="${field}" value="${esc(text)}" />
+              </label>`;
+          })
+          .join("");
+      }
+
+      async function loadProfile() {
+        try {
+          const data = await (await fetch("/api/profile")).json();
+          profileFields = data.fields;
+          renderProfile(data.profile);
+        } catch {}
+      }
+
+      function readProfileForm() {
+        const profile = {};
+        for (const input of $("profile-fields").querySelectorAll("input")) {
+          const text = input.value.trim();
+          if (input.name === "age") profile.age = text ? Number(text) : "";
+          else if (input.name === "hobbies") {
+            profile.hobbies = text
+              ? text.split(",").map((hobby) => hobby.trim()).filter(Boolean)
+              : "";
+          } else profile[input.name] = text;
+        }
+        return profile;
+      }
+
+      async function saveProfile(e) {
+        e.preventDefault();
+        const saved = await postJson("/api/profile", readProfileForm());
+        $("profile-status").textContent = saved ? t("profile_saved") : "";
       }
 
       async function loadMessages() {
@@ -2092,7 +2275,9 @@
           if (data.error) {
             openDialog(t("draft_failed"), data.error);
           } else {
-            openDialog(t("application_message"), data.message, { copyable: true });
+            openDialog(t("application_message"), data.message, {
+              draftFor: url,
+            });
           }
         } catch (e) {
           openDialog(t("draft_failed"), e.message);
@@ -2636,9 +2821,11 @@
       });
 
       $("dialog-copy").addEventListener("click", () => {
-        navigator.clipboard.writeText($("dialog-body").textContent);
+        navigator.clipboard.writeText($("dialog-editor").value);
         $("dialog-copy").textContent = t("copied");
       });
+      $("dialog-save").addEventListener("click", saveDraft);
+      $("profile-form").addEventListener("submit", saveProfile);
       $("message-dialog").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) e.currentTarget.close();
       });
@@ -2677,6 +2864,7 @@
         $("target-select").value = target.label;
         initMap();
         loadMessages();
+        loadProfile();
         loadScanStatus();
         load();
       }

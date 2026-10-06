@@ -1,7 +1,5 @@
 # zurich-housing-tool
 
-![Dashboard](assets/screenshot.png)
-
 This tool scrapes the major Swiss housing platforms, filters the results, tracks your applications, and generates an application message for each listing from its description.
 
 ## What it does

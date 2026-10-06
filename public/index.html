@@ -249,6 +249,16 @@
         white-space: nowrap;
       }
 
+      .summary a {
+        color: inherit;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .summary a:hover {
+        color: var(--ink);
+      }
+
       .button-report,
       .button-report:hover {
         background: var(--report);
@@ -1054,7 +1064,12 @@
           ></span
         >
       </h1>
-      <p class="summary"><span data-i18n="byline">by Joshua Swanson</span></p>
+      <p class="summary">
+        <span data-i18n="by">by</span>
+        <a href="https://joshuaswanson.github.io" target="_blank" rel="noopener"
+          >Joshua Swanson</a
+        >
+      </p>
       <div class="scan">
         <span class="scan-status" id="scan-status" role="status"></span>
         <button class="button button-primary" id="scan-button" data-i18n="scan">
@@ -1449,7 +1464,7 @@
       const LANGUAGE_KEY = "zurich-housing-language";
       const STRINGS = {
         en: {
-          byline: "by Joshua Swanson",
+          by: "by",
           report_issue: "Report an issue",
           language: "Language",
           settings: "Settings",
@@ -1593,7 +1608,7 @@
           application_message: "Application message",
         },
         de: {
-          byline: "von Joshua Swanson",
+          by: "von",
           report_issue: "Problem melden",
           language: "Sprache",
           settings: "Einstellungen",

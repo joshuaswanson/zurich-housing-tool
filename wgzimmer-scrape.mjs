@@ -8,6 +8,52 @@ import { launch } from "cloakbrowser";
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const RECAPTCHA_ATTEMPTS = 2;
+const RECAPTCHA_TIMEOUT_MS = 15000;
+
+async function openSearchForm(page, maxPrice, region) {
+  await page.goto(
+    "https://www.wgzimmer.ch/en/wgzimmer/search/mate.html?wc_language=en",
+    { waitUntil: "networkidle", timeout: 30000 },
+  );
+
+  // Dismiss cookies
+  try {
+    const consent = await page.$(".fc-cta-consent");
+    if (consent) {
+      await consent.click();
+      await delay(1500);
+    }
+  } catch {}
+
+  // Human-like behavior
+  await page.mouse.move(400, 300);
+  await delay(500);
+  await page.evaluate(() => window.scrollBy(0, 300));
+  await delay(1000);
+
+  // Fill form
+  await page.selectOption("#selector-state", region);
+  await page.selectOption('select[name="priceMax"]', String(maxPrice));
+  await delay(1000);
+}
+
+/** submitForm on the page calls grecaptcha.execute, which exists only once the library has loaded. */
+async function recaptchaReady(page) {
+  try {
+    await page.waitForFunction(
+      () =>
+        typeof grecaptcha !== "undefined" &&
+        typeof grecaptcha.execute === "function",
+      null,
+      { timeout: RECAPTCHA_TIMEOUT_MS },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Scrape wgzimmer.ch for Zurich listings up to maxPrice.
  * @param {number} maxPrice - Maximum rent in CHF
@@ -19,40 +65,15 @@ export async function scrapeWgzimmer(maxPrice = 1500, region = "zurich-stadt") {
   try {
     const page = await browser.newPage();
 
-    await page.goto(
-      "https://www.wgzimmer.ch/en/wgzimmer/search/mate.html?wc_language=en",
-      { waitUntil: "networkidle", timeout: 30000 },
-    );
-
-    // Dismiss cookies
-    try {
-      const consent = await page.$(".fc-cta-consent");
-      if (consent) {
-        await consent.click();
-        await delay(1500);
+    // The reCAPTCHA library sometimes fails to download, so the page is
+    // loaded a second time when it does not become ready.
+    for (let attempt = 1; ; attempt++) {
+      await openSearchForm(page, maxPrice, region);
+      if (await recaptchaReady(page)) break;
+      if (attempt === RECAPTCHA_ATTEMPTS) {
+        throw new Error("reCAPTCHA script did not load");
       }
-    } catch {}
-
-    // Human-like behavior
-    await page.mouse.move(400, 300);
-    await delay(500);
-    await page.evaluate(() => window.scrollBy(0, 300));
-    await delay(1000);
-
-    // Fill form
-    await page.selectOption("#selector-state", region);
-    await page.selectOption('select[name="priceMax"]', String(maxPrice));
-    await delay(1000);
-
-    // submitForm calls grecaptcha.execute, which exists only once the
-    // reCAPTCHA script has finished loading.
-    await page.waitForFunction(
-      () =>
-        typeof grecaptcha !== "undefined" &&
-        typeof grecaptcha.execute === "function",
-      null,
-      { timeout: 20000 },
-    );
+    }
     await page.evaluate(() => submitForm());
     await delay(8000);
 

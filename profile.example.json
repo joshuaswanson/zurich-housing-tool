@@ -1,10 +1,16 @@
 {
   "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "phone": "+41 79 000 00 00",
   "age": 24,
   "occupation": "Master's student in Biology at UZH",
   "situation": "Looking for housing from September, current lease ends August",
   "futurePlans": "Continuing with PhD at UZH",
-  "hobbies": ["bouldering", "reading", "cooking"],
+  "hobbies": [
+    "bouldering",
+    "reading",
+    "cooking"
+  ],
   "personality": "Relaxed, tidy, social",
   "nationality": "Swiss",
   "languages": "German and English fluently",

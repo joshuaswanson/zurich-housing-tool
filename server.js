@@ -488,6 +488,8 @@ app.post("/api/generate", async (req, res) => {
     });
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
+  // Contact details are for the contact form and stay out of the prompt.
+  const { email, phone, ...promptProfile } = profile;
 
   // Load listing details from cache
   const cacheKey =
@@ -531,7 +533,7 @@ ${isGerman ? "The listing is in German. Write the message in German first, then 
 ${profile.languages && /german|deutsch/i.test(profile.languages) ? "" : "If writing in German, mention that you can read/follow German but need to speak English day-to-day."}
 
 APPLICANT PROFILE:
-${JSON.stringify(profile, null, 2)}
+${JSON.stringify(promptProfile, null, 2)}
 
 LISTING:
 ${listingDesc.substring(0, 2000)}

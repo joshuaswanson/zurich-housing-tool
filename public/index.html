@@ -200,6 +200,62 @@
         margin-top: -0.12em;
       }
 
+      .logo:hover .logo-mark {
+        transform-origin: 50% 100%;
+        animation: logo-hop 0.6s ease-out;
+      }
+
+      .logo:hover .logo-u i {
+        animation: logo-dot-bounce 0.55s ease-out;
+      }
+
+      .logo:hover .logo-u i:last-child {
+        animation-delay: 0.12s;
+      }
+
+      @keyframes logo-hop {
+        0% {
+          transform: none;
+        }
+        20% {
+          transform: scale(1.1, 0.88);
+        }
+        50% {
+          transform: translateY(-7px) scale(0.95, 1.07) rotate(-7deg);
+        }
+        78% {
+          transform: scale(1.06, 0.94);
+        }
+        100% {
+          transform: none;
+        }
+      }
+
+      @keyframes logo-dot-bounce {
+        0% {
+          transform: none;
+        }
+        40% {
+          transform: translateY(-0.24em);
+        }
+        70% {
+          transform: none;
+        }
+        85% {
+          transform: translateY(-0.07em);
+        }
+        100% {
+          transform: none;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .logo:hover .logo-mark,
+        .logo:hover .logo-u i {
+          animation: none;
+        }
+      }
+
       .logo-mark-light {
         fill: var(--surface);
       }

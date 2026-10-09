@@ -11,6 +11,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 
 - **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
 - **Application messages**: A local LLM writes a message for each listing from your profile and the listing's description, in German or English
+- **Direct applications**: Review the draft and send it to WGZimmer or Flatfox from the dashboard; the local server uses each site's own contact form and anti-abuse checks in a background browser
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
 - **Distances**: Each listing shows its distance and walking time from a location you choose
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
@@ -34,6 +35,16 @@ node server.js
 The dashboard is at http://localhost:3456.
 
 **Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it.
+
+To send WGZimmer or Flatfox messages from the dashboard, save your name, email,
+and phone in the Profile tab. Contact details stay in `profile.json` on this
+computer and are only submitted to a listing's contact form when you click its
+send button.
+
+You can also connect your Flatfox account from the Profile tab. The button opens
+Flatfox's own login page in a visible browser, so credentials never pass through
+the dashboard. Its cookies are kept in the gitignored
+`data/flatfox-browser-profile/` directory and reused for Flatfox messages.
 
 Edit `config.json` to set your target location:
 

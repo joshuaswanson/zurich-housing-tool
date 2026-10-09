@@ -36,6 +36,19 @@ import {
   distKm,
   ensureDataDir,
 } from "./lib.js";
+import {
+  sendWgzimmerApplication,
+  validateWgzimmerApplication,
+} from "./wgzimmer-send.mjs";
+import {
+  sendFlatfoxApplication,
+  validateFlatfoxApplication,
+} from "./flatfox-send.mjs";
+import {
+  checkFlatfoxSession,
+  loginFlatfox,
+  persistentFlatfoxLauncher,
+} from "./flatfox-session.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -415,6 +428,10 @@ app.post("/api/fetch-details", async (req, res) => {
 // ── API: Applicant profile ───────────────────────────────────────────────
 
 const PROFILE_EXAMPLE_FILE = path.join(__dirname, "profile.example.json");
+const FLATFOX_BROWSER_PROFILE_DIR = path.join(
+  DATA_DIR,
+  "flatfox-browser-profile",
+);
 
 app.get("/api/profile", (req, res) => {
   const fields = Object.keys(readJson(PROFILE_EXAMPLE_FILE, {}));
@@ -452,6 +469,132 @@ app.post("/api/application", (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── API: Send a WGZimmer application ─────────────────────────────────────
+
+const wgzimmerSendsInProgress = new Set();
+
+app.post("/api/send-wgzimmer", async (req, res) => {
+  const profile = readJson(PROFILE_FILE, null);
+  const application = {
+    url: req.body.url,
+    message: req.body.message,
+    name: profile?.name,
+    email: profile?.email,
+    phone: profile?.phone,
+  };
+
+  try {
+    validateWgzimmerApplication(application);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const key = listingKey(application.url);
+  if (wgzimmerSendsInProgress.has(key)) {
+    return res
+      .status(409)
+      .json({ error: "A message to this listing is already being sent." });
+  }
+
+  wgzimmerSendsInProgress.add(key);
+  try {
+    await sendWgzimmerApplication(application);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 300) });
+  } finally {
+    wgzimmerSendsInProgress.delete(key);
+  }
+});
+
+// ── API: Send a Flatfox contact request ──────────────────────────────────
+
+const flatfoxSendsInProgress = new Set();
+let flatfoxBrowserBusy = false;
+let flatfoxConnected = null;
+
+app.get("/api/flatfox-session", async (req, res) => {
+  if (flatfoxBrowserBusy) {
+    return res.json({ connected: flatfoxConnected === true, busy: true });
+  }
+
+  flatfoxBrowserBusy = true;
+  try {
+    const status = await checkFlatfoxSession(FLATFOX_BROWSER_PROFILE_DIR);
+    flatfoxConnected = status.connected;
+    res.json(status);
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 300) });
+  } finally {
+    flatfoxBrowserBusy = false;
+  }
+});
+
+app.post("/api/flatfox-session/login", async (req, res) => {
+  if (flatfoxBrowserBusy) {
+    return res.status(409).json({
+      error: "Flatfox is already being opened or used by another request.",
+    });
+  }
+
+  flatfoxBrowserBusy = true;
+  try {
+    ensureDataDir();
+    const status = await loginFlatfox(FLATFOX_BROWSER_PROFILE_DIR);
+    flatfoxConnected = status.connected;
+    res.json(status);
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 300) });
+  } finally {
+    flatfoxBrowserBusy = false;
+  }
+});
+
+app.post("/api/send-flatfox", async (req, res) => {
+  const profile = readJson(PROFILE_FILE, null);
+  const application = {
+    url: req.body.url,
+    message: req.body.message,
+    name: profile?.name,
+    email: profile?.email,
+    phone: profile?.phone,
+  };
+
+  try {
+    validateFlatfoxApplication(application);
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  const key = listingKey(application.url);
+  if (flatfoxSendsInProgress.has(key)) {
+    return res
+      .status(409)
+      .json({ error: "A message to this listing is already being sent." });
+  }
+  if (flatfoxBrowserBusy) {
+    return res.status(409).json({
+      error: "Finish the Flatfox login or session check before sending.",
+    });
+  }
+
+  flatfoxSendsInProgress.add(key);
+  flatfoxBrowserBusy = true;
+  try {
+    ensureDataDir();
+    await sendFlatfoxApplication(
+      application,
+      persistentFlatfoxLauncher(FLATFOX_BROWSER_PROFILE_DIR),
+    );
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 300) });
+  } finally {
+    flatfoxSendsInProgress.delete(key);
+    flatfoxBrowserBusy = false;
   }
 });
 

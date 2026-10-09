@@ -1088,6 +1088,23 @@
         font-size: 12.5px;
       }
 
+      .account-connection {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        max-width: 60ch;
+        margin-bottom: 20px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface);
+      }
+
+      .account-connection p {
+        margin-top: 3px;
+      }
+
       .dialog-hint {
         margin-top: 12px;
       }
@@ -1497,6 +1514,17 @@
           <p class="section-note" data-i18n="profile_intro">
             These details are used by the LLM to draft application messages.
           </p>
+          <div class="account-connection">
+            <div>
+              <strong data-i18n="flatfox_account">Flatfox account</strong>
+              <p class="secondary" id="flatfox-session-status" role="status">
+                Checking connection…
+              </p>
+            </div>
+            <button class="button" id="flatfox-login" type="button" disabled>
+              <span data-i18n="flatfox_connect">Connect Flatfox</span>
+            </button>
+          </div>
           <form class="profile-form" id="profile-form">
             <div id="profile-fields"></div>
             <div class="row-actions">
@@ -1515,14 +1543,6 @@
       <pre id="dialog-body"></pre>
       <textarea id="dialog-editor" aria-labelledby="dialog-title" hidden></textarea>
       <p class="secondary dialog-hint" id="dialog-hint" hidden></p>
-      <p class="secondary dialog-hint" id="dialog-bookmarklet" hidden>
-        <a class="button" id="wgzimmer-bookmarklet" data-i18n="bookmarklet_label"
-          >Fill wgzimmer form</a
-        >
-        <span data-i18n="bookmarklet_help"
-          >First time only: drag this button to your bookmarks bar.</span
-        >
-      </p>
       <div class="dialog-actions">
         <button class="button button-primary" id="dialog-send" type="button" hidden></button>
         <button class="button" id="dialog-applied" type="button" hidden></button>
@@ -1735,14 +1755,19 @@
           nothing_excluded: "Nothing excluded.",
           tab_profile: "Profile",
           profile_intro: "These details are used by the LLM to draft application messages. They are stored in profile.json on this computer.",
+          flatfox_account: "Flatfox account",
+          flatfox_checking: "Checking connection…",
+          flatfox_connected: "Connected. Messages reuse this local session.",
+          flatfox_disconnected: "Not connected. Public contact forms still work.",
+          flatfox_connect: "Connect Flatfox",
+          flatfox_connected_button: "Connected",
+          flatfox_connecting: "Finish signing in in the Flatfox window…",
+          flatfox_login_failed: "Could not connect to Flatfox",
           save_profile: "Save profile",
           profile_saved: "Saved",
           pf_name: "Name",
           pf_email: "Email, for contact forms",
           pf_phone: "Phone, for contact forms",
-          wgzimmer_hint: "On the wgzimmer page, click your “Fill wgzimmer form” bookmark. It opens the contact form and fills it in. Check it and press send there.",
-          bookmarklet_label: "Fill wgzimmer form",
-          bookmarklet_help: "First time only: drag this button to your bookmarks bar.",
           pf_age: "Age",
           pf_occupation: "Occupation",
           pf_situation: "Current situation",
@@ -1758,6 +1783,14 @@
           f_flats: "Whole flats",
           status_flat: "whole flat",
           save_message: "Save message",
+          send_wgzimmer: "Send to wgzimmer.ch",
+          sending_wgzimmer: "Sending…",
+          sent_wgzimmer: "Sent to wgzimmer.ch",
+          send_wgzimmer_failed: "WGZimmer did not send the message",
+          send_flatfox: "Send to flatfox.ch",
+          sending_flatfox: "Sending…",
+          sent_flatfox: "Sent to flatfox.ch",
+          send_flatfox_failed: "Flatfox did not send the message",
           send_open: "Copy and open listing",
           send_mail: "Open in mail app",
           paste_hint: "The message is on your clipboard. Paste it into the contact form on the site.",
@@ -1894,14 +1927,19 @@
           nothing_excluded: "Nichts ausgeschlossen.",
           tab_profile: "Profil",
           profile_intro: "Diese Angaben verwendet das LLM, um Bewerbungsnachrichten zu entwerfen. Sie werden in profile.json auf diesem Computer gespeichert.",
+          flatfox_account: "Flatfox-Konto",
+          flatfox_checking: "Verbindung wird geprüft…",
+          flatfox_connected: "Verbunden. Nachrichten verwenden diese lokale Sitzung.",
+          flatfox_disconnected: "Nicht verbunden. Öffentliche Kontaktformulare funktionieren trotzdem.",
+          flatfox_connect: "Flatfox verbinden",
+          flatfox_connected_button: "Verbunden",
+          flatfox_connecting: "Schliesse die Anmeldung im Flatfox-Fenster ab…",
+          flatfox_login_failed: "Verbindung mit Flatfox fehlgeschlagen",
           save_profile: "Profil speichern",
           profile_saved: "Gespeichert",
           pf_name: "Name",
           pf_email: "E-Mail, für Kontaktformulare",
           pf_phone: "Telefon, für Kontaktformulare",
-          wgzimmer_hint: "Klicke auf der wgzimmer-Seite auf dein Lesezeichen «wgzimmer-Formular ausfüllen». Es öffnet das Kontaktformular und füllt es aus. Prüfe es und sende es dort ab.",
-          bookmarklet_label: "wgzimmer-Formular ausfüllen",
-          bookmarklet_help: "Nur beim ersten Mal: Ziehe diesen Button in deine Lesezeichenleiste.",
           pf_age: "Alter",
           pf_occupation: "Beruf oder Studium",
           pf_situation: "Aktuelle Situation",
@@ -1917,6 +1955,14 @@
           f_flats: "Ganze Wohnungen",
           status_flat: "ganze Wohnung",
           save_message: "Nachricht speichern",
+          send_wgzimmer: "An wgzimmer.ch senden",
+          sending_wgzimmer: "Wird gesendet…",
+          sent_wgzimmer: "An wgzimmer.ch gesendet",
+          send_wgzimmer_failed: "WGZimmer hat die Nachricht nicht gesendet",
+          send_flatfox: "An flatfox.ch senden",
+          sending_flatfox: "Wird gesendet…",
+          sent_flatfox: "An flatfox.ch gesendet",
+          send_flatfox_failed: "Flatfox hat die Nachricht nicht gesendet",
           send_open: "Kopieren und Inserat öffnen",
           send_mail: "In Mail-App öffnen",
           paste_hint: "Die Nachricht ist in der Zwischenablage. Füge sie im Kontaktformular der Seite ein.",
@@ -1964,6 +2010,7 @@
         applyFilters();
         renderApplications();
         renderProfile(readProfileForm());
+        renderFlatfoxSession();
         loadScanStatus();
       }
 
@@ -2596,63 +2643,69 @@ function renderShowMore(total) {
         $("dialog-save").hidden = !isDraft;
         $("dialog-save").textContent = t("save_message");
         $("dialog-send").hidden = !isDraft;
+        const listing = draftListing();
+        const directSend = ["wgzimmer", "flatfox"].includes(listing?.source);
         $("dialog-send").textContent = t(
-          draftListing()?.contactEmail ? "send_mail" : "send_open",
+          directSend
+            ? `send_${listing.source}`
+            : listing?.contactEmail
+              ? "send_mail"
+              : "send_open",
         );
+        $("dialog-send").disabled = false;
         $("dialog-applied").hidden = true;
         $("dialog-hint").hidden = true;
-        $("dialog-bookmarklet").hidden = true;
         $("message-dialog").showModal();
       }
-
-      // Runs on a wgzimmer listing page when the user clicks the bookmark.
-      // It opens the site's contact form and fills it in. The user reviews
-      // it and presses the site's own send button.
-      function fillWgzimmerForm() {
-        let data = {};
-        try {
-          data = JSON.parse(window.name);
-        } catch {}
-        const id = location.pathname.match(/[a-f0-9-]{36}/)?.[0];
-        if (!id || typeof showContactDetail !== "function") return;
-        showContactDetail(id);
-        const timer = setInterval(() => {
-          const form = document.getElementById("searchMateContactMailForm");
-          if (!form) return;
-          clearInterval(timer);
-          if (data.zht) {
-            form.senderName.value = data.name || "";
-            form.senderEmail.value = data.email || "";
-            form.senderPhone.value = data.phone || "";
-            form.senderText.value = data.message || "";
-          }
-          form.scrollIntoView({ block: "center" });
-        }, 200);
-        setTimeout(() => clearInterval(timer), 15000);
-      }
-
-      $("wgzimmer-bookmarklet").href =
-        `javascript:(${encodeURIComponent(fillWgzimmerForm.toString())})()`;
-      $("wgzimmer-bookmarklet").addEventListener("click", (e) =>
-        e.preventDefault(),
-      );
 
       function draftListing() {
         return allListings.find((l) => l.url === dialogListingUrl);
       }
 
-      // flatfox takes applications on a separate page of the listing.
       function contactUrl(listing) {
-        return listing.source === "flatfox"
-          ? `https://flatfox.ch/en/listing/${listing.id.replace("flatfox-", "")}/submit/`
-          : listing.url;
+        return listing.url;
       }
 
-      // The message goes out through the site's own contact form or the
-      // user's mail app. This hands it over and opens the right place.
-      function handOverDraft() {
+      async function sendDirectDraft(listing, message) {
+        const source = listing.source;
+        const button = $("dialog-send");
+        button.disabled = true;
+        button.textContent = t(`sending_${source}`);
+        $("dialog-hint").hidden = true;
+        try {
+          const res = await fetch(`/api/send-${source}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: listing.url, message }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+          await saveDraft();
+          await track(listing.url, "apply");
+          button.textContent = t(`sent_${source}`);
+          $("dialog-hint").textContent = t(`sent_${source}`);
+          $("dialog-hint").hidden = false;
+          $("dialog-applied").hidden = true;
+        } catch (e) {
+          button.disabled = false;
+          button.textContent = t(`send_${source}`);
+          $("dialog-hint").textContent =
+            `${t(`send_${source}_failed`)}: ${e.message}`;
+          $("dialog-hint").hidden = false;
+        }
+      }
+
+      // WGZimmer and Flatfox run their own contact forms and anti-abuse checks
+      // in a background browser. Other sources keep their normal hand-off.
+      async function handOverDraft() {
         const listing = draftListing();
         const message = $("dialog-editor").value;
+        if (["wgzimmer", "flatfox"].includes(listing.source)) {
+          await sendDirectDraft(listing, message);
+          return;
+        }
+
         navigator.clipboard.writeText(message);
         if (listing.contactEmail) {
           const subject = listing.description.split("\n")[0].slice(0, 80);
@@ -2660,23 +2713,12 @@ function renderShowMore(total) {
             `mailto:${listing.contactEmail}` +
             `?subject=${encodeURIComponent(subject)}` +
             `&body=${encodeURIComponent(message)}`;
-        } else if (listing.source === "wgzimmer") {
-          // The bookmarklet on the listing page reads this from window.name.
-          const { name, email, phone } = readProfileForm();
-          const formData = { zht: true, name, email, phone, message };
-          const tab = window.open(listing.url, JSON.stringify(formData));
-          if (tab) tab.opener = null;
         } else {
           window.open(contactUrl(listing), "_blank", "noopener");
         }
-        const hint = listing.contactEmail
-          ? "mail_hint"
-          : listing.source === "wgzimmer"
-            ? "wgzimmer_hint"
-            : "paste_hint";
+        const hint = listing.contactEmail ? "mail_hint" : "paste_hint";
         $("dialog-hint").textContent = t(hint);
         $("dialog-hint").hidden = false;
-        $("dialog-bookmarklet").hidden = listing.source !== "wgzimmer";
         $("dialog-applied").textContent = t("act_apply");
         $("dialog-applied").hidden = statusOf(listing.url) === "applied";
         saveDraft();
@@ -2698,6 +2740,79 @@ function renderShowMore(total) {
       }
 
       let profileFields = [];
+      let flatfoxSession = { checking: true, connected: false, busy: false };
+
+      function renderFlatfoxSession() {
+        const button = $("flatfox-login");
+        const status = $("flatfox-session-status");
+        if (flatfoxSession.checking) {
+          status.textContent = t("flatfox_checking");
+        } else if (flatfoxSession.connecting) {
+          status.textContent = t("flatfox_connecting");
+        } else if (flatfoxSession.error) {
+          status.textContent = `${t("flatfox_login_failed")}: ${flatfoxSession.error}`;
+        } else {
+          status.textContent = t(
+            flatfoxSession.connected
+              ? "flatfox_connected"
+              : "flatfox_disconnected",
+          );
+        }
+        button.disabled =
+          flatfoxSession.checking ||
+          flatfoxSession.connecting ||
+          flatfoxSession.busy ||
+          flatfoxSession.connected;
+        button.textContent = t(
+          flatfoxSession.connected
+            ? "flatfox_connected_button"
+            : "flatfox_connect",
+        );
+      }
+
+      async function loadFlatfoxSession() {
+        flatfoxSession = { checking: true, connected: false, busy: false };
+        renderFlatfoxSession();
+        try {
+          const res = await fetch("/api/flatfox-session");
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          flatfoxSession = { checking: false, ...data };
+        } catch (e) {
+          flatfoxSession = {
+            checking: false,
+            connected: false,
+            error: e.message,
+          };
+        }
+        renderFlatfoxSession();
+      }
+
+      async function connectFlatfox() {
+        flatfoxSession = {
+          checking: false,
+          connecting: true,
+          connected: flatfoxSession.connected,
+        };
+        renderFlatfoxSession();
+        try {
+          const res = await fetch("/api/flatfox-session/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}",
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+          flatfoxSession = { checking: false, ...data };
+        } catch (e) {
+          flatfoxSession = {
+            checking: false,
+            connected: false,
+            error: e.message,
+          };
+        }
+        renderFlatfoxSession();
+      }
 
       function renderProfile(profile) {
         $("profile-fields").innerHTML = profileFields
@@ -3409,6 +3524,7 @@ function renderShowMore(total) {
       $("dialog-send").addEventListener("click", handOverDraft);
       $("dialog-applied").addEventListener("click", markDraftApplied);
       $("profile-form").addEventListener("submit", saveProfile);
+      $("flatfox-login").addEventListener("click", connectFlatfox);
       $("message-dialog").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) e.currentTarget.close();
       });
@@ -3444,6 +3560,7 @@ function renderShowMore(total) {
         initMap();
         loadMessages();
         loadProfile();
+        loadFlatfoxSession();
         loadScanStatus();
         load();
       }

@@ -263,6 +263,51 @@ test("a saved message can be read back", async () => {
   assert.equal((await post("/api/application", { url: WG_URL })).status, 400);
 });
 
+test("sending to WGZimmer validates the profile and target before launching", async () => {
+  const missingContact = await post("/api/send-wgzimmer", {
+    url: WG_URL,
+    message: "Hallo zusammen",
+  });
+  assert.equal(missingContact.status, 400);
+  assert.match(missingContact.body.error, /email/i);
+
+  const wrongTarget = await post("/api/send-wgzimmer", {
+    url: "https://example.com/11111111-2222-4333-8444-555555555555",
+    message: "Hallo zusammen",
+  });
+  assert.equal(wrongTarget.status, 400);
+  assert.match(wrongTarget.body.error, /WGZimmer listing URL/i);
+});
+
+test("sending to Flatfox validates the profile and target before launching", async () => {
+  const missingContact = await post("/api/send-flatfox", {
+    url: FLATFOX_URL,
+    message: "Hello there",
+  });
+  assert.equal(missingContact.status, 400);
+  assert.match(missingContact.body.error, /email/i);
+
+  const wrongTarget = await post("/api/send-flatfox", {
+    url: "https://example.com/en/flat/8001-zurich/10000001/",
+    message: "Hello there",
+  });
+  assert.equal(wrongTarget.status, 400);
+  assert.match(wrongTarget.body.error, /Flatfox listing URL/i);
+
+  const dossier = await post("/api/send-flatfox", {
+    url: "https://flatfox.ch/en/listing/10000001/submit/",
+    message: "Hello there",
+  });
+  assert.equal(dossier.status, 400);
+  assert.match(dossier.body.error, /Flatfox listing URL/i);
+});
+
+test("Flatfox reports a disconnected session before a profile exists", async () => {
+  const status = await get("/api/flatfox-session");
+  assert.equal(status.status, 200);
+  assert.deepEqual(status.body, { connected: false });
+});
+
 test("listing details come from the cache", async () => {
   const hit = await get(`/api/listing-details?url=${encodeURIComponent(WG_URL)}`);
   assert.equal(hit.body.room, "Helles Zimmer");

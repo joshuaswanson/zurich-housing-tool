@@ -1088,8 +1088,14 @@
         font-size: 12.5px;
       }
 
+      .dialog-hint {
+        margin-top: 12px;
+      }
+
       .dialog-actions {
         display: flex;
+        flex-wrap: wrap;
+        align-items: center;
         justify-content: flex-end;
         gap: 8px;
         margin-top: 16px;
@@ -1508,7 +1514,10 @@
       <h2 id="dialog-title"></h2>
       <pre id="dialog-body"></pre>
       <textarea id="dialog-editor" aria-labelledby="dialog-title" hidden></textarea>
+      <p class="secondary dialog-hint" id="dialog-hint" hidden></p>
       <div class="dialog-actions">
+        <button class="button button-primary" id="dialog-send" type="button" hidden></button>
+        <button class="button" id="dialog-applied" type="button" hidden></button>
         <button class="button" id="dialog-save" type="button" hidden></button>
         <button class="button" id="dialog-copy" type="button">
           <span data-i18n="copy_message">Copy message</span>
@@ -1736,6 +1745,10 @@
           f_flats: "Whole flats",
           status_flat: "whole flat",
           save_message: "Save message",
+          send_open: "Copy and open listing",
+          send_mail: "Open in mail app",
+          paste_hint: "The message is on your clipboard. Paste it into the contact form on the site.",
+          mail_hint: "Your mail app opens with the message filled in.",
           message_saved: "Saved",
           sent_message: "Sent message",
           no_saved_message: "No saved message for this listing.",
@@ -1886,6 +1899,10 @@
           f_flats: "Ganze Wohnungen",
           status_flat: "ganze Wohnung",
           save_message: "Nachricht speichern",
+          send_open: "Kopieren und Inserat öffnen",
+          send_mail: "In Mail-App öffnen",
+          paste_hint: "Die Nachricht ist in der Zwischenablage. Füge sie im Kontaktformular der Seite ein.",
+          mail_hint: "Deine Mail-App öffnet sich mit der Nachricht.",
           message_saved: "Gespeichert",
           sent_message: "Gesendete Nachricht",
           no_saved_message: "Für dieses Inserat ist keine Nachricht gespeichert.",
@@ -2560,7 +2577,53 @@ function renderShowMore(total) {
         $("dialog-copy").textContent = t("copy_message");
         $("dialog-save").hidden = !isDraft;
         $("dialog-save").textContent = t("save_message");
+        $("dialog-send").hidden = !isDraft;
+        $("dialog-send").textContent = t(
+          draftListing()?.contactEmail ? "send_mail" : "send_open",
+        );
+        $("dialog-applied").hidden = true;
+        $("dialog-hint").hidden = true;
         $("message-dialog").showModal();
+      }
+
+      function draftListing() {
+        return allListings.find((l) => l.url === dialogListingUrl);
+      }
+
+      // flatfox takes applications on a separate page of the listing.
+      function contactUrl(listing) {
+        return listing.source === "flatfox"
+          ? `https://flatfox.ch/en/listing/${listing.id.replace("flatfox-", "")}/submit/`
+          : listing.url;
+      }
+
+      // The message goes out through the site's own contact form or the
+      // user's mail app. This hands it over and opens the right place.
+      function handOverDraft() {
+        const listing = draftListing();
+        const message = $("dialog-editor").value;
+        navigator.clipboard.writeText(message);
+        if (listing.contactEmail) {
+          const subject = listing.description.split("\n")[0].slice(0, 80);
+          window.location.href =
+            `mailto:${listing.contactEmail}` +
+            `?subject=${encodeURIComponent(subject)}` +
+            `&body=${encodeURIComponent(message)}`;
+        } else {
+          window.open(contactUrl(listing), "_blank", "noopener");
+        }
+        $("dialog-hint").textContent = t(
+          listing.contactEmail ? "mail_hint" : "paste_hint",
+        );
+        $("dialog-hint").hidden = false;
+        $("dialog-applied").textContent = t("act_apply");
+        $("dialog-applied").hidden = statusOf(listing.url) === "applied";
+        saveDraft();
+      }
+
+      async function markDraftApplied() {
+        await track(dialogListingUrl, "apply");
+        $("message-dialog").close();
       }
 
       async function saveDraft() {
@@ -3282,6 +3345,8 @@ function renderShowMore(total) {
         $("dialog-copy").textContent = t("copied");
       });
       $("dialog-save").addEventListener("click", saveDraft);
+      $("dialog-send").addEventListener("click", handOverDraft);
+      $("dialog-applied").addEventListener("click", markDraftApplied);
       $("profile-form").addEventListener("submit", saveProfile);
       $("message-dialog").addEventListener("click", (e) => {
         if (e.target === e.currentTarget) e.currentTarget.close();

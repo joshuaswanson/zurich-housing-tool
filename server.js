@@ -149,6 +149,7 @@ app.get("/api/listings", (req, res) => {
       firstSeen: seen[id]?.firstSeen || null,
       hasEndDate: Boolean(l.isTemporary),
       pricePeriod: l.pricePeriod || null,
+      contactEmail: l.contactEmail || null,
       ...listingFlags(l.description || "", {}),
       ...(l.pricePeriod ? { shortSublet: true } : {}),
     });

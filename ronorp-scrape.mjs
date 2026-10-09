@@ -54,6 +54,7 @@ export function toListing(post) {
     lat: hasStreet ? (location.latitude ?? null) : null,
     lng: hasStreet ? (location.longitude ?? null) : null,
     postcode: hasStreet ? null : postcode,
+    contactEmail: post.email_address || null,
     isOffer: post.post_type === "offer",
     description,
     availableFrom: formatDate(post.housing_detail?.ready_to_move),

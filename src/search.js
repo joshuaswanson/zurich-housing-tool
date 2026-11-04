@@ -1,52 +1,36 @@
 #!/usr/bin/env node
 /**
- * Search wgzimmer + flatfox listings with filters.
- * Reads from cached data files (both wgzimmer and flatfox).
+ * Search the cached listings from all four sources with filters.
+ * Uses the same listing list as the dashboard.
  *
  * Usage:
  *   node src/search.js                           # All listings from cache
  *   node src/search.js --max-price 800           # Price filter
- *   node src/search.js --max-dist 2.0            # Max distance from ETH in km
- *   node src/search.js --no-woko                # Exclude WOKO/JUWO properties
- *   node src/search.js --permanent              # Only "No time restrictions"
- *   node src/search.js --not-tracked            # Exclude already applied/excluded/rejected
- *   node src/search.js --sort distance          # Sort by distance (default: price)
- *   node src/search.js --limit 10               # Max results
- *   node src/search.js --include-gendered       # Include gender-restricted listings
- *   node src/search.js --include-short          # Include short sublets (<2 months)
- *   node src/search.js --fetch N               # Fetch details for top N uncached results
- *   node src/search.js --keyword <pattern>      # Filter by keyword/regex
- *   node src/search.js --new [hours]            # Only show listings first seen within N hours (default 24)
+ *   node src/search.js --max-dist 2.0            # Max distance from the target in km
+ *   node src/search.js --no-woko                 # Exclude WOKO/JUWO properties
+ *   node src/search.js --permanent               # Only listings without an end date
+ *   node src/search.js --not-tracked             # Exclude applied/shortlisted/excluded/rejected
+ *   node src/search.js --sort distance           # Sort by distance (default: price)
+ *   node src/search.js --limit 10                # Max results
+ *   node src/search.js --include-gendered        # Include gender-restricted listings
+ *   node src/search.js --include-short           # Include short sublets
+ *   node src/search.js --fetch N                 # Fetch details for top N uncached results
+ *   node src/search.js --keyword <pattern>       # Filter by keyword/regex
+ *   node src/search.js --new [hours]             # Only listings first seen within N hours (default 24)
  */
 
-import fs from "fs";
-import path from "path";
 import {
   config,
-  ETH_ZENTRUM,
   MAX_PRICE,
-  SEEN_FILE,
-  WGZIMMER_LISTINGS_FILE,
-  FLATFOX_CACHE_FILE,
-  RONORP_CACHE_FILE,
-  STUDENTS_CACHE_FILE,
-  LISTINGS_DIR,
   TRACKER_FILE,
-  distKm,
   cacheKeyFromUrl,
-  ensureDataDir,
-  geocodeAddress,
-  isGenderRestricted,
-  isShortSublet,
-  buildSpamPatterns,
+  listingKey,
+  loadCachedListing,
+  readJson,
 } from "./lib.js";
-
-// ── Config defaults ─────────────────────────────────────────────────────────
+import { loadAllListings } from "./listings.js";
 
 const cfgExclude = config.exclude || {};
-const cfgSearch = config.search || {};
-
-// ── Arg parsing ──────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
 function getArg(name) {
@@ -59,35 +43,28 @@ function hasFlag(name) {
 
 if (hasFlag("--help") || hasFlag("-h")) {
   console.log(`Usage: node src/search.js [options]
-  --max-price N         Max rent in CHF
-  --max-dist N          Max distance from ETH in km (uses coordinates)
+  --max-price N         Max rent in CHF (default: maxPrice from config)
+  --max-dist N          Max distance from the target in km
   --no-woko             Exclude WOKO/JUWO properties
-  --permanent           Only unlimited duration
-  --not-tracked         Exclude applied/excluded/rejected
+  --permanent           Only listings without an end date
+  --not-tracked         Exclude applied/shortlisted/excluded/rejected
   --include-gendered    Include gender-restricted listings (filtered by default)
-  --include-short       Include short sublets <2 months (filtered by default)
+  --include-short       Include short sublets (filtered by default)
   --sort distance|price Sort order (default: price)
   --limit N             Max results (default 20)
-  --keyword <pattern>   Filter by keyword/regex in description/neighborhood
+  --keyword <pattern>   Filter by keyword/regex in description and address
   --new [hours]         Only listings first seen within N hours (default 24)
   --fetch N             Fetch details for top N uncached results`);
   process.exit(0);
 }
 
-const maxPrice = getArg("--max-price") ? parseInt(getArg("--max-price")) : null;
-
-// CLI flags override config defaults
+const maxPrice = parseInt(getArg("--max-price")) || MAX_PRICE;
+const maxDist = getArg("--max-dist") ? parseFloat(getArg("--max-dist")) : null;
 const noWoko = hasFlag("--no-woko") || cfgExclude.woko === true;
 const permanent = hasFlag("--permanent");
 const notTracked = hasFlag("--not-tracked");
-const includeGendered =
-  hasFlag("--include-gendered") ||
-  (cfgExclude.genderRestricted === false && !hasFlag("--include-gendered"));
 const excludeGendered =
   !hasFlag("--include-gendered") && cfgExclude.genderRestricted !== false;
-const includeShort =
-  hasFlag("--include-short") ||
-  (cfgExclude.shortSublets === false && !hasFlag("--include-short"));
 const excludeShort =
   !hasFlag("--include-short") && cfgExclude.shortSublets !== false;
 const sortBy = getArg("--sort") || "price";
@@ -95,512 +72,119 @@ const keyword = getArg("--keyword")
   ? new RegExp(getArg("--keyword"), "i")
   : null;
 const limit = getArg("--limit") ? parseInt(getArg("--limit")) : 20;
-const maxDist = getArg("--max-dist") ? parseFloat(getArg("--max-dist")) : null;
 const fetchCount = getArg("--fetch") ? parseInt(getArg("--fetch")) : 0;
-
-// Min duration from config (days). Short sublet threshold.
-const minDurationDays = cfgSearch.minDuration || 60;
-
-// --new flag: only show listings first seen within N hours
-const newFlag = hasFlag("--new");
 const newHours = (() => {
-  if (!newFlag) return null;
-  const val = getArg("--new");
-  // If --new is followed by a number, use it; otherwise default to 24
-  if (val && /^\d+$/.test(val)) return parseInt(val);
-  return 24;
+  if (!hasFlag("--new")) return null;
+  const value = getArg("--new");
+  return value && /^\d+$/.test(value) ? parseInt(value) : 24;
 })();
 
-// ── Load seen.json for --new filter ──────────────────────────────────────────
+// ── Tracked listings ─────────────────────────────────────────────────────────
 
-const seenData = (() => {
-  if (!newFlag) return null;
-  if (fs.existsSync(SEEN_FILE)) {
-    return JSON.parse(fs.readFileSync(SEEN_FILE, "utf8"));
-  }
-  return {};
-})();
+const normalizeAddress = (address) =>
+  address.replace(/\s*\(.*\)/, "").trim().toLowerCase();
 
-const newCutoff = newHours ? Date.now() - newHours * 60 * 60 * 1000 : null;
-
-/** Check if a listing ID was first seen within the --new window */
-function isNewListing(id) {
-  if (!newFlag || !seenData) return true; // no filter
-  const entry = seenData[id];
-  if (!entry || !entry.firstSeen) return true; // unknown = treat as new
-  return new Date(entry.firstSeen).getTime() >= newCutoff;
-}
-
-// ── Load tracker ─────────────────────────────────────────────────────────────
-
-const trackedIds = new Set();
-const trackedPks = new Set();
+const trackedKeys = new Set();
 const trackedAddresses = new Set();
-if (notTracked && fs.existsSync(TRACKER_FILE)) {
-  const tracker = JSON.parse(fs.readFileSync(TRACKER_FILE, "utf8"));
-  for (const cat of ["applied", "excluded", "rejected", "shortlisted"]) {
-    for (const e of tracker[cat] || []) {
-      const uuid = e.url.match(/([a-f0-9-]{36})/)?.[1];
-      if (uuid) trackedIds.add(uuid);
-      const pk = e.url.match(/\/(\d{5,})\/?/)?.[1];
-      if (pk) trackedPks.add(pk);
-      if (e.address) {
-        const normalized = e.address
-          .replace(/\s*\(.*\)/, "")
-          .trim()
-          .toLowerCase();
-        trackedAddresses.add(normalized);
-      }
-    }
-  }
-  if (fs.existsSync(LISTINGS_DIR)) {
-    for (const id of [
-      ...trackedIds,
-      ...Array.from(trackedPks).map((p) => `flatfox-${p}`),
-    ]) {
-      const file = path.join(LISTINGS_DIR, id + ".json");
-      if (fs.existsSync(file)) {
-        const data = JSON.parse(fs.readFileSync(file, "utf8"));
-        if (data.address)
-          trackedAddresses.add(data.address.trim().toLowerCase());
-      }
+if (notTracked) {
+  const tracker = readJson(TRACKER_FILE, {});
+  for (const category of ["applied", "excluded", "rejected", "shortlisted"]) {
+    for (const entry of tracker[category] || []) {
+      trackedKeys.add(listingKey(entry.url));
+      const address = entry.address || loadCachedListing(entry.url)?.address;
+      if (address) trackedAddresses.add(normalizeAddress(address));
     }
   }
 }
 
-// ── Load cached listing details for WOKO detection ───────────────────────────
+// ── Filtering ────────────────────────────────────────────────────────────────
 
-const wokoIds = new Set();
-if (noWoko && fs.existsSync(LISTINGS_DIR)) {
-  for (const f of fs
-    .readdirSync(LISTINGS_DIR)
-    .filter((f) => f.endsWith(".json"))) {
-    const data = JSON.parse(
-      fs.readFileSync(path.join(LISTINGS_DIR, f), "utf8"),
-    );
-    const text = JSON.stringify(data).toLowerCase();
-    if (text.includes("woko") || text.includes("juwo")) {
-      wokoIds.add(f.replace(".json", ""));
-    }
-  }
-}
-
-// ── Corporate spam detection ────────────────────────────────────────────────
-
-const SPAM_PATTERNS = buildSpamPatterns(cfgExclude.spam || []);
-
-const spamIds = new Set();
-if (fs.existsSync(LISTINGS_DIR)) {
-  for (const f of fs
-    .readdirSync(LISTINGS_DIR)
-    .filter((f) => f.endsWith(".json"))) {
-    const data = JSON.parse(
-      fs.readFileSync(path.join(LISTINGS_DIR, f), "utf8"),
-    );
-    const text = JSON.stringify(data);
-    if (SPAM_PATTERNS.some((p) => p.test(text))) {
-      spamIds.add(f.replace(".json", ""));
-    }
-  }
-}
-
-// ── Description dedup ───────────────────────────────────────────────────────
-
+// Reposts of the same room under a new URL share their description.
+const descriptionFingerprint = (description) =>
+  description.replace(/\s+/g, " ").trim().toLowerCase().substring(0, 200);
 const seenDescriptions = new Set();
 
-// Pre-populate with descriptions from tracked listings (applied/excluded)
-if (notTracked && fs.existsSync(LISTINGS_DIR)) {
-  const allTracked = [
-    ...trackedIds,
-    ...Array.from(trackedPks).map((p) => `flatfox-${p}`),
-  ];
-  for (const id of allTracked) {
-    const file = path.join(LISTINGS_DIR, id + ".json");
-    if (fs.existsSync(file)) {
-      const data = JSON.parse(fs.readFileSync(file, "utf8"));
-      const fp = getDescFingerprint(data);
-      if (fp) seenDescriptions.add(fp);
-    }
-  }
+function isTracked(listing) {
+  return (
+    trackedKeys.has(listingKey(listing.url)) ||
+    (listing.address && trackedAddresses.has(normalizeAddress(listing.address)))
+  );
 }
 
-/** Normalize and extract first 200 chars of description for dedup */
-function getDescFingerprint(listing) {
-  // Collect description text from various fields
-  let desc = "";
-  if (listing.description) desc = listing.description;
-  if (listing.room) desc = desc || listing.room;
-
-  if (!desc) return null;
-
-  // Normalize: collapse whitespace, lowercase, trim, take first 200 chars
-  return desc.replace(/\s+/g, " ").trim().toLowerCase().substring(0, 200);
-}
-
-function isDuplicateDescription(url) {
-  const key = cacheKeyFromUrl(url);
-  if (!key) return false;
-  const cachedPath = path.join(LISTINGS_DIR, key + ".json");
-  if (!fs.existsSync(cachedPath)) return false;
-
-  const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-  const fp = getDescFingerprint(cached);
-  if (!fp) return false;
-
-  if (seenDescriptions.has(fp)) return true;
-  seenDescriptions.add(fp);
+function isRepost(listing) {
+  if (!listing.description) return false;
+  const fingerprint = descriptionFingerprint(listing.description);
+  if (seenDescriptions.has(fingerprint)) return true;
+  seenDescriptions.add(fingerprint);
   return false;
 }
 
-// ── Results collection ──────────────────────────────────────────────────────
+const newCutoff = newHours ? Date.now() - newHours * 60 * 60 * 1000 : null;
 
-const allResults = [];
-const pendingGeocode = []; // { addr, resultIndex }
-
-// ── wgzimmer ─────────────────────────────────────────────────────────────────
-
-if (fs.existsSync(WGZIMMER_LISTINGS_FILE)) {
-  const listings = JSON.parse(fs.readFileSync(WGZIMMER_LISTINGS_FILE, "utf8"));
-
-  for (const l of listings) {
-    if (!l.price) continue;
-    const id = l.url.match(/([a-f0-9-]{36})/)?.[1];
-    const text = (l.description || "") + " " + (l.neighborhood || "");
-
-    if (maxPrice && l.price > maxPrice) continue;
-    if (notTracked && trackedIds.has(id)) continue;
-    if (keyword && !keyword.test(text)) continue;
-
-    // --new filter
-    if (newFlag && id && !isNewListing(`wgzimmer-${id}`)) continue;
-
-    // Same-address dedup
-    if (notTracked && trackedAddresses.size > 0 && id) {
-      const cachedPath = path.join(LISTINGS_DIR, id + ".json");
-      if (fs.existsSync(cachedPath)) {
-        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        if (
-          cached.address &&
-          trackedAddresses.has(cached.address.trim().toLowerCase())
-        )
-          continue;
-      }
-    }
-
-    // Description dedup
-    if (id && isDuplicateDescription(l.url)) continue;
-
-    // Gender filter (default from config)
-    if (excludeGendered) {
-      let genderText = text;
-      if (id) {
-        const cachedPath = path.join(LISTINGS_DIR, id + ".json");
-        if (fs.existsSync(cachedPath)) {
-          const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-          genderText +=
-            " " +
-            (cached.lookingFor || "") +
-            " " +
-            (cached.room || "") +
-            " " +
-            (cached.weAre || "");
-        }
-      }
-      if (isGenderRestricted(genderText)) continue;
-    }
-
-    // Short sublet filter (default from config)
-    if (excludeShort && isShortSublet(l, minDurationDays)) continue;
-
-    if (noWoko) {
-      if (id && wokoIds.has(id)) continue;
-      if (/WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
-    }
-
-    if (permanent) {
-      const until = (l.until || "").toLowerCase();
-      if (
-        !until.includes("no time") &&
-        !until.includes("unbefristet") &&
-        until !== "?"
-      )
-        continue;
-    }
-
-    // Calculate distance from cached listing coordinates or address
-    let dist = null;
-    if (id) {
-      const cachedPath = path.join(LISTINGS_DIR, id + ".json");
-      if (fs.existsSync(cachedPath)) {
-        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        if (cached.lat && cached.lng) {
-          // Use pre-geocoded coordinates
-          dist = distKm(ETH_ZENTRUM, { lat: cached.lat, lng: cached.lng });
-        } else if (cached.address) {
-          const addr = cached.address + (cached.city ? ", " + cached.city : "");
-          pendingGeocode.push({ addr, resultIndex: allResults.length });
-        }
-      }
-    }
-
-    const distLabel =
-      dist !== null
-        ? `${dist.toFixed(1)} km (~${Math.round(dist * 12)} min walk) | `
-        : "";
-    allResults.push({
-      source: "wgzimmer",
-      price: l.price,
-      dist,
-      label: `${distLabel}${l.neighborhood || "?"} | avail: ${l.availableFrom || "?"}${l.until ? " | until: " + l.until : ""}`,
-      desc: (l.description || "").substring(0, 140),
-      url: l.url,
-    });
-  }
-}
-
-// ── flatfox (from cache file, no live API call) ──────────────────────────────
-
-if (fs.existsSync(FLATFOX_CACHE_FILE)) {
-  const distLimit = maxDist || 5.0;
-  const priceLimit = maxPrice || MAX_PRICE;
-
-  const pins = JSON.parse(fs.readFileSync(FLATFOX_CACHE_FILE, "utf8"));
-
-  for (const p of pins) {
-    const km = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
-    if (maxDist && km > distLimit) continue;
-    if (!maxDist && km > 5.0) continue; // Default distance cap for flatfox
-    if (maxPrice && p.price_display > maxPrice) continue;
-    if (priceLimit && p.price_display > priceLimit) continue;
-    if (notTracked && trackedPks.has(String(p.pk))) continue;
-
-    const ffUrl = `https://flatfox.ch/en/flat/8001-zurich/${p.pk}/`;
-    const ffCacheKey = `flatfox-${p.pk}`;
-
-    // --new filter
-    if (newFlag && !isNewListing(ffCacheKey)) continue;
-
-    // Keyword filter (check cached details if available)
-    if (keyword) {
-      const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
-      if (fs.existsSync(cachedPath)) {
-        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        const detailText = JSON.stringify(cached);
-        if (!keyword.test(detailText)) continue;
-      } else {
-        continue;
-      }
-    }
-
-    // Same-address dedup
-    if (notTracked && trackedAddresses.size > 0) {
-      const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
-      if (fs.existsSync(cachedPath)) {
-        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        if (
-          cached.address &&
-          trackedAddresses.has(cached.address.trim().toLowerCase())
-        )
-          continue;
-      }
-    }
-
-    // Description dedup
-    if (isDuplicateDescription(ffUrl)) continue;
-
-    // Gender filter
-    if (excludeGendered) {
-      const cachedPath = path.join(LISTINGS_DIR, ffCacheKey + ".json");
-      if (fs.existsSync(cachedPath)) {
-        const cached = JSON.parse(fs.readFileSync(cachedPath, "utf8"));
-        const detailText =
-          (cached.description || "") +
-          " " +
-          (cached.particulars || "") +
-          " " +
-          (cached.address || "");
-        if (isGenderRestricted(detailText)) continue;
-      }
-    }
-
-    // Check cached details for WOKO or spam
-    if (noWoko && wokoIds.has(ffCacheKey)) continue;
-    if (spamIds.has(ffCacheKey)) continue;
-
-    allResults.push({
-      source: "flatfox",
-      price: p.price_display,
-      dist: km,
-      label: `${km.toFixed(2)} km (~${Math.round(km * 12)} min walk)`,
-      desc: "",
-      url: ffUrl,
-    });
-  }
-}
-
-// ── ronorp ────────────────────────────────────────────────────────────────────
-
-if (fs.existsSync(RONORP_CACHE_FILE)) {
-  const listings = JSON.parse(fs.readFileSync(RONORP_CACHE_FILE, "utf8"));
-
-  for (const l of listings) {
-    if (!l.price || !l.isOffer) continue;
-    if (maxPrice && l.price > maxPrice) continue;
-
-    const slug = l.url.split("/").pop();
-    if (notTracked) {
-      const isTracked = [...trackedIds, ...trackedPks].some(
-        (id) => slug.includes(id) || id.includes(slug),
-      );
-      if (isTracked) continue;
-      if (l.address && trackedAddresses.has(l.address.trim().toLowerCase()))
-        continue;
-    }
-
-    // --new filter (ronorp uses url slug as id)
-    if (newFlag && !isNewListing(`ronorp-${slug}`)) continue;
-
-    const text = l.description || "";
-    if (keyword && !keyword.test(text)) continue;
-    if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
-    if (excludeGendered && isGenderRestricted(text)) continue;
-
-    allResults.push({
-      source: "ronorp",
-      price: l.price,
-      dist: null,
-      label: `${l.address || "Zürich"} | ${text.substring(0, 80)}`,
-      desc: "",
-      url: l.url,
-    });
-  }
-}
-
-// ── students.ch ───────────────────────────────────────────────────────────────
-
-if (fs.existsSync(STUDENTS_CACHE_FILE)) {
-  const listings = JSON.parse(fs.readFileSync(STUDENTS_CACHE_FILE, "utf8"));
-
-  for (const l of listings) {
-    if (!l.price) continue;
-    if (maxPrice && l.price > maxPrice) continue;
-
-    const listingId = l.url.match(/details\/(\d+)/)?.[1];
-    if (notTracked) {
-      if (trackedPks.has(listingId)) continue;
-      if (l.address && trackedAddresses.has(l.address.trim().toLowerCase()))
-        continue;
-    }
-
-    if (newFlag && !isNewListing(`students-${listingId}`)) continue;
-
-    const text = l.description || "";
-    if (keyword && !keyword.test(text)) continue;
-    if (noWoko && /WOKO|woko|under 28|unter 28|JUWO|juwo/i.test(text)) continue;
-    if (excludeGendered && isGenderRestricted(text)) continue;
-    if (excludeShort && isShortSublet(l, minDurationDays)) continue;
-    if (permanent && l.until) continue;
-
-    const dist =
-      l.lat && l.lng ? distKm(ETH_ZENTRUM, { lat: l.lat, lng: l.lng }) : null;
-    if (maxDist && dist !== null && dist > maxDist) continue;
-
-    allResults.push({
-      source: "students",
-      price: l.price,
-      dist,
-      label: `${l.address || "Zürich"} | ${text.substring(0, 80)}`,
-      desc: "",
-      url: l.url,
-    });
-  }
-}
-
-// ── Geocode wgzimmer addresses for distance calculation ─────────────────────
-
-await (async () => {
-  if (pendingGeocode.length > 0) {
-    for (const { addr, resultIndex } of pendingGeocode) {
-      if (resultIndex >= allResults.length) continue;
-      const coords = await geocodeAddress(addr);
-      if (coords) {
-        const km = distKm(ETH_ZENTRUM, coords);
-        allResults[resultIndex].dist = km;
-        allResults[resultIndex].label =
-          `${km.toFixed(1)} km (~${Math.round(km * 12)} min walk) | ` +
-          allResults[resultIndex].label;
-      }
-    }
-  }
-
-  // Filter by --max-dist if specified
-  if (maxDist) {
-    for (let i = allResults.length - 1; i >= 0; i--) {
-      const r = allResults[i];
-      if (r.dist !== null && r.dist > maxDist) {
-        allResults.splice(i, 1);
-      }
-    }
-  }
-})();
-
-// ── Sort & print ─────────────────────────────────────────────────────────────
+const results = loadAllListings()
+  .sort((a, b) => a.price - b.price)
+  .filter((l) => {
+    if (l.price > maxPrice) return false;
+    if (maxDist && l.dist !== null && l.dist > maxDist) return false;
+    if (newCutoff && l.firstSeen && new Date(l.firstSeen) < newCutoff)
+      return false;
+    if (permanent && l.hasEndDate) return false;
+    if (keyword && !keyword.test(`${l.description} ${l.address || ""}`))
+      return false;
+    if (noWoko && l.studentHousing) return false;
+    if (excludeGendered && l.genderRestricted) return false;
+    if (excludeShort && l.shortSublet) return false;
+    if (l.bulkPoster) return false;
+    if (notTracked && isTracked(l)) return false;
+    return !isRepost(l);
+  });
 
 if (sortBy === "distance") {
-  allResults.sort(
-    (a, b) => (a.dist ?? 999) - (b.dist ?? 999) || a.price - b.price,
-  );
-} else {
-  allResults.sort((a, b) => a.price - b.price);
+  results.sort((a, b) => (a.dist ?? 999) - (b.dist ?? 999) || a.price - b.price);
 }
 
-const displayed = allResults.slice(0, limit);
+// ── Output ───────────────────────────────────────────────────────────────────
 
-for (const r of displayed) {
-  const cached = cacheKeyFromUrl(r.url);
-  const hasCached =
-    cached && fs.existsSync(path.join(LISTINGS_DIR, cached + ".json"));
-  const tag = hasCached ? " *" : "";
-  console.log(`[${r.source}] CHF ${r.price} | ${r.label}${tag}`);
-  if (r.desc) console.log(`  ${r.desc}`);
-  console.log(`  ${r.url}`);
+const displayed = results.slice(0, limit);
+
+for (const l of displayed) {
+  const distance =
+    l.dist !== null
+      ? `${l.dist.toFixed(1)} km (~${Math.round(l.dist * 12)} min walk) | `
+      : "";
+  const dates = `avail: ${l.availableFrom || "?"}${l.until ? " | until: " + l.until : ""}`;
+  const tag = loadCachedListing(l.url) ? " *" : "";
+  console.log(
+    `[${l.source}] CHF ${l.price} | ${distance}${l.address || "?"} | ${dates}${tag}`,
+  );
+  const summary = l.description.split("\n")[0].substring(0, 140);
+  if (summary) console.log(`  ${summary}`);
+  console.log(`  ${l.url}`);
   console.log();
 }
 
-console.log(
-  `Showing ${Math.min(allResults.length, limit)} of ${allResults.length} matches`,
-);
+console.log(`Showing ${displayed.length} of ${results.length} matches`);
 if (excludeGendered)
   console.log("  (gender-restricted listings hidden, use --include-gendered)");
-if (excludeShort)
-  console.log("  (short sublets <2mo hidden, use --include-short)");
-if (newFlag)
-  console.log(
-    `  (showing listings from last ${newHours}h only, --new ${newHours})`,
-  );
+if (excludeShort) console.log("  (short sublets hidden, use --include-short)");
+if (newHours)
+  console.log(`  (showing listings from last ${newHours}h only, --new ${newHours})`);
 
 // ── Batch fetch (--fetch N) ──────────────────────────────────────────────────
 
 if (fetchCount > 0) {
-  const uncached = displayed.filter((r) => {
-    const key = cacheKeyFromUrl(r.url);
-    return key && !fs.existsSync(path.join(LISTINGS_DIR, key + ".json"));
-  });
-
-  const toFetch = uncached.slice(0, fetchCount);
+  const toFetch = displayed
+    .filter((l) => cacheKeyFromUrl(l.url) && !loadCachedListing(l.url))
+    .slice(0, fetchCount);
   if (toFetch.length === 0) {
     console.log("\nAll displayed results are already cached.");
   } else {
-    console.log(
-      `\nFetching details for ${toFetch.length} uncached listing(s)...`,
-    );
+    console.log(`\nFetching details for ${toFetch.length} uncached listing(s)...`);
     const { fetchListings } = await import("./fetch-listing.mjs");
-    const results = await fetchListings(toFetch.map((r) => r.url));
-    for (const { url, data } of results) {
-      if (data) {
-        console.log(`\n  ${data.address || "?"} — CHF ${data.rent || "?"}/mo`);
-        console.log(`  ${url}`);
-      }
+    const fetched = await fetchListings(toFetch.map((l) => l.url));
+    for (const { url, data } of fetched) {
+      console.log(`\n  ${data.address || "?"} | CHF ${data.rent || "?"}/mo`);
+      console.log(`  ${url}`);
     }
   }
 }

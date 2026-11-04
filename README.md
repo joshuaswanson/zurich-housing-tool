@@ -143,6 +143,7 @@ src/
   fetch-listing.mjs   Fetch full listing details
   track.js            Application tracker
   server.js           Web dashboard server
+  listings.js         Combine the source caches into one listing list
   lib.js              Shared utilities
   apple-llm.py        Message drafting with Apple Intelligence
   sources/            One module per housing site

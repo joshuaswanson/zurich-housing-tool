@@ -261,6 +261,12 @@ export function cacheKeyFromUrl(url) {
   return uuid || null;
 }
 
+export function readJson(file, fallback) {
+  return fs.existsSync(file)
+    ? JSON.parse(fs.readFileSync(file, "utf8"))
+    : fallback;
+}
+
 /** Load cached listing detail JSON for a URL */
 export function loadCachedListing(url) {
   const key = cacheKeyFromUrl(url);

@@ -8,18 +8,15 @@
  *
  * Usage:
  *   node src/monitor.js scan          # Refresh sources, print summary
- *   node src/monitor.js watch [mins]  # Poll every N minutes, alert on new
  *   node src/monitor.js links         # Show useful housing search links
  */
 
 import fs from "fs";
-import { execSync } from "child_process";
 import {
   config,
   ETH_ZENTRUM,
   MAX_PRICE,
   MAX_DISTANCE_KM,
-  DATA_DIR,
   FLATFOX_BOUNDS,
   WGZIMMER_CACHE_FILE,
   WGZIMMER_LISTINGS_FILE,
@@ -370,48 +367,6 @@ async function scan(opts = {}) {
   return allListings;
 }
 
-async function watch(intervalMin = 15, opts = {}) {
-  console.log(`\n  Watching for new listings every ${intervalMin} minutes...`);
-  console.log("  Press Ctrl+C to stop.\n");
-
-  const seen = loadSeen();
-  let firstRun = true;
-
-  const tick = async () => {
-    const listings = await scan({ ...opts, quiet: !firstRun });
-
-    const newListings = listings.filter((l) => !seen[l.id]);
-    if (newListings.length > 0 && !firstRun) {
-      console.log(`\n  *** ${newListings.length} NEW LISTING(S) ***\n`);
-      printListings(newListings, opts);
-
-      // Desktop notification (macOS)
-      try {
-        const msg = newListings
-          .slice(0, 3)
-          .map(
-            (l) =>
-              `${l.price ? formatPrice(l.price) : "?"} - ${l.distKm ? l.distKm.toFixed(1) + "km" : "?"}`,
-          )
-          .join(", ");
-        execSync(
-          `osascript -e 'display notification "${msg}" with title "New Housing Listings!" sound name "Glass"'`,
-        );
-      } catch {}
-    }
-
-    // Mark all as seen
-    for (const l of listings)
-      seen[l.id] = { firstSeen: new Date().toISOString(), price: l.price };
-    saveSeen(seen);
-
-    firstRun = false;
-  };
-
-  await tick();
-  setInterval(tick, intervalMin * 60 * 1000);
-}
-
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -432,11 +387,6 @@ async function main() {
     case "scan":
       await scan(opts);
       break;
-    case "watch": {
-      const mins = parseInt(args[1]) || 15;
-      await watch(mins, opts);
-      break;
-    }
     case "links":
       console.log("\n  Useful housing links for Zurich:\n");
       console.log(
@@ -462,9 +412,8 @@ async function main() {
       console.log();
       break;
     default:
-      console.log("Usage: node src/monitor.js [scan|watch|links] [options]");
+      console.log("Usage: node src/monitor.js [scan|links] [options]");
       console.log("  scan              One-time scan of all sources");
-      console.log("  watch [minutes]   Poll every N minutes (default 15)");
       console.log("  links             Show useful housing search links");
       console.log("\nOptions:");
       console.log("  --all             Show all listings (no distance filter)");

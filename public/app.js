@@ -671,29 +671,6 @@ async function loadScanStatus() {
   } catch {}
 }
 
-let autoScanTimer = null;
-
-function setAutoScan(minutes) {
-  clearInterval(autoScanTimer);
-  autoScanTimer = null;
-  if (!minutes) return;
-  if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission();
-  }
-  autoScanTimer = setInterval(() => {
-    if (!$("scan-button").disabled) scan();
-  }, minutes * 60000);
-}
-
-function notifyNewListings(newCount) {
-  if (!autoScanTimer || newCount === 0) return;
-  if (!("Notification" in window)) return;
-  if (Notification.permission !== "granted") return;
-  new Notification("Zurich housing tool", {
-    body: t("notify_body", { count: counted("new_listings", newCount) }),
-  });
-}
-
 async function scan() {
   const button = $("scan-button");
   const status = $("scan-status");
@@ -710,7 +687,6 @@ async function scan() {
     await load();
     const newCount = allListings.filter((l) => !knownIds.has(l.id)).length;
     renderScanStatus(data.status, newCount);
-    notifyNewListings(newCount);
   } catch (e) {
     status.classList.add("is-error");
     status.textContent = t("scan_failed", { error: e.message });
@@ -1538,9 +1514,6 @@ document.addEventListener("keydown", (e) => {
 });
 document.querySelectorAll("input[name='language']").forEach((radio) => {
   radio.addEventListener("change", () => setLanguage(radio.value));
-});
-$("auto-scan").addEventListener("change", (e) => {
-  setAutoScan(parseInt(e.target.value));
 });
 $("filters").addEventListener("submit", (e) => e.preventDefault());
 

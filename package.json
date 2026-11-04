@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "scan": "node src/monitor.js scan",
-    "watch": "node src/monitor.js watch",
     "links": "node src/monitor.js links",
     "fetch": "node src/fetch-listing.mjs",
     "search": "node src/search.js",

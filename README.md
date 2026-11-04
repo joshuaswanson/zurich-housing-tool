@@ -16,7 +16,6 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 - **Distances**: Each listing shows its distance and walking time from a location you choose
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
 - **Web dashboard**: A map, a listings table, and application tracking in the browser
-- **Notifications** when new listings appear
 
 ## Setup
 
@@ -78,7 +77,6 @@ Edit `config.json` to set your target location:
 node src/monitor.js scan                 # Scan all sources
 node src/monitor.js scan --fresh         # Force fresh scrape (ignore cache)
 node src/monitor.js scan --radius 2      # Only show within 2 km
-node src/monitor.js watch 15             # Auto-poll every 15 min + desktop notifications
 ```
 
 ### Search & filter
@@ -138,7 +136,7 @@ npm run dashboard                       # Same thing
 
 ```
 src/
-  monitor.js          Scan all sources, watch mode, desktop notifications
+  monitor.js          Scan all sources
   search.js           Search and filter cached listings
   fetch-listing.mjs   Fetch full listing details
   track.js            Application tracker

@@ -17,7 +17,6 @@ import {
   STUDENTS_CACHE_FILE,
   TRACKER_FILE,
   PROFILE_FILE,
-  LISTINGS_DIR,
   ETH_ZENTRUM,
   MAX_PRICE,
   FLATFOX_SLUG,
@@ -82,15 +81,13 @@ function listingFlags(text, dates) {
 app.get("/api/listings", (req, res) => {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
-  const cachedDetails = (key) =>
-    key ? readJson(path.join(LISTINGS_DIR, key + ".json"), null) : null;
 
   // wgzimmer
   for (const l of readJson(WGZIMMER_LISTINGS_FILE, [])) {
     if (!l.price) continue;
     const uuid = l.url.match(/([a-f0-9-]{36})/)?.[1];
     const id = `wgzimmer-${uuid || l.url.slice(-20)}`;
-    const cached = cachedDetails(uuid);
+    const cached = loadCachedListing(l.url);
     const hasCoords = cached?.lat && cached?.lng;
     const dist = hasCoords
       ? distKm(ETH_ZENTRUM, { lat: cached.lat, lng: cached.lng })
@@ -120,7 +117,8 @@ app.get("/api/listings", (req, res) => {
   for (const p of readJson(FLATFOX_CACHE_FILE, [])) {
     const km = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
     const id = `flatfox-${p.pk}`;
-    const cached = cachedDetails(id);
+    const url = `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`;
+    const cached = loadCachedListing(url);
     const text = [p.description, JSON.stringify(cached || "")]
       .filter(Boolean)
       .join(" ");
@@ -135,7 +133,7 @@ app.get("/api/listings", (req, res) => {
       description: cached?.description || p.description || "",
       availableFrom: cached?.availableFrom || p.availableFrom || null,
       until: null,
-      url: `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`,
+      url,
       firstSeen: seen[id]?.firstSeen || null,
       hasEndDate: false,
       ...listingFlags(text, {}),
@@ -636,22 +634,7 @@ app.post("/api/generate", async (req, res) => {
   // Contact details are for the contact form and stay out of the prompt.
   const { email, phone, ...promptProfile } = profile;
 
-  // Load listing details from cache
-  const cacheKey =
-    url.match(
-      /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
-    )?.[1] ||
-    (url.match(/\/(\d{5,})\/?/)
-      ? `flatfox-${url.match(/\/(\d{5,})\/?/)[1]}`
-      : null);
-
-  let listing = null;
-  if (cacheKey && fs.existsSync(path.join(LISTINGS_DIR, cacheKey + ".json"))) {
-    listing = JSON.parse(
-      fs.readFileSync(path.join(LISTINGS_DIR, cacheKey + ".json"), "utf8"),
-    );
-  }
-
+  const listing = loadCachedListing(url);
   if (!listing) {
     return res
       .status(400)

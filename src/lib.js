@@ -270,6 +270,12 @@ export function loadCachedListing(url) {
   return null;
 }
 
+/** Save listing detail JSON under the cache key of its URL */
+export function saveCachedListing(url, data) {
+  const p = path.join(LISTINGS_DIR, cacheKeyFromUrl(url) + ".json");
+  fs.writeFileSync(p, JSON.stringify(data, null, 2));
+}
+
 // ── Listing filters ───────────────────────────────────────────────────────
 
 export const STUDENT_HOUSING_PATTERN = /WOKO|under 28|unter 28|JUWO/i;

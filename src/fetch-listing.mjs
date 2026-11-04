@@ -14,13 +14,15 @@ import { launch } from "cloakbrowser";
 import { fetchWgzimmerListing } from "./sources/wgzimmer-detail.mjs";
 import fs from "fs";
 import path from "path";
-import crypto from "crypto";
 import {
   config,
   LISTINGS_DIR,
   TRACKER_FILE,
   ensureDataDir,
   geocodeAddress,
+  cacheKeyFromUrl,
+  loadCachedListing,
+  saveCachedListing,
 } from "./lib.js";
 
 ensureDataDir();
@@ -32,39 +34,6 @@ const delay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const cfgExclude = config.exclude || {};
 const overAgeLimit = cfgExclude.overAge || 28;
-
-// ── Cache helpers (exported for programmatic use) ───────────────────────────
-
-export function isFlatfox(url) {
-  return url.includes("flatfox.ch");
-}
-
-export function cacheKey(url) {
-  if (isFlatfox(url)) {
-    const pk = url.match(/\/(\d{5,})\/?/)?.[1];
-    return pk
-      ? `flatfox-${pk}`
-      : crypto.createHash("md5").update(url).digest("hex");
-  }
-  const uuid = url.match(
-    /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/,
-  )?.[1];
-  return uuid || crypto.createHash("md5").update(url).digest("hex");
-}
-
-export function cachePath(url) {
-  return path.join(LISTINGS_DIR, cacheKey(url) + ".json");
-}
-
-export function loadCache(url) {
-  const p = cachePath(url);
-  if (fs.existsSync(p)) return JSON.parse(fs.readFileSync(p, "utf8"));
-  return null;
-}
-
-export function saveCache(url, data) {
-  fs.writeFileSync(cachePath(url), JSON.stringify(data, null, 2));
-}
 
 // ── Flatfox fetch ───────────────────────────────────────────────────────────
 
@@ -250,7 +219,7 @@ async function autoGeocode(url, data) {
     if (coords) {
       data.lat = coords.lat;
       data.lng = coords.lng;
-      saveCache(url, data);
+      saveCachedListing(url, data);
     }
   } catch {}
 }
@@ -266,8 +235,10 @@ export async function fetchListings(urls) {
   const toFetch = [];
 
   for (const url of urls) {
-    const cached = loadCache(url);
-    if (cached) {
+    const cached = loadCachedListing(url);
+    if (!cacheKeyFromUrl(url)) {
+      process.stderr.write(`Not a wgzimmer or flatfox listing: ${url}\n`);
+    } else if (cached) {
       results.push({ url, data: cached, fromCache: true });
     } else {
       toFetch.push(url);
@@ -280,10 +251,10 @@ export async function fetchListings(urls) {
     let browser = null;
     try {
       for (const url of toFetch) {
-        process.stderr.write(`  ${cacheKey(url)}...`);
+        process.stderr.write(`  ${cacheKeyFromUrl(url)}...`);
         try {
           let data;
-          if (isFlatfox(url)) {
+          if (url.includes("flatfox.ch")) {
             browser = browser || (await launch({ headless: true, humanize: true }));
             const page = await browser.newPage();
             try {
@@ -295,7 +266,7 @@ export async function fetchListings(urls) {
             data = await fetchWgzimmerListing(url);
             await delay(WGZIMMER_REQUEST_DELAY_MS);
           }
-          saveCache(url, data);
+          saveCachedListing(url, data);
           // Auto-geocode (adds lat/lng to cached data)
           await autoGeocode(url, data);
           // Auto-exclude spam/WOKO
@@ -426,7 +397,7 @@ async function main() {
   if (args[0] === "--summary") {
     const urls = args.slice(1).filter((a) => a.startsWith("http"));
     for (const url of urls) {
-      const cached = loadCache(url);
+      const cached = loadCachedListing(url);
       if (cached) {
         console.log("\n---");
         console.log(summarize(cached));

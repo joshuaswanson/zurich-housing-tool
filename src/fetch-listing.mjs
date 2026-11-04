@@ -8,7 +8,7 @@
  *   node src/fetch-listing.mjs <url1> <url2>       # Fetch multiple
  *   node src/fetch-listing.mjs --from-file <f>     # Fetch all URLs from a file
  *   node src/fetch-listing.mjs --summary <url>     # Compact summary from cache
- *   node src/fetch-listing.mjs --all               # Summarize all cached listings
+ *   node src/fetch-listing.mjs --summary --all     # Summarize all cached listings
  */
 import { launch } from "cloakbrowser";
 import { fetchWgzimmerListing } from "./sources/wgzimmer-detail.mjs";
@@ -396,12 +396,11 @@ async function main() {
     console.log("Usage: node src/fetch-listing.mjs <url> [<url2> ...]");
     console.log("       node src/fetch-listing.mjs --from-file <file>");
     console.log("       node src/fetch-listing.mjs --summary <url>");
-    console.log("       node src/fetch-listing.mjs --all");
+    console.log("       node src/fetch-listing.mjs --summary --all");
     process.exit(0);
   }
 
-  // --all: summarize all cached listings
-  if (args[0] === "--all") {
+  if (args.includes("--all")) {
     if (!fs.existsSync(LISTINGS_DIR)) {
       console.log("No cached listings found. Fetch some listings first.");
       process.exit(0);

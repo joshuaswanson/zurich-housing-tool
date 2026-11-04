@@ -295,6 +295,8 @@ app.get("/api/config", (req, res) => {
       studentHousing: config.exclude?.woko === true,
       shortSublets: config.exclude?.shortSublets !== false,
     },
+    llmProviders: process.platform === "darwin" ? ["ollama", "apple"] : ["ollama"],
+    llmProvider: config.llm?.provider || "ollama",
   });
 });
 
@@ -598,7 +600,7 @@ app.post("/api/send-flatfox", async (req, res) => {
   }
 });
 
-// ── API: Generate application message via Ollama ──────────────────────────
+// ── API: Generate application message with a local model ──────────────────
 
 const OLLAMA_URL = "http://localhost:11434";
 const DEFAULT_OLLAMA_MODEL = "llama3.2";
@@ -683,37 +685,69 @@ ${listingDesc.substring(0, 2000)}
 
 Write the application message now. Do not include a subject line. Start with a greeting.`;
 
+  const provider = req.body.provider || config.llm?.provider || "ollama";
+  const generate = provider === "apple" ? generateWithApple : generateWithOllama;
+  try {
+    res.json(await generate(prompt));
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+async function generateWithOllama(prompt) {
   let model;
   try {
     model = await chooseOllamaModel();
   } catch {
-    return res.status(500).json({
-      error: "Could not connect to Ollama. Start it with: ollama serve",
-    });
+    throw new Error("Could not connect to Ollama. Start it with: ollama serve");
   }
   if (!model) {
-    return res.status(500).json({
-      error: `Ollama has no model installed. Run: ollama pull ${DEFAULT_OLLAMA_MODEL}`,
-    });
+    throw new Error(
+      `Ollama has no model installed. Run: ollama pull ${DEFAULT_OLLAMA_MODEL}`,
+    );
   }
-
+  let ollamaRes;
   try {
-    const ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
+    ollamaRes = await fetch(`${OLLAMA_URL}/api/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model, prompt, stream: false }),
     });
-    if (!ollamaRes.ok) {
-      return res
-        .status(500)
-        .json({ error: `Ollama returned an error for model ${model}.` });
-    }
-    const result = await ollamaRes.json();
-    res.json({ message: result.response, model });
   } catch (e) {
-    res.status(500).json({ error: `Ollama request failed. ${e.message}` });
+    throw new Error(`Ollama request failed. ${e.message}`);
   }
-});
+  if (!ollamaRes.ok) {
+    throw new Error(`Ollama returned an error for model ${model}.`);
+  }
+  const result = await ollamaRes.json();
+  return { message: result.response, model };
+}
+
+const APPLE_TIMEOUT_MS = 180000;
+
+function generateWithApple(prompt) {
+  if (process.platform !== "darwin") {
+    return Promise.reject(new Error("Apple Intelligence needs macOS 26 or later."));
+  }
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      "uv",
+      ["run", "--quiet", "--script", path.join(__dirname, "apple-llm.py")],
+      { cwd: __dirname, timeout: APPLE_TIMEOUT_MS },
+      (error, stdout, stderr) => {
+        if (error?.code === "ENOENT") {
+          reject(new Error("Apple Intelligence drafting needs uv. Install it from https://docs.astral.sh/uv/"));
+        } else if (error) {
+          const reason = stderr.trim().split("\n").at(-1);
+          reject(new Error(reason || `Apple Intelligence failed. ${error.message}`));
+        } else {
+          resolve({ message: stdout.trim(), model: "Apple Intelligence" });
+        }
+      },
+    );
+    child.stdin.end(prompt);
+  });
+}
 
 export { app };
 

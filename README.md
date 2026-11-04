@@ -34,7 +34,7 @@ node server.js
 
 The dashboard is at http://localhost:3456.
 
-**Optional**: Install [Ollama](https://ollama.com) for message generation. Everything else works without it.
+**Optional**: Install [Ollama](https://ollama.com), or use Apple Intelligence on macOS 26 or later with [uv](https://docs.astral.sh/uv/), for message generation. Everything else works without it.
 
 To send WGZimmer or Flatfox messages from the dashboard, save your name, email,
 and phone in the Profile tab. Contact details stay in `profile.json` on this

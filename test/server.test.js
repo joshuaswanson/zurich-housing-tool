@@ -128,6 +128,8 @@ test("config reports the target and the default exclusions", async () => {
     studentHousing: true,
     shortSublets: true,
   });
+  assert.equal(body.llmProvider, "ollama");
+  assert.equal(body.llmProviders.includes("apple"), process.platform === "darwin");
 });
 
 test("listings combine all four sources and skip unusable entries", async () => {

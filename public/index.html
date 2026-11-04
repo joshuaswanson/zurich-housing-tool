@@ -1272,6 +1272,25 @@
                 </label>
               </span>
             </div>
+            <div
+              class="settings-row"
+              id="llm-setting"
+              role="radiogroup"
+              aria-labelledby="llm-label"
+              hidden
+            >
+              <span id="llm-label" data-i18n="llm">Drafting</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="llm" value="ollama" />
+                  <span>Ollama</span>
+                </label>
+                <label>
+                  <input type="radio" name="llm" value="apple" />
+                  <span>Apple</span>
+                </label>
+              </span>
+            </div>
             <label class="settings-row">
               <span data-i18n="auto_scan">Auto scan</span>
               <select id="auto-scan">
@@ -1639,6 +1658,7 @@
           theme_system: "System",
           theme_light: "Light",
           theme_dark: "Dark",
+          llm: "Drafting",
           auto_scan: "Auto scan",
           auto_off: "off",
           auto_15: "every 15 min",
@@ -1811,6 +1831,7 @@
           theme_system: "System",
           theme_light: "Hell",
           theme_dark: "Dunkel",
+          llm: "Entwürfe",
           auto_scan: "Auto-Suche",
           auto_off: "aus",
           auto_15: "alle 15 Min.",
@@ -2880,7 +2901,7 @@ function renderShowMore(total) {
           const res = await fetch("/api/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url, provider: llmProvider }),
           });
           const data = await res.json();
           if (data.error) {
@@ -3298,6 +3319,21 @@ function renderShowMore(total) {
         return row;
       }
 
+      const LLM_KEY = "zurich-housing-llm";
+      let llmProvider = localStorage.getItem(LLM_KEY);
+
+      function showLlmChoice(providers, configured) {
+        if (!providers.includes(llmProvider)) llmProvider = configured;
+        $("llm-setting").hidden = providers.length < 2;
+        document.querySelectorAll("input[name='llm']").forEach((radio) => {
+          radio.checked = radio.value === llmProvider;
+          radio.addEventListener("change", () => {
+            llmProvider = radio.value;
+            localStorage.setItem(LLM_KEY, radio.value);
+          });
+        });
+      }
+
       const THEME_KEY = "zurich-housing-theme";
       const systemDark = matchMedia("(prefers-color-scheme: dark)");
       let themeChoice = localStorage.getItem(THEME_KEY) || "system";
@@ -3547,6 +3583,7 @@ function renderShowMore(total) {
           $("f-gender").checked = !config.exclude.genderRestricted;
           $("f-student").checked = !config.exclude.studentHousing;
           $("f-short").checked = !config.exclude.shortSublets;
+          showLlmChoice(config.llmProviders, config.llmProvider);
         } catch {}
         document.querySelector(
           `input[name='language'][value='${language}']`,

@@ -19,6 +19,7 @@
     "west": 8.4603
   },
   "llm": {
+    "provider": "ollama",
     "model": "llama3.2"
   },
   "exclude": {

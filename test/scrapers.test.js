@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toListing } from "../ronorp-scrape.mjs";
-import { parseDetails, parseListRows } from "../students-scrape.mjs";
+import { toListing } from "../src/sources/ronorp-scrape.mjs";
+import { parseDetails, parseListRows } from "../src/sources/students-scrape.mjs";
 
 const ronorpPost = (overrides) => ({
   seo_slug: "a-room",

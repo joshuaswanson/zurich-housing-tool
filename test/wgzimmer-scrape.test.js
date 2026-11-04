@@ -7,7 +7,7 @@ import {
   readResultCounts,
   scrapeSearchResults,
   submitSearch,
-} from "../wgzimmer-scrape.mjs";
+} from "../src/sources/wgzimmer-scrape.mjs";
 
 const RESULTS_PAGE_URL = new URL(
   "./fixtures/wgzimmer-results.html",

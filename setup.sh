@@ -46,12 +46,12 @@ fi
 
 # 5. Initial scan
 echo "  [5/5] Running initial scan (this takes ~90 seconds on first run)..."
-node monitor.js scan --fresh > /dev/null 2>&1 || true
+node src/monitor.js scan --fresh > /dev/null 2>&1 || true
 
 echo ""
 echo "  Setup complete. Run the dashboard with:"
 echo ""
-echo "    node server.js"
+echo "    node src/server.js"
 echo ""
 echo "  Then open http://localhost:3456"
 echo ""

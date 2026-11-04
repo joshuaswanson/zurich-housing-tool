@@ -7,7 +7,7 @@ import {
   isFlatfoxAuthenticated,
   loginFlatfox,
   persistentFlatfoxLauncher,
-} from "../flatfox-session.mjs";
+} from "../src/sources/flatfox-session.mjs";
 
 function response(status) {
   return { status: () => status };

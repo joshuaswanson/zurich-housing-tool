@@ -13,7 +13,7 @@ import {
   noteKey,
   toFlatfoxDetails,
   walkMin,
-} from "../lib.js";
+} from "../src/lib.js";
 
 test("distKm measures ETH Zentrum to ETH Hönggerberg", () => {
   const km = distKm(

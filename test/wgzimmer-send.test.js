@@ -4,7 +4,7 @@ import {
   classifyWgzimmerSendResponse,
   sendWgzimmerApplication,
   validateWgzimmerApplication,
-} from "../wgzimmer-send.mjs";
+} from "../src/sources/wgzimmer-send.mjs";
 
 const URL =
   "https://www.wgzimmer.ch/wglink/en/11111111-2222-4333-8444-555555555555/zurich-stadt/a.html";

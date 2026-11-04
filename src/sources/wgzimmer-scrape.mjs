@@ -2,7 +2,7 @@
  * wgzimmer.ch search scraper.
  *
  * Exports: scrapeWgzimmer(maxPrice, region) for programmatic use.
- * Standalone: node wgzimmer-scrape.mjs [maxPrice]
+ * Standalone: node src/sources/wgzimmer-scrape.mjs [maxPrice]
  */
 import { launch } from "cloakbrowser";
 

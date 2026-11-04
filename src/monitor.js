@@ -7,9 +7,9 @@
  * updates seen.json.
  *
  * Usage:
- *   node monitor.js scan          # Refresh sources, print summary
- *   node monitor.js watch [mins]  # Poll every N minutes, alert on new
- *   node monitor.js links         # Show useful housing search links
+ *   node src/monitor.js scan          # Refresh sources, print summary
+ *   node src/monitor.js watch [mins]  # Poll every N minutes, alert on new
+ *   node src/monitor.js links         # Show useful housing search links
  */
 
 import fs from "fs";
@@ -36,9 +36,9 @@ import {
   formatPrice,
   timestamp,
 } from "./lib.js";
-import { scrapeWgzimmer } from "./wgzimmer-scrape.mjs";
-import { scrapeRonorp } from "./ronorp-scrape.mjs";
-import { scrapeStudents } from "./students-scrape.mjs";
+import { scrapeWgzimmer } from "./sources/wgzimmer-scrape.mjs";
+import { scrapeRonorp } from "./sources/ronorp-scrape.mjs";
+import { scrapeStudents } from "./sources/students-scrape.mjs";
 
 const WGZIMMER_CACHE_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -462,7 +462,7 @@ async function main() {
       console.log();
       break;
     default:
-      console.log("Usage: node monitor.js [scan|watch|links] [options]");
+      console.log("Usage: node src/monitor.js [scan|watch|links] [options]");
       console.log("  scan              One-time scan of all sources");
       console.log("  watch [minutes]   Poll every N minutes (default 15)");
       console.log("  links             Show useful housing search links");

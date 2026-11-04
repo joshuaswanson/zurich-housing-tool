@@ -3,15 +3,15 @@
  * Track housing application status.
  *
  * Usage:
- *   node track.js                          # Show all tracked listings
- *   node track.js apply <url> [address]    # Mark as applied
- *   node track.js shortlist <url> [address]# Add to shortlist
- *   node track.js exclude <url> <reason>   # Exclude (not interested)
- *   node track.js reject <url>             # They rejected you
- *   node track.js note <url> <text>        # Add a note
- *   node track.js check <url>              # Check if already tracked
- *   node track.js backfill                 # Populate price/address from cache
- *   node track.js status                   # Dashboard with stats
+ *   node src/track.js                          # Show all tracked listings
+ *   node src/track.js apply <url> [address]    # Mark as applied
+ *   node src/track.js shortlist <url> [address]# Add to shortlist
+ *   node src/track.js exclude <url> <reason>   # Exclude (not interested)
+ *   node src/track.js reject <url>             # They rejected you
+ *   node src/track.js note <url> <text>        # Add a note
+ *   node src/track.js check <url>              # Check if already tracked
+ *   node src/track.js backfill                 # Populate price/address from cache
+ *   node src/track.js status                   # Dashboard with stats
  */
 
 import fs from "fs";
@@ -149,7 +149,7 @@ switch (cmd) {
   case "apply": {
     const [url, ...rest] = cmdArgs;
     if (!url) {
-      console.log("Usage: node track.js apply <url> [address]");
+      console.log("Usage: node src/track.js apply <url> [address]");
       break;
     }
     const existing = findInAll(data, url);
@@ -181,7 +181,7 @@ switch (cmd) {
   case "shortlist": {
     const [url, ...rest] = cmdArgs;
     if (!url) {
-      console.log("Usage: node track.js shortlist <url> [address]");
+      console.log("Usage: node src/track.js shortlist <url> [address]");
       break;
     }
     const { price, address: cachedAddr } = lookupFromCache(url);
@@ -200,7 +200,7 @@ switch (cmd) {
   case "exclude": {
     const [url, ...rest] = cmdArgs;
     if (!url) {
-      console.log("Usage: node track.js exclude <url> <reason>");
+      console.log("Usage: node src/track.js exclude <url> <reason>");
       break;
     }
     const { price, address: cachedAddr } = lookupFromCache(url);
@@ -219,7 +219,7 @@ switch (cmd) {
   case "reject": {
     const [url] = cmdArgs;
     if (!url) {
-      console.log("Usage: node track.js reject <url>");
+      console.log("Usage: node src/track.js reject <url>");
       break;
     }
     const idx = data.applied.findIndex(
@@ -241,7 +241,7 @@ switch (cmd) {
   case "note": {
     const [url, ...rest] = cmdArgs;
     if (!url || !rest.length) {
-      console.log("Usage: node track.js note <url> <text>");
+      console.log("Usage: node src/track.js note <url> <text>");
       break;
     }
     data.notes[extractId(url)] = rest.join(" ");
@@ -253,7 +253,7 @@ switch (cmd) {
   case "check": {
     const [url] = cmdArgs;
     if (!url) {
-      console.log("Usage: node track.js check <url>");
+      console.log("Usage: node src/track.js check <url>");
       break;
     }
     const found = findInAll(data, url);

@@ -84,7 +84,7 @@ writeJson(path.join(dataDir, "seen.json"), {
 });
 
 process.env.ZHT_HOME = home;
-const { app } = await import("../server.js");
+const { app } = await import("../src/server.js");
 
 let server;
 let baseUrl;

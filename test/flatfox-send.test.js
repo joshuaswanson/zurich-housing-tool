@@ -5,7 +5,7 @@ import {
   sendFlatfoxApplication,
   validateFlatfoxApplication,
   wasRedirectedFromPost,
-} from "../flatfox-send.mjs";
+} from "../src/sources/flatfox-send.mjs";
 
 const URL = "https://flatfox.ch/en/flat/8001-zurich/86424524/";
 const APPLICATION = {

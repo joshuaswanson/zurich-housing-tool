@@ -2,7 +2,7 @@
  * wgzimmer.ch listing detail pages.
  * A detail page is plain HTML and needs no browser, unlike the search form.
  */
-import { htmlToText } from "./lib.js";
+import { htmlToText } from "../lib.js";
 
 
 /** The value in `<p><strong>Label</strong> value</p>`. */

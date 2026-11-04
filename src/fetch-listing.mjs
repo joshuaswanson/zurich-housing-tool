@@ -4,14 +4,14 @@
  * Uses a permanent cache -- each listing URL maps to exactly one result.
  *
  * Usage:
- *   node fetch-listing.mjs <url>               # Fetch one listing
- *   node fetch-listing.mjs <url1> <url2>       # Fetch multiple
- *   node fetch-listing.mjs --from-file <f>     # Fetch all URLs from a file
- *   node fetch-listing.mjs --summary <url>     # Compact summary from cache
- *   node fetch-listing.mjs --all               # Summarize all cached listings
+ *   node src/fetch-listing.mjs <url>               # Fetch one listing
+ *   node src/fetch-listing.mjs <url1> <url2>       # Fetch multiple
+ *   node src/fetch-listing.mjs --from-file <f>     # Fetch all URLs from a file
+ *   node src/fetch-listing.mjs --summary <url>     # Compact summary from cache
+ *   node src/fetch-listing.mjs --all               # Summarize all cached listings
  */
 import { launch } from "cloakbrowser";
-import { fetchWgzimmerListing } from "./wgzimmer-detail.mjs";
+import { fetchWgzimmerListing } from "./sources/wgzimmer-detail.mjs";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
@@ -393,10 +393,10 @@ function summarize(data) {
 async function main() {
   const args = process.argv.slice(2);
   if (args.length === 0) {
-    console.log("Usage: node fetch-listing.mjs <url> [<url2> ...]");
-    console.log("       node fetch-listing.mjs --from-file <file>");
-    console.log("       node fetch-listing.mjs --summary <url>");
-    console.log("       node fetch-listing.mjs --all");
+    console.log("Usage: node src/fetch-listing.mjs <url> [<url2> ...]");
+    console.log("       node src/fetch-listing.mjs --from-file <file>");
+    console.log("       node src/fetch-listing.mjs --summary <url>");
+    console.log("       node src/fetch-listing.mjs --all");
     process.exit(0);
   }
 

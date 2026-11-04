@@ -29,7 +29,7 @@ cd zurich-housing-tool
 The setup script installs dependencies, creates the config files, pulls the LLM model (if Ollama is installed), and runs an initial scan. Then:
 
 ```bash
-node server.js
+node src/server.js
 ```
 
 The dashboard is at http://localhost:3456.
@@ -75,40 +75,40 @@ Edit `config.json` to set your target location:
 ### Scan for listings
 
 ```bash
-node monitor.js scan                 # Scan all sources
-node monitor.js scan --fresh         # Force fresh scrape (ignore cache)
-node monitor.js scan --radius 2      # Only show within 2 km
-node monitor.js watch 15             # Auto-poll every 15 min + desktop notifications
+node src/monitor.js scan                 # Scan all sources
+node src/monitor.js scan --fresh         # Force fresh scrape (ignore cache)
+node src/monitor.js scan --radius 2      # Only show within 2 km
+node src/monitor.js watch 15             # Auto-poll every 15 min + desktop notifications
 ```
 
 ### Search & filter
 
 ```bash
-node search.js                                    # Everything from cache
-node search.js --max-dist 1.5                     # Within 1.5 km of target
-node search.js --max-price 1500                   # Price cap
-node search.js --not-tracked                      # Hide applied/excluded
-node search.js --sort distance                    # Sort by distance (default: price)
-node search.js --keyword "Seefeld|Kreis 8"        # Regex filter on description
-node search.js --new                              # Last 24 hours only
-node search.js --new 48                           # Last 48 hours
-node search.js --permanent                        # Unlimited duration only
-node search.js --include-gendered                 # Include female-only WGs
-node search.js --include-short                    # Include sublets < 2 months
-node search.js --fetch 5                          # Auto-fetch details for top 5
+node src/search.js                                    # Everything from cache
+node src/search.js --max-dist 1.5                     # Within 1.5 km of target
+node src/search.js --max-price 1500                   # Price cap
+node src/search.js --not-tracked                      # Hide applied/excluded
+node src/search.js --sort distance                    # Sort by distance (default: price)
+node src/search.js --keyword "Seefeld|Kreis 8"        # Regex filter on description
+node src/search.js --new                              # Last 24 hours only
+node src/search.js --new 48                           # Last 48 hours
+node src/search.js --permanent                        # Unlimited duration only
+node src/search.js --include-gendered                 # Include female-only WGs
+node src/search.js --include-short                    # Include sublets < 2 months
+node src/search.js --fetch 5                          # Auto-fetch details for top 5
 
 # Combined:
-node search.js --max-dist 2 --not-tracked --sort distance --new --fetch 3
+node src/search.js --max-dist 2 --not-tracked --sort distance --new --fetch 3
 ```
 
 ### Fetch full listing details
 
 ```bash
-node fetch-listing.mjs <url>                      # Fetch and cache one listing
-node fetch-listing.mjs <url1> <url2> ...          # Multiple
-node fetch-listing.mjs --from-file urls.txt       # From file
-node fetch-listing.mjs --summary <url>            # Compact summary from cache
-node fetch-listing.mjs --summary --all            # All cached listings
+node src/fetch-listing.mjs <url>                      # Fetch and cache one listing
+node src/fetch-listing.mjs <url1> <url2> ...          # Multiple
+node src/fetch-listing.mjs --from-file urls.txt       # From file
+node src/fetch-listing.mjs --summary <url>            # Compact summary from cache
+node src/fetch-listing.mjs --summary --all            # All cached listings
 ```
 
 Fetched listings are auto-checked for WOKO/JUWO/spam and excluded from future searches.
@@ -116,46 +116,43 @@ Fetched listings are auto-checked for WOKO/JUWO/spam and excluded from future se
 ### Track applications
 
 ```bash
-node track.js                           # List all tracked
-node track.js status                    # Dashboard with stats
-node track.js apply <url> [address]     # Mark as applied
-node track.js shortlist <url>           # Shortlist
-node track.js exclude <url> <reason>    # Not interested
-node track.js reject <url>              # Mark as rejected by the lister
-node track.js note <url> <text>         # Add a note
-node track.js check <url>              # Check if tracked
-node track.js backfill                  # Populate price/address from cache
+node src/track.js                           # List all tracked
+node src/track.js status                    # Dashboard with stats
+node src/track.js apply <url> [address]     # Mark as applied
+node src/track.js shortlist <url>           # Shortlist
+node src/track.js exclude <url> <reason>    # Not interested
+node src/track.js reject <url>              # Mark as rejected by the lister
+node src/track.js note <url> <text>         # Add a note
+node src/track.js check <url>              # Check if tracked
+node src/track.js backfill                  # Populate price/address from cache
 ```
 
 ### Web dashboard
 
 ```bash
-node server.js                          # Start dashboard at http://localhost:3456
+node src/server.js                          # Start dashboard at http://localhost:3456
 npm run dashboard                       # Same thing
 ```
 
 ## File structure
 
 ```
-monitor.js            Scan all sources, watch mode, desktop notifications
-search.js             Search & filter cached listings
-fetch-listing.mjs     Fetch full listing details (wgzimmer + flatfox)
-track.js              Application tracker + dashboard
-server.js             Web dashboard server and API
-public/index.html     Web dashboard page
-wgzimmer-scrape.mjs   wgzimmer.ch search
-wgzimmer-detail.mjs   wgzimmer.ch listing details
-ronorp-scrape.mjs     ronorp.net listings
-students-scrape.mjs   students.ch listings
+src/
+  monitor.js          Scan all sources, watch mode, desktop notifications
+  search.js           Search and filter cached listings
+  fetch-listing.mjs   Fetch full listing details
+  track.js            Application tracker
+  server.js           Web dashboard server
+  lib.js              Shared utilities
+  apple-llm.py        Message drafting with Apple Intelligence
+  sources/            One module per housing site
+public/               Web dashboard
 test/                 Tests
-lib.js                Shared utilities
+assets/               Images for the README
 setup.sh              One-time setup
-config.json           Your config (gitignored)
-config.example.json   Config template
-profile.json          Your details for message generation (gitignored)
-profile.example.json  Profile template
-tracker.json          Your application data (gitignored)
-data/                 All cached data (gitignored)
+config.example.json   Config template (copy to config.json)
+profile.example.json  Profile template (copy to profile.json)
+data/                 Caches, tracked applications and saved messages (gitignored)
 ```
 
 ## Support

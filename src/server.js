@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Web dashboard server for zurich-housing-tool.
- * Usage: node server.js [port]
+ * Usage: node src/server.js [port]
  */
 import express from "express";
 import fs from "fs";
@@ -39,16 +39,16 @@ import {
 import {
   sendWgzimmerApplication,
   validateWgzimmerApplication,
-} from "./wgzimmer-send.mjs";
+} from "./sources/wgzimmer-send.mjs";
 import {
   sendFlatfoxApplication,
   validateFlatfoxApplication,
-} from "./flatfox-send.mjs";
+} from "./sources/flatfox-send.mjs";
 import {
   checkFlatfoxSession,
   loginFlatfox,
   persistentFlatfoxLauncher,
-} from "./flatfox-session.mjs";
+} from "./sources/flatfox-session.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const execFileAsync = promisify(execFile);
@@ -56,7 +56,7 @@ const SCAN_STEP_TIMEOUT_MS = 300000;
 const app = express();
 const PORT = parseInt(process.argv[2]) || 3456;
 
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(express.json());
 
 // ── API: Get all listings ─────────────────────────────────────────────────
@@ -429,7 +429,7 @@ app.post("/api/fetch-details", async (req, res) => {
 
 // ── API: Applicant profile ───────────────────────────────────────────────
 
-const PROFILE_EXAMPLE_FILE = path.join(__dirname, "profile.example.json");
+const PROFILE_EXAMPLE_FILE = path.join(__dirname, "..", "profile.example.json");
 const FLATFOX_BROWSER_PROFILE_DIR = path.join(
   DATA_DIR,
   "flatfox-browser-profile",

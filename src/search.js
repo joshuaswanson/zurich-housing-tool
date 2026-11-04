@@ -4,19 +4,19 @@
  * Reads from cached data files (both wgzimmer and flatfox).
  *
  * Usage:
- *   node search.js                           # All listings from cache
- *   node search.js --max-price 800           # Price filter
- *   node search.js --max-dist 2.0            # Max distance from ETH in km
- *   node search.js --no-woko                # Exclude WOKO/JUWO properties
- *   node search.js --permanent              # Only "No time restrictions"
- *   node search.js --not-tracked            # Exclude already applied/excluded/rejected
- *   node search.js --sort distance          # Sort by distance (default: price)
- *   node search.js --limit 10               # Max results
- *   node search.js --include-gendered       # Include gender-restricted listings
- *   node search.js --include-short          # Include short sublets (<2 months)
- *   node search.js --fetch N               # Fetch details for top N uncached results
- *   node search.js --keyword <pattern>      # Filter by keyword/regex
- *   node search.js --new [hours]            # Only show listings first seen within N hours (default 24)
+ *   node src/search.js                           # All listings from cache
+ *   node src/search.js --max-price 800           # Price filter
+ *   node src/search.js --max-dist 2.0            # Max distance from ETH in km
+ *   node src/search.js --no-woko                # Exclude WOKO/JUWO properties
+ *   node src/search.js --permanent              # Only "No time restrictions"
+ *   node src/search.js --not-tracked            # Exclude already applied/excluded/rejected
+ *   node src/search.js --sort distance          # Sort by distance (default: price)
+ *   node src/search.js --limit 10               # Max results
+ *   node src/search.js --include-gendered       # Include gender-restricted listings
+ *   node src/search.js --include-short          # Include short sublets (<2 months)
+ *   node src/search.js --fetch N               # Fetch details for top N uncached results
+ *   node src/search.js --keyword <pattern>      # Filter by keyword/regex
+ *   node src/search.js --new [hours]            # Only show listings first seen within N hours (default 24)
  */
 
 import fs from "fs";
@@ -58,7 +58,7 @@ function hasFlag(name) {
 }
 
 if (hasFlag("--help") || hasFlag("-h")) {
-  console.log(`Usage: node search.js [options]
+  console.log(`Usage: node src/search.js [options]
   --max-price N         Max rent in CHF
   --max-dist N          Max distance from ETH in km (uses coordinates)
   --no-woko             Exclude WOKO/JUWO properties

@@ -5,16 +5,16 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Where config.json, profile.json, tracker.json and data/ live. The tests
-// point this at a temporary directory.
-const HOME_DIR = process.env.ZHT_HOME || __dirname;
+// Where config.json, profile.json and data/ live. The tests point this at a
+// temporary directory.
+const HOME_DIR = process.env.ZHT_HOME || ROOT_DIR;
 
 // ── Config loading ────────────────────────────────────────────────────────
 
 const CONFIG_FILE = path.join(HOME_DIR, "config.json");
-const CONFIG_EXAMPLE_FILE = path.join(__dirname, "config.example.json");
+const CONFIG_EXAMPLE_FILE = path.join(ROOT_DIR, "config.example.json");
 
 /**
  * Load config.json, falling back to config.example.json if it doesn't exist.
@@ -48,7 +48,12 @@ export const STUDENTS_CACHE_FILE = path.join(
   DATA_DIR,
   "students_cache.json",
 );
-export const TRACKER_FILE = path.join(HOME_DIR, "tracker.json");
+export const TRACKER_FILE = path.join(DATA_DIR, "tracker.json");
+const ROOT_TRACKER_FILE = path.join(HOME_DIR, "tracker.json");
+if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.renameSync(ROOT_TRACKER_FILE, TRACKER_FILE);
+}
 export const PROFILE_FILE = path.join(HOME_DIR, "profile.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
 

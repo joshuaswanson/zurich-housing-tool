@@ -4,7 +4,7 @@
  * Exports scrapeRonorp() and works standalone.
  */
 
-import { geocodeAddress, htmlToText } from "./lib.js";
+import { geocodeAddress, htmlToText } from "../lib.js";
 
 const API_URL = "https://cockpit.ronorp.net/api/market/category/housing";
 const GEOCODE_DELAY_MS = 1100;

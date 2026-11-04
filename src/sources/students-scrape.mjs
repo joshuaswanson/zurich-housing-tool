@@ -3,7 +3,7 @@
  * Reads the public list page for the Zurich area and each listing's detail
  * page. Exports scrapeStudents() and works standalone.
  */
-import { geocodeAddress, htmlToText } from "./lib.js";
+import { geocodeAddress, htmlToText } from "../lib.js";
 
 const BASE_URL = "https://www.students.ch";
 const ZURICH_LIST_URL = `${BASE_URL}/wohnen/list/140`;

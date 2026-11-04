@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseWgzimmerListing } from "../wgzimmer-detail.mjs";
+import { parseWgzimmerListing } from "../src/sources/wgzimmer-detail.mjs";
 
 const DETAIL_PAGE = `
 <div class="wrap col-wrap date-cost">

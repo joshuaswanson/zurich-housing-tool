@@ -18,6 +18,8 @@ import {
   MAX_PRICE,
   MAX_DISTANCE_KM,
   FLATFOX_BOUNDS,
+  FLATFOX_CATEGORIES,
+  sourceEnabled,
   WGZIMMER_CACHE_FILE,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
@@ -58,7 +60,9 @@ async function fetchFlatfoxPins(bounds, depth = 0) {
   url.searchParams.set("south", bounds.south);
   url.searchParams.set("east", bounds.east);
   url.searchParams.set("west", bounds.west);
-  url.searchParams.set("object_category", "SHARED");
+  for (const category of FLATFOX_CATEGORIES) {
+    url.searchParams.append("object_category", category);
+  }
   url.searchParams.set("max_price", MAX_PRICE);
   url.searchParams.set("ordering", "-created");
   url.searchParams.set("max_count", FLATFOX_PIN_LIMIT);
@@ -85,6 +89,10 @@ async function fetchFlatfoxPins(bounds, depth = 0) {
   return all;
 }
 
+function flatfoxCategoryParams() {
+  return FLATFOX_CATEGORIES.map((c) => `&object_category=${c}`).join("");
+}
+
 async function fetchFlatfox() {
   const pinsByPk = new Map();
   for (const p of await fetchFlatfoxPins(FLATFOX_BOUNDS)) pinsByPk.set(p.pk, p);
@@ -104,7 +112,7 @@ async function fetchFlatfox() {
   return pins.map((p) => {
     const dist = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
     const d = 0.002;
-    const searchUrl = `https://flatfox.ch/en/search/?east=${(p.longitude + d).toFixed(6)}&west=${(p.longitude - d).toFixed(6)}&north=${(p.latitude + d).toFixed(6)}&south=${(p.latitude - d).toFixed(6)}&object_category=SHARED`;
+    const searchUrl = `https://flatfox.ch/en/search/?east=${(p.longitude + d).toFixed(6)}&west=${(p.longitude - d).toFixed(6)}&north=${(p.latitude + d).toFixed(6)}&south=${(p.latitude - d).toFixed(6)}${flatfoxCategoryParams()}`;
     return {
       id: `flatfox-${p.pk}`,
       source: "flatfox",
@@ -223,7 +231,7 @@ function printListings(
     `  Total: ${filtered.length} listings` +
       (showAll
         ? ""
-        : ` (flatfox within ${maxDist} km of ${targetLabel} + all wgzimmer ${searchRegion})`),
+        : ` (within ${maxDist} km of ${targetLabel}, plus listings without a known location)`),
   );
   if (prices.length) {
     console.log(
@@ -245,7 +253,9 @@ export async function refresh() {
 
   // Flatfox
   process.stdout.write("  Scanning flatfox.ch...");
-  try {
+  if (!sourceEnabled("flatfox")) {
+    console.log(" skipped (disabled in config)");
+  } else try {
     const ff = await fetchFlatfox();
     console.log(` ${ff.length} listings found`);
     allListings.push(...ff);
@@ -257,7 +267,9 @@ export async function refresh() {
 
   // wgzimmer
   process.stdout.write("  Scanning wgzimmer.ch...");
-  try {
+  if (!sourceEnabled("wgzimmer")) {
+    console.log(" skipped (disabled in config)");
+  } else try {
     const wg = await fetchWgzimmer();
     if (wg.length > 0) {
       console.log(` ${wg.length} listings found`);
@@ -274,7 +286,9 @@ export async function refresh() {
 
   // ronorp
   process.stdout.write("  Scanning ronorp.net...");
-  try {
+  if (!sourceEnabled("ronorp")) {
+    console.log(" skipped (disabled in config)");
+  } else try {
     const rn = await scrapeRonorp();
     ensureDataDir();
     fs.writeFileSync(RONORP_CACHE_FILE, JSON.stringify(rn, null, 2));
@@ -299,7 +313,9 @@ export async function refresh() {
 
   // students.ch
   process.stdout.write("  Scanning students.ch...");
-  try {
+  if (!sourceEnabled("students")) {
+    console.log(" skipped (disabled in config)");
+  } else try {
     const st = await scrapeStudents();
     ensureDataDir();
     fs.writeFileSync(STUDENTS_CACHE_FILE, JSON.stringify(st, null, 2));
@@ -390,14 +406,14 @@ async function main() {
     case "links":
       console.log("\n  Useful housing links for Zurich:\n");
       console.log(
-        `  flatfox.ch    https://flatfox.ch/en/search/?object_category=SHARED&max_price=${MAX_PRICE}&query=Zurich`,
+        `  flatfox.ch    https://flatfox.ch/en/search/?max_price=${MAX_PRICE}&query=Zurich${flatfoxCategoryParams()}`,
       );
       console.log(
         `  wgzimmer.ch   https://www.wgzimmer.ch/en/wgzimmer/search/mate/ch/${searchRegion}.html`,
       );
       console.log("  WOKO          https://www.woko.ch/en/zimmer-in-zuerich");
+      console.log("  students.ch   https://www.students.ch/wohnen/list/140");
       console.log(
-        "  students.ch   https://www.students.ch/wohnen/list/140",
         "  ronorp.net    https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D",
       );
       console.log(
@@ -419,7 +435,7 @@ async function main() {
       console.log("  --all             Show all listings (no distance filter)");
       console.log("  --fresh           Force fresh scrape (ignore cache)");
       console.log(
-        "  --radius N        Max distance from ETH in km (default 5)",
+        `  --radius N        Max distance from the target in km (default ${MAX_DISTANCE_KM})`,
       );
   }
 }

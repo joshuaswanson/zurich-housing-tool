@@ -32,7 +32,42 @@ export { config };
 
 export const ETH_ZENTRUM = { lat: config.target.lat, lng: config.target.lng };
 export const MAX_PRICE = config.search.maxPrice || 2000;
-export const MAX_DISTANCE_KM = 5;
+export const MAX_DISTANCE_KM = config.search?.maxDistanceKm || 5;
+
+const FLATFOX_CATEGORY_NAMES = ["SHARED", "APARTMENT", "HOUSE"];
+
+/**
+ * Flatfox object categories to search, from config.search.objectCategory
+ * (a string or a list). Defaults to shared rooms.
+ */
+export const FLATFOX_CATEGORIES = (() => {
+  const raw = config.search?.objectCategory ?? "SHARED";
+  const list = (Array.isArray(raw) ? raw : [raw]).map((c) =>
+    String(c).trim().toUpperCase(),
+  );
+  for (const c of list) {
+    if (!FLATFOX_CATEGORY_NAMES.includes(c)) {
+      throw new Error(
+        `config.search.objectCategory: unknown category "${c}" (use ${FLATFOX_CATEGORY_NAMES.join(", ")})`,
+      );
+    }
+  }
+  return list.length ? [...new Set(list)] : ["SHARED"];
+})();
+
+/** "room" when only shared rooms are searched, otherwise "apartment". */
+export const HOUSING_TYPE =
+  FLATFOX_CATEGORIES.length === 1 && FLATFOX_CATEGORIES[0] === "SHARED"
+    ? "room"
+    : "apartment";
+
+const SOURCE_NAMES = ["flatfox", "wgzimmer", "ronorp", "students"];
+
+/** Whether a source is enabled in config.sources (all are on by default). */
+export function sourceEnabled(name) {
+  if (!SOURCE_NAMES.includes(name)) return false;
+  return config.sources?.[name] !== false;
+}
 
 export const DATA_DIR = path.join(HOME_DIR, "data");
 export const SEEN_FILE = path.join(DATA_DIR, "seen.json");
@@ -142,7 +177,9 @@ function saveGeocodeCache(cache) {
 
 /**
  * Geocode an address to { lat, lng } using Nominatim (OpenStreetMap).
- * Results are permanently cached to avoid rate limiting.
+ * Found coordinates and "no match" answers (as false) are cached to avoid
+ * rate limiting. Network or server errors are not cached, so the next run
+ * tries again.
  * Returns null if geocoding fails.
  */
 export async function geocodeAddress(address) {
@@ -151,7 +188,11 @@ export async function geocodeAddress(address) {
   const cache = loadGeocodeCache();
   const key = address.trim().toLowerCase();
   if (cache[key]) return cache[key];
+  // false marks an address Nominatim had no match for. Older caches stored
+  // null for both "no match" and network errors, so null is looked up again.
+  if (cache[key] === false) return null;
 
+  let results;
   try {
     const suffix = GEOCODE_SUFFIX ? ", " + GEOCODE_SUFFIX : "";
     const query = encodeURIComponent(address + suffix);
@@ -159,21 +200,20 @@ export async function geocodeAddress(address) {
       `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
       { headers: { "User-Agent": "swiss-housing-monitor/2.0" } },
     );
-    const results = await resp.json();
-    if (results.length > 0) {
-      const coords = {
-        lat: parseFloat(results[0].lat),
-        lng: parseFloat(results[0].lon),
-      };
-      cache[key] = coords;
-      saveGeocodeCache(cache);
-      return coords;
-    }
-  } catch {}
+    if (!resp.ok) return null;
+    results = await resp.json();
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(results)) return null;
 
-  cache[key] = null;
+  const coords =
+    results.length > 0
+      ? { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) }
+      : null;
+  cache[key] = coords || false;
   saveGeocodeCache(cache);
-  return null;
+  return coords;
 }
 
 // ── Text ──────────────────────────────────────────────────────────────────

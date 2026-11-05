@@ -20,7 +20,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 ## Setup
 
 ```bash
-git clone https://github.com/joshuaswanson/zurich-housing-tool.git
+git clone https://github.com/nurakawa/zurich-housing-tool.git
 cd zurich-housing-tool
 ./setup.sh
 ```
@@ -31,7 +31,10 @@ The setup script installs dependencies, creates the config files, pulls the LLM 
 node src/server.js
 ```
 
-The dashboard is at http://localhost:3456.
+The dashboard is at http://localhost:3456. It only accepts connections from
+this computer. It has no login and can send messages in your name, so set
+`HOST=0.0.0.0` (for example `HOST=0.0.0.0 node src/server.js`) only on a
+network you trust.
 
 **Optional**: Install [Ollama](https://ollama.com), or use Apple Intelligence on macOS 26 or later with [uv](https://docs.astral.sh/uv/), for message generation. Everything else works without it.
 
@@ -68,6 +71,45 @@ Edit `config.json` to set your target location:
   }
 }
 ```
+
+### Searching for an apartment instead of a room
+
+The defaults look for rooms in shared flats near ETH. To search for whole
+apartments, change these keys in `config.json`:
+
+```json
+{
+  "target": { "lat": 47.3650, "lng": 8.5250, "label": "Office" },
+  "search": {
+    "maxPrice": 3500,
+    "objectCategory": "APARTMENT",
+    "maxDistanceKm": 8
+  },
+  "sources": {
+    "flatfox": true,
+    "wgzimmer": false,
+    "ronorp": true,
+    "students": false
+  },
+  "exclude": {
+    "woko": false,
+    "genderRestricted": false,
+    "shortSublets": true
+  }
+}
+```
+
+- `search.objectCategory`: the Flatfox categories to search, `SHARED`,
+  `APARTMENT` or `HOUSE`, or a list such as `["APARTMENT", "HOUSE"]`. With
+  anything other than `SHARED` alone, generated messages are written to a
+  landlord or property manager instead of a WG.
+- `search.maxDistanceKm`: the default radius in km for the scan summary
+  (default 5).
+- `sources`: turn a site off with `false`. wgzimmer and students.ch list
+  mostly rooms. The ronorp URL in `search.ronorpUrl` points at its WG category;
+  replace it with the apartment category page from ronorp.net if you keep it on.
+
+Homegate, ImmoScout24, Comparis and Newhome are not covered.
 
 ## Commands
 

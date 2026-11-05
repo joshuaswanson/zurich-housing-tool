@@ -23,6 +23,8 @@ import {
   config,
   ensureDataDir,
   readJson,
+  sourceEnabled,
+  HOUSING_TYPE,
 } from "./lib.js";
 import { loadAllListings } from "./listings.js";
 import {
@@ -44,6 +46,10 @@ const execFileAsync = promisify(execFile);
 const SCAN_STEP_TIMEOUT_MS = 300000;
 const app = express();
 const PORT = parseInt(process.argv[2]) || 3456;
+// Only this computer can reach the dashboard. It has no login, and it can read
+// your profile and send messages in your name, so set HOST=0.0.0.0 only on a
+// network you trust.
+const HOST = process.env.HOST || "127.0.0.1";
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(express.json());
@@ -82,12 +88,16 @@ const DETAILS_TIMEOUT_MS = 480000;
 let detailFetchInProgress = false;
 
 async function fetchWgzimmerDetailsInBackground() {
+  if (!sourceEnabled("wgzimmer")) return;
   const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
   if (urls.length === 0) return;
   detailFetchInProgress = true;
   try {
     await runNodeScript(["fetch-listing.mjs", ...urls], DETAILS_TIMEOUT_MS);
-  } catch {
+  } catch (e) {
+    console.error(
+      `  Fetching wgzimmer details failed: ${e.message.split("\n")[0]}`,
+    );
   } finally {
     detailFetchInProgress = false;
   }
@@ -511,11 +521,19 @@ app.post("/api/generate", async (req, res) => {
     /[äöüß]|Zürich|Strasse|Wohnung/i.test(listingDesc) &&
     !/english version|ENG|For English/i.test(listingDesc.substring(0, 200));
 
-  const prompt = `You are writing a short, friendly WG (shared flat) application message. Write from the perspective of the applicant based on their profile below. The message should be tailored to the specific listing. Be genuine, not generic. Keep it under 200 words.
+  const speaksGerman =
+    profile.languages && /german|deutsch/i.test(profile.languages);
+  const languageNote = isGerman
+    ? speaksGerman
+      ? "The listing is in German. Write the message in German only."
+      : "The listing is in German. Write the message in German first, then add the line '(Übersetzt mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and the English version below it. In the German version, say briefly that you are learning German and are comfortable communicating in English."
+    : "The listing is in English. Write in English only.";
 
-${isGerman ? "The listing is in German. Write the message in German first, then add a note '(Übersetzung mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and include the English version below." : "The listing is in English. Write in English only."}
+  const promptBody =
+    HOUSING_TYPE === "room"
+      ? `You are writing a short, friendly WG (shared flat) application message. Write from the perspective of the applicant based on their profile below. The message should be tailored to the specific listing. Be genuine, not generic. Keep it under 200 words.
 
-${profile.languages && /german|deutsch/i.test(profile.languages) ? "" : "If writing in German, mention that you can read/follow German but need to speak English day-to-day."}
+${languageNote}
 
 APPLICANT PROFILE:
 ${JSON.stringify(promptProfile, null, 2)}
@@ -523,7 +541,19 @@ ${JSON.stringify(promptProfile, null, 2)}
 LISTING:
 ${listingDesc.substring(0, 2000)}
 
-Write the application message now. Do not include a subject line. Start with a greeting.`;
+`
+      : `You are writing a short application message to a landlord or property manager (Verwaltung) in Switzerland about an apartment. Write from the perspective of the applicant based on their profile below. Be polite, concise and professional: introduce the applicant, their job and why the apartment fits, offer to send a complete application dossier and ask to view the apartment. Tailor it to the listing. Do not invent facts that are not in the profile. Keep it under 180 words. In German, use the formal "Sie".
+
+${languageNote}
+
+APPLICANT PROFILE:
+${JSON.stringify(promptProfile, null, 2)}
+
+LISTING:
+${listingDesc.substring(0, 2000)}
+
+`;
+  const prompt = `${promptBody}Write the application message now. Do not include a subject line. Start with a greeting.`;
 
   const provider = req.body.provider || config.llm?.provider || "ollama";
   const generate = provider === "apple" ? generateWithApple : generateWithOllama;
@@ -596,8 +626,9 @@ const startedDirectly =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (startedDirectly) {
-  app.listen(PORT, () => {
+  app.listen(PORT, HOST, () => {
+    const shown = HOST === "127.0.0.1" ? "localhost" : HOST;
     console.log(`\n  zurich-housing-tool dashboard`);
-    console.log(`  http://localhost:${PORT}\n`);
+    console.log(`  http://${shown}:${PORT}\n`);
   });
 }

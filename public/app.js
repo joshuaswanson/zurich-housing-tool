@@ -591,13 +591,23 @@ function toggleExcludeForm(row, open) {
   if (open) row.querySelector("[data-role='reason']").focus();
 }
 
-function selectListing(id) {
+function selectListing(id, { fromMap = false } = {}) {
   const listing = allListings.find((l) => l.id === id);
+  if (fromMap) revealRow(id);
   const row = focusRow(id);
   document.querySelector("#listings-body .detail-row")?.remove();
   if (!listing || !row) return;
   row.after(detailRow(listing));
-  flyToListing(id);
+  if (fromMap) row.scrollIntoView({ block: "start", behavior: "smooth" });
+  else flyToListing(id);
+}
+
+function revealRow(id) {
+  selectTab($("tab-listings"));
+  const index = filteredListings.findIndex((l) => l.id === id);
+  if (index < rowLimit) return;
+  rowLimit = Math.ceil((index + 1) / ROWS_PER_PAGE) * ROWS_PER_PAGE;
+  renderTable(filteredListings);
 }
 
 async function track(url, action, reason) {
@@ -1356,7 +1366,7 @@ function flyToListing(id) {
   }
 }
 
-function focusRow(id, { scroll = false } = {}) {
+function focusRow(id) {
   document
     .querySelectorAll("#listings-body tr.is-active")
     .forEach((tr) => tr.classList.remove("is-active"));
@@ -1365,7 +1375,6 @@ function focusRow(id, { scroll = false } = {}) {
   );
   if (!row) return null;
   row.classList.add("is-active");
-  if (scroll) row.scrollIntoView({ block: "center", behavior: "smooth" });
   return row;
 }
 
@@ -1461,12 +1470,7 @@ function initMap() {
   map.on("click", "listing", (e) => {
     const feature = e.features[0];
     showListingPopup(feature.geometry.coordinates, feature.properties);
-    document.querySelector("#listings-body .detail-row")?.remove();
-    const row = focusRow(feature.properties.id, { scroll: true });
-    const listing = allListings.find(
-      (l) => l.id === feature.properties.id,
-    );
-    if (row && listing) row.after(detailRow(listing));
+    selectListing(feature.properties.id, { fromMap: true });
   });
 
   systemDark.addEventListener("change", applyTheme);

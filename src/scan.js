@@ -5,7 +5,6 @@
 
 import fs from "fs";
 import {
-  config,
   MAX_PRICE,
   FLATFOX_BOUNDS,
   WGZIMMER_LISTINGS_FILE,
@@ -21,8 +20,6 @@ import {
 import { scrapeWgzimmer } from "./sources/wgzimmer-scrape.mjs";
 import { scrapeRonorp } from "./sources/ronorp-scrape.mjs";
 import { scrapeStudents } from "./sources/students-scrape.mjs";
-
-const searchRegion = config.search?.region || "zurich-stadt";
 
 const FLATFOX_PIN_LIMIT = 1000;
 const FLATFOX_MAX_SPLIT_DEPTH = 4;
@@ -80,7 +77,7 @@ async function scanFlatfox() {
 }
 
 async function scanWgzimmer() {
-  const listings = await scrapeWgzimmer(MAX_PRICE, searchRegion);
+  const listings = await scrapeWgzimmer(MAX_PRICE, "zurich-stadt");
   if (listings.length === 0) throw new Error("0 listings returned");
   fs.writeFileSync(WGZIMMER_LISTINGS_FILE, JSON.stringify(listings, null, 2));
   return listings

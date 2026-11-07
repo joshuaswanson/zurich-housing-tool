@@ -6,7 +6,6 @@ import { launch } from "cloakbrowser";
 import { fetchWgzimmerListing } from "./sources/wgzimmer-detail.mjs";
 import fs from "fs";
 import {
-  config,
   TRACKER_FILE,
   ensureDataDir,
   geocodeAddress,
@@ -19,11 +18,6 @@ ensureDataDir();
 
 const WGZIMMER_REQUEST_DELAY_MS = 1000;
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-
-// ── Config-driven exclude settings ─────────────────────────────────────────
-
-const cfgExclude = config.exclude || {};
-const overAgeLimit = cfgExclude.overAge || 28;
 
 // ── Flatfox fetch ───────────────────────────────────────────────────────────
 
@@ -93,7 +87,6 @@ export async function fetchFlatfoxListing(page, url) {
 
 // ── Auto-exclude patterns ──────────────────────────────────────────────────
 
-// Hardcoded spam patterns (always active for robustness)
 const SPAM_PATTERNS = [
   { pattern: /A\/NTERIM/i, reason: "Auto-excluded: A/NTERIM spam" },
   {
@@ -126,44 +119,9 @@ const SPAM_PATTERNS = [
   },
 ];
 
-// Add patterns from config spam list (in addition to hardcoded ones)
-const configSpamList = cfgExclude.spam || [];
-for (const term of configSpamList) {
-  const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const alreadyCovered = SPAM_PATTERNS.some((s) => s.pattern.test(term));
-  if (!alreadyCovered) {
-    SPAM_PATTERNS.push({
-      pattern: new RegExp(escaped, "i"),
-      reason: `Auto-excluded: ${term} (config spam)`,
-    });
-  }
-}
-
-// Hardcoded WOKO patterns (always active for robustness)
-const WOKO_PATTERNS = [
-  { pattern: /\bWOKO\b/, reason: "Auto-excluded: WOKO property" },
-  { pattern: /\bJUWO\b/, reason: "Auto-excluded: JUWO property" },
-  {
-    pattern: new RegExp(`\\bunder ${overAgeLimit}\\b`, "i"),
-    reason: `Auto-excluded: WOKO/JUWO age restriction (under ${overAgeLimit})`,
-  },
-  {
-    pattern: new RegExp(`\\bunter ${overAgeLimit}\\b`, "i"),
-    reason: `Auto-excluded: WOKO/JUWO age restriction (unter ${overAgeLimit})`,
-  },
-  { pattern: /WOKO-Kriterien/i, reason: "Auto-excluded: WOKO property" },
-  { pattern: /JUWO-Kriterien/i, reason: "Auto-excluded: JUWO property" },
-];
-
-// Only auto-exclude WOKO if config says so
-const excludeWoko = cfgExclude.woko !== false;
-
 function autoExcludeIfSpam(url, data) {
   const text = JSON.stringify(data);
-  const patternsToCheck = excludeWoko
-    ? [...SPAM_PATTERNS, ...WOKO_PATTERNS]
-    : SPAM_PATTERNS;
-  for (const { pattern, reason } of patternsToCheck) {
+  for (const { pattern, reason } of SPAM_PATTERNS) {
     if (pattern.test(text)) {
       try {
         const tracker = fs.existsSync(TRACKER_FILE)
@@ -257,9 +215,7 @@ export async function fetchListings(urls) {
             await delay(WGZIMMER_REQUEST_DELAY_MS);
           }
           saveCachedListing(url, data);
-          // Auto-geocode (adds lat/lng to cached data)
           await autoGeocode(url, data);
-          // Auto-exclude spam/WOKO
           const excludeReason = autoExcludeIfSpam(url, data);
           if (excludeReason) {
             process.stderr.write(` [${excludeReason}]`);

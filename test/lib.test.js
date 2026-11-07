@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  buildSpamPatterns,
+  SPAM_PATTERNS,
   cacheKeyFromUrl,
   distKm,
   hasEndDate,
@@ -67,11 +67,9 @@ test("isShortSublet treats open-ended and undated listings as long", () => {
   assert.equal(isShortSublet({}, 60), false);
 });
 
-test("buildSpamPatterns matches built-in posters and config terms", () => {
-  const patterns = buildSpamPatterns(["Acme Living (Zürich)"]);
-  const matches = (text) => patterns.some((p) => p.test(text));
+test("SPAM_PATTERNS matches bulk posters and leaves ordinary rooms", () => {
+  const matches = (text) => SPAM_PATTERNS.some((p) => p.test(text));
   assert.equal(matches("Furnished rooms by A/NTERIM"), true);
-  assert.equal(matches("offered by acme living (zürich)"), true);
   assert.equal(matches("Private room in a shared flat"), false);
 });
 

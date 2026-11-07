@@ -119,17 +119,9 @@ test("the dashboard page is served", async () => {
   assert.match(await res.text(), /<title>Zurich housing tool<\/title>/);
 });
 
-test("config reports the target and the default exclusions", async () => {
-  const { body } = await get("/api/config");
-  assert.equal(body.target.label, "ETH Zentrum");
-  assert.equal(body.maxPrice, 2000);
-  assert.deepEqual(body.exclude, {
-    genderRestricted: true,
-    studentHousing: true,
-    shortSublets: true,
-  });
-  assert.equal(body.llmProvider, "ollama");
-  assert.deepEqual(body.llmProviders, ["ollama"]);
+test("drafting offers Ollama without the macOS app", async () => {
+  const { body } = await get("/api/llm-providers");
+  assert.deepEqual(body, ["ollama"]);
 });
 
 test("listings combine all four sources and skip unusable entries", async () => {

@@ -1,5 +1,5 @@
 /**
- * Shared utilities for Zurich Housing Monitor.
+ * Shared utilities for the Zurich Housing Tool.
  */
 import fs from "fs";
 import path from "path";
@@ -7,31 +7,12 @@ import { fileURLToPath } from "url";
 
 const ROOT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-// Where config.json, profile.json and data/ live. The tests point this at a
-// temporary directory.
+// The tests point ZHT_HOME at a temporary directory.
 const HOME_DIR = process.env.ZHT_HOME || ROOT_DIR;
 
-// ── Config loading ────────────────────────────────────────────────────────
-
-const CONFIG_FILE = path.join(HOME_DIR, "config.json");
-const CONFIG_EXAMPLE_FILE = path.join(ROOT_DIR, "config.example.json");
-
-/**
- * Load config.json, falling back to config.example.json if it doesn't exist.
- * Returns the parsed config object.
- */
-export function loadConfig() {
-  const file = fs.existsSync(CONFIG_FILE) ? CONFIG_FILE : CONFIG_EXAMPLE_FILE;
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
-
-const config = loadConfig();
-
-// ── Constants (derived from config) ───────────────────────────────────────
-export { config };
-
-export const ETH_ZENTRUM = { lat: config.target.lat, lng: config.target.lng };
-export const MAX_PRICE = config.search.maxPrice || 2000;
+export const ZURICH_CENTER = { lat: 47.3764, lng: 8.5483 };
+export const MAX_PRICE = 3000;
+export const MIN_DURATION_DAYS = 60;
 
 export const DATA_DIR = path.join(HOME_DIR, "data");
 export const SEEN_FILE = path.join(DATA_DIR, "seen.json");
@@ -55,27 +36,16 @@ if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {
 export const PROFILE_FILE = path.join(HOME_DIR, "profile.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
 
-/**
- * Flatfox bounding box: from config or derived from target coordinates.
- * Covers roughly a 5 km radius around the target.
- */
-export const FLATFOX_BOUNDS = config.flatfoxBounds || {
-  north: config.target.lat + 0.044,
-  south: config.target.lat - 0.046,
-  east: config.target.lng + 0.052,
-  west: config.target.lng - 0.088,
+export const FLATFOX_BOUNDS = {
+  north: 47.4204,
+  south: 47.3304,
+  east: 8.6003,
+  west: 8.4603,
 };
-
-/** Flatfox URL slug for direct listing links (e.g. "8001-zurich") */
-export const FLATFOX_SLUG = config.search?.flatfoxSlug || "8001-zurich";
-
-/** Ronorp listing page URL */
+export const FLATFOX_SLUG = "8001-zurich";
 export const RONORP_URL =
-  config.search?.ronorpUrl ||
   "https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D";
-
-/** Suffix appended to addresses for geocoding (e.g. "Zürich, Schweiz") */
-export const GEOCODE_SUFFIX = config.search?.geocodeSuffix || "";
+export const GEOCODE_SUFFIX = "Zürich, Schweiz";
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -327,7 +297,7 @@ export function isShortSublet(listing, minDurationDays) {
   return diffDays > 0 && diffDays < minDurationDays;
 }
 
-const BUILTIN_SPAM_PATTERNS = [
+export const SPAM_PATTERNS = [
   /A\/NTERIM/i,
   /NextGen Properties/i,
   /next\.genproperties/i,
@@ -336,18 +306,6 @@ const BUILTIN_SPAM_PATTERNS = [
   /Properties are at a different/i,
   /Co-Living Anbieter/i,
 ];
-
-/** Built-in bulk poster patterns plus the literal terms from the config. */
-export function buildSpamPatterns(configSpamList) {
-  const patterns = [...BUILTIN_SPAM_PATTERNS];
-  for (const term of configSpamList) {
-    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    if (!patterns.some((p) => p.test(term))) {
-      patterns.push(new RegExp(escaped, "i"));
-    }
-  }
-  return patterns;
-}
 
 // ── Listing identity and location precision ───────────────────────────────
 

@@ -13,13 +13,11 @@ import {
   WGZIMMER_LISTINGS_FILE,
   TRACKER_FILE,
   PROFILE_FILE,
-  ETH_ZENTRUM,
   MAX_PRICE,
   loadCachedListing,
   SCAN_STATUS_FILE,
   listingKey,
   noteKey,
-  config,
   ensureDataDir,
   readJson,
 } from "./lib.js";
@@ -131,20 +129,10 @@ app.get("/api/scan-status", (req, res) => {
   res.json(scanStatus());
 });
 
-// ── API: Get config ───────────────────────────────────────────────────────
+// ── API: Drafting models available on this Mac ────────────────────────────
 
-app.get("/api/config", (req, res) => {
-  res.json({
-    target: { ...ETH_ZENTRUM, label: config.target.label },
-    maxPrice: MAX_PRICE,
-    exclude: {
-      genderRestricted: config.exclude?.genderRestricted !== false,
-      studentHousing: config.exclude?.woko === true,
-      shortSublets: config.exclude?.shortSublets !== false,
-    },
-    llmProviders: APPLE_LLM ? ["ollama", "apple"] : ["ollama"],
-    llmProvider: config.llm?.provider || "ollama",
-  });
+app.get("/api/llm-providers", (req, res) => {
+  res.json(APPLE_LLM ? ["apple", "ollama"] : ["ollama"]);
 });
 
 // ── API: Get sent applications with messages ──────────────────────────────
@@ -276,21 +264,33 @@ app.post("/api/fetch-details", async (req, res) => {
 
 // ── API: Applicant profile ───────────────────────────────────────────────
 
-const PROFILE_EXAMPLE_FILE = path.join(__dirname, "..", "profile.example.json");
+const PROFILE_FIELDS = [
+  "name",
+  "email",
+  "phone",
+  "age",
+  "occupation",
+  "situation",
+  "futurePlans",
+  "hobbies",
+  "personality",
+  "nationality",
+  "languages",
+  "wgExperience",
+  "extras",
+];
 const FLATFOX_BROWSER_PROFILE_DIR = path.join(
   DATA_DIR,
   "flatfox-browser-profile",
 );
 
 app.get("/api/profile", (req, res) => {
-  const fields = Object.keys(readJson(PROFILE_EXAMPLE_FILE, {}));
-  res.json({ fields, profile: readJson(PROFILE_FILE, null) });
+  res.json({ fields: PROFILE_FIELDS, profile: readJson(PROFILE_FILE, null) });
 });
 
 app.post("/api/profile", (req, res) => {
-  const fields = Object.keys(readJson(PROFILE_EXAMPLE_FILE, {}));
   const profile = {};
-  for (const field of fields) {
+  for (const field of PROFILE_FIELDS) {
     if (req.body[field] !== undefined && req.body[field] !== "") {
       profile[field] = req.body[field];
     }
@@ -453,15 +453,16 @@ const OLLAMA_URL = "http://localhost:11434";
 const DEFAULT_OLLAMA_MODEL = "llama3.2";
 
 /**
- * The model from config.llm.model or the default when it is installed,
- * otherwise the smallest installed model. Returns null when none is installed.
+ * The default model when it is installed, otherwise the smallest installed
+ * model. Returns null when none is installed.
  */
 async function chooseOllamaModel() {
   const resp = await fetch(`${OLLAMA_URL}/api/tags`);
   const { models } = await resp.json();
-  const preferred = config.llm?.model || DEFAULT_OLLAMA_MODEL;
   const match = models.find(
-    (m) => m.name === preferred || m.name === `${preferred}:latest`,
+    (m) =>
+      m.name === DEFAULT_OLLAMA_MODEL ||
+      m.name === `${DEFAULT_OLLAMA_MODEL}:latest`,
   );
   if (match) return match.name;
   const bySize = [...models].sort((a, b) => a.size - b.size);
@@ -476,7 +477,7 @@ app.post("/api/generate", async (req, res) => {
   if (!fs.existsSync(PROFILE_FILE)) {
     return res.status(400).json({
       error:
-        "No profile yet. Fill in the Profile tab first, or create profile.json from profile.example.json.",
+        "No profile yet. Fill in the Profile tab first.",
     });
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
@@ -517,7 +518,7 @@ ${listingDesc.substring(0, 2000)}
 
 Write the application message now. Do not include a subject line. Start with a greeting.`;
 
-  const provider = req.body.provider || config.llm?.provider || "ollama";
+  const provider = req.body.provider || "ollama";
   const generate = provider === "apple" ? generateWithApple : generateWithOllama;
   try {
     res.json(await generate(prompt));

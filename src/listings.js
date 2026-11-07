@@ -6,23 +6,20 @@ import {
   FLATFOX_CACHE_FILE,
   RONORP_CACHE_FILE,
   STUDENTS_CACHE_FILE,
-  ETH_ZENTRUM,
+  ZURICH_CENTER,
   FLATFOX_SLUG,
   SEEN_FILE,
   STUDENT_HOUSING_PATTERN,
-  config,
+  MIN_DURATION_DAYS,
+  SPAM_PATTERNS,
   distKm,
   hasEndDate,
   isGenderRestricted,
   isPostcodeOnly,
   isShortSublet,
-  buildSpamPatterns,
   loadCachedListing,
   readJson,
 } from "./lib.js";
-
-const SPAM_PATTERNS = buildSpamPatterns(config.exclude?.spam || []);
-const MIN_DURATION_DAYS = config.search?.minDuration || 60;
 
 function listingFlags(text, dates) {
   return {
@@ -49,7 +46,7 @@ export function loadAllListings() {
     const cached = loadCachedListing(l.url);
     const hasCoords = cached?.lat && cached?.lng;
     const dist = hasCoords
-      ? distKm(ETH_ZENTRUM, { lat: cached.lat, lng: cached.lng })
+      ? distKm(ZURICH_CENTER, { lat: cached.lat, lng: cached.lng })
       : null;
     const text = [l.description, l.neighborhood, JSON.stringify(cached || "")]
       .filter(Boolean)
@@ -74,7 +71,7 @@ export function loadAllListings() {
 
   // flatfox
   for (const p of readJson(FLATFOX_CACHE_FILE, [])) {
-    const km = distKm(ETH_ZENTRUM, { lat: p.latitude, lng: p.longitude });
+    const km = distKm(ZURICH_CENTER, { lat: p.latitude, lng: p.longitude });
     const id = `flatfox-${p.pk}`;
     const url = `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`;
     const cached = loadCachedListing(url);
@@ -108,7 +105,7 @@ export function loadAllListings() {
       id,
       source: "ronorp",
       price: l.price,
-      dist: hasCoords ? Math.round(distKm(ETH_ZENTRUM, l) * 100) / 100 : null,
+      dist: hasCoords ? Math.round(distKm(ZURICH_CENTER, l) * 100) / 100 : null,
       lat: l.lat || null,
       lng: l.lng || null,
       address: l.address || null,
@@ -134,7 +131,7 @@ export function loadAllListings() {
       id,
       source: "students",
       price: l.price,
-      dist: hasCoords ? Math.round(distKm(ETH_ZENTRUM, l) * 100) / 100 : null,
+      dist: hasCoords ? Math.round(distKm(ZURICH_CENTER, l) * 100) / 100 : null,
       lat: l.lat || null,
       lng: l.lng || null,
       address: l.address || null,

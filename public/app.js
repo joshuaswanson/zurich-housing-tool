@@ -35,7 +35,6 @@ const DETAIL_SECTIONS = [
   "floor",
 ];
 const FETCHABLE_SOURCES = ["wgzimmer", "flatfox"];
-let targets = TARGET_PRESETS;
 const SHOW_FILTERS = {
   "f-gender": "genderRestricted",
   "f-student": "studentHousing",
@@ -1381,8 +1380,8 @@ function focusRow(id) {
 const LLM_KEY = "zurich-housing-llm";
 let llmProvider = localStorage.getItem(LLM_KEY);
 
-function showLlmChoice(providers, configured) {
-  if (!providers.includes(llmProvider)) llmProvider = configured;
+function showLlmChoice(providers) {
+  if (!providers.includes(llmProvider)) llmProvider = providers[0];
   $("llm-setting").hidden = providers.length < 2;
   document.querySelectorAll("input[name='llm']").forEach((radio) => {
     radio.checked = radio.value === llmProvider;
@@ -1492,7 +1491,7 @@ document.querySelectorAll(".tab").forEach((tab, index, tabs) => {
 });
 $("filters").addEventListener("input", applyFilters);
 $("target-select").addEventListener("change", (e) => {
-  setTarget(targets.find((t) => t.label === e.target.value));
+  setTarget(TARGET_PRESETS.find((t) => t.label === e.target.value));
 });
 $("show-more").addEventListener("click", () => {
   rowLimit += ROWS_PER_PAGE;
@@ -1618,30 +1617,17 @@ $("message-dialog").addEventListener("click", (e) => {
 
 async function init() {
   try {
-    const config = await (await fetch("/api/config")).json();
-    const configured = { ...target, ...config.target };
-    const preset = TARGET_PRESETS.find(
-      (t) =>
-        Math.abs(t.lat - configured.lat) < 0.0005 &&
-        Math.abs(t.lng - configured.lng) < 0.0005,
-    );
-    targets = preset ? TARGET_PRESETS : [configured, ...TARGET_PRESETS];
-    target =
-      targets.find((t) => t.label === localStorage.getItem(TARGET_KEY)) ||
-      preset ||
-      configured;
-    if (config.maxPrice) $("f-price").value = config.maxPrice;
-    $("f-gender").checked = !config.exclude.genderRestricted;
-    $("f-student").checked = !config.exclude.studentHousing;
-    $("f-short").checked = !config.exclude.shortSublets;
-    showLlmChoice(config.llmProviders, config.llmProvider);
+    showLlmChoice(await (await fetch("/api/llm-providers")).json());
   } catch {}
+  target =
+    TARGET_PRESETS.find((t) => t.label === localStorage.getItem(TARGET_KEY)) ||
+    TARGET_PRESETS[0];
   document.querySelector(
     `input[name='language'][value='${language}']`,
   ).checked = true;
   translatePage();
   restoreFilters();
-  $("target-select").innerHTML = targets
+  $("target-select").innerHTML = TARGET_PRESETS
     .map((t) => `<option>${esc(t.label)}</option>`)
     .join("");
   $("target-select").value = target.label;

@@ -1,7 +1,6 @@
 node_modules/
 data/
 .claude/
-config.json
 profile.json
 .DS_Store
 build/

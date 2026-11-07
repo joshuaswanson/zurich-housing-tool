@@ -43,8 +43,6 @@ export const FLATFOX_BOUNDS = {
   west: 8.4603,
 };
 export const FLATFOX_SLUG = "8001-zurich";
-export const RONORP_URL =
-  "https://ronorp.net/zurich/market/housing/140?sub_category_id=%5B%22144%22%5D";
 export const GEOCODE_SUFFIX = "Zürich, Schweiz";
 
 // ── Helpers ────────────────────────────────────────────────────────────────

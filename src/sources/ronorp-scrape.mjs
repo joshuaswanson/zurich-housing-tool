@@ -1,20 +1,21 @@
 /**
  * ronorp.net source for Zurich WG listings.
- * Reads the public JSON API behind ronorp.net/zurich/market/housing.
- * Exports scrapeRonorp() and works standalone.
+ * Opens the public housing list in a background browser and reads the posts
+ * the page loads from ronorp's API while it scrolls.
  */
 
+import { launch } from "cloakbrowser";
 import { geocodeAddress, htmlToText } from "../lib.js";
 
-const API_URL = "https://cockpit.ronorp.net/api/market/category/housing";
+const LIST_URL =
+  "https://ronorp.net/zurich/market/housing/living?sub_category_id=%5B%22144%22%5D&city=zurich&postType=housing&categoryId=140";
+const POSTS_RESPONSE = "/api/market/category/housing?";
+const SCROLL_PAUSE_MS = 1200;
+const MAX_SCROLLS = 40;
+const STALLED_SCROLLS = 3;
 const GEOCODE_DELAY_MS = 1100;
 
 const delay = (ms) => new Promise((r) => setTimeout(r, ms));
-const HOUSING_CATEGORY_ID = "140";
-const WG_SUB_CATEGORY_ID = "144";
-const ZURICH_CITY_ID = "2";
-const PAGE_SIZE = 50;
-const MAX_PAGES = 10;
 
 function formatDate(isoDate) {
   if (!isoDate) return null;
@@ -78,43 +79,44 @@ async function locateByPostcode(listings) {
   }
 }
 
-async function fetchPage(page) {
-  const url = new URL(API_URL);
-  url.searchParams.set("category_id", HOUSING_CATEGORY_ID);
-  url.searchParams.set(
-    "sub_category_id",
-    JSON.stringify([WG_SUB_CATEGORY_ID]),
-  );
-  url.searchParams.set("publication_city", JSON.stringify([ZURICH_CITY_ID]));
-  url.searchParams.set("city_id", ZURICH_CITY_ID);
-  url.searchParams.set("pageSize", PAGE_SIZE);
-  url.searchParams.set("page", page);
-  url.searchParams.set("sorting_seed", "1");
-  url.searchParams.set("is_mobile", "0");
-
-  const resp = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!resp.ok) throw new Error(`ronorp API ${resp.status}`);
-  return resp.json();
+async function loadPosts() {
+  const browser = await launch({ headless: true });
+  const posts = new Map();
+  let total = Infinity;
+  try {
+    const page = await browser.newPage();
+    page.on("response", async (response) => {
+      if (!response.url().includes(POSTS_RESPONSE)) return;
+      try {
+        const body = await response.json();
+        total = body.total_count ?? total;
+        // The response mixes ad slots, which have no id, into the posts.
+        for (const post of body.posts || []) {
+          if (post.id) posts.set(post.id, post);
+        }
+      } catch {}
+    });
+    await page.goto(LIST_URL, { waitUntil: "networkidle", timeout: 45000 });
+    let stalled = 0;
+    for (
+      let scroll = 0;
+      scroll < MAX_SCROLLS && posts.size < total && stalled < STALLED_SCROLLS;
+      scroll++
+    ) {
+      const before = posts.size;
+      await page.mouse.wheel(0, 4000);
+      await delay(SCROLL_PAUSE_MS);
+      stalled = posts.size === before ? stalled + 1 : 0;
+    }
+  } finally {
+    await browser.close();
+  }
+  if (posts.size === 0) throw new Error("ronorp showed no listings");
+  return [...posts.values()];
 }
 
 export async function scrapeRonorp() {
-  const postsById = new Map();
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const { posts, total_count: totalCount } = await fetchPage(page);
-    // The response mixes ad slots, which have no id, into the posts.
-    const realPosts = posts.filter((p) => p.id);
-    for (const post of realPosts) postsById.set(post.id, post);
-    if (realPosts.length === 0 || postsById.size >= totalCount) break;
-  }
-
-  // Only return offers (not people searching for rooms)
-  const offers = [...postsById.values()].map(toListing).filter((l) => l.isOffer);
+  const offers = (await loadPosts()).map(toListing).filter((l) => l.isOffer);
   await locateByPostcode(offers);
   return offers;
-}
-
-// Standalone mode
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const listings = await scrapeRonorp();
-  console.log(JSON.stringify(listings, null, 2));
 }

@@ -42,7 +42,7 @@ swiftc -O -parse-as-library -target "$ARCH-apple-macos26.0" macos/AppleLLM.swift
 
 echo "Bundling Node and the dashboard"
 tar -xzf "$NODE_TARBALL" -C "$RESOURCES/node/bin" --strip-components 2 "$NODE_DIR/bin/node"
-cp -R src public package.json package-lock.json config.example.json profile.example.json "$RESOURCES/app/"
+cp -R src public package.json package-lock.json "$RESOURCES/app/"
 npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent --prefix "$RESOURCES/app"
 
 echo "Icon"
@@ -53,4 +53,6 @@ iconutil -c icns "$ICONSET" -o "$RESOURCES/AppIcon.icns"
 
 sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"
 codesign --force --deep --sign - "$APP"
-echo "Built $APP"
+rm -f "build/Zurich Housing Tool.zip"
+ditto -c -k --keepParent "$APP" "build/Zurich Housing Tool.zip"
+echo "Built $APP and the release zip"

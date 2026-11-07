@@ -1,6 +1,5 @@
 /**
- * Combines the source caches into the listing list shared by the dashboard
- * and the search CLI.
+ * Combines the source caches into one listing list for the app.
  */
 import {
   WGZIMMER_LISTINGS_FILE,

@@ -1,22 +1,12 @@
-#!/usr/bin/env node
 /**
- * Fetch full details for a wgzimmer or flatfox listing.
- * Uses a permanent cache -- each listing URL maps to exactly one result.
- *
- * Usage:
- *   node src/fetch-listing.mjs <url>               # Fetch one listing
- *   node src/fetch-listing.mjs <url1> <url2>       # Fetch multiple
- *   node src/fetch-listing.mjs --from-file <f>     # Fetch all URLs from a file
- *   node src/fetch-listing.mjs --summary <url>     # Compact summary from cache
- *   node src/fetch-listing.mjs --summary --all     # Summarize all cached listings
+ * Fetches full details for wgzimmer and flatfox listings into a permanent
+ * cache, with one cache file per listing.
  */
 import { launch } from "cloakbrowser";
 import { fetchWgzimmerListing } from "./sources/wgzimmer-detail.mjs";
 import fs from "fs";
-import path from "path";
 import {
   config,
-  LISTINGS_DIR,
   TRACKER_FILE,
   ensureDataDir,
   geocodeAddress,
@@ -224,7 +214,7 @@ async function autoGeocode(url, data) {
   } catch {}
 }
 
-// ── Batch fetch (exported for search.js --fetch N) ──────────────────────────
+// ── Batch fetch ─────────────────────────────────────────────────────────────
 
 /**
  * Fetch details for multiple URLs, using cache where available.
@@ -288,154 +278,4 @@ export async function fetchListings(urls) {
   // Restore original URL order
   results.sort((a, b) => urls.indexOf(a.url) - urls.indexOf(b.url));
   return results;
-}
-
-// ── Print helpers ───────────────────────────────────────────────────────────
-
-function printListing(data) {
-  console.log(`\n${"=".repeat(60)}`);
-  if (data.source === "flatfox") {
-    console.log(data.address || "?");
-    if (data.rent) console.log(`Rent: CHF ${data.rent}/mo`);
-    if (data.availableFrom) console.log(`Available: ${data.availableFrom}`);
-    if (data.particulars) console.log(`Type: ${data.particulars}`);
-    if (data.livingspace) console.log(`Size: ${data.livingspace}`);
-    if (data.floor) console.log(`Floor: ${data.floor}`);
-    if (data.facilities) console.log(`Facilities: ${data.facilities}`);
-    if (data.description) console.log(`\nDescription:\n${data.description}`);
-  } else {
-    console.log(
-      `${data.address || "?"}, ${data.city || "?"} (${data.neighbourhood || "?"})`,
-    );
-    if (data.rent) console.log(`Rent: CHF ${data.rent}/mo`);
-    if (data.availableFrom)
-      process.stdout.write(`Available: ${data.availableFrom}`);
-    if (data.until) process.stdout.write(` → ${data.until}`);
-    console.log();
-    console.log(`${"=".repeat(60)}`);
-    if (data.nearby) console.log(`\nNearby: ${data.nearby}`);
-    if (data.room) console.log(`\nRoom: ${data.room}`);
-    if (data.lookingFor) console.log(`\nLooking for: ${data.lookingFor}`);
-    if (data.weAre) console.log(`\nWe are: ${data.weAre}`);
-  }
-  console.log(`\n${data.url}`);
-}
-
-function summarize(data) {
-  const lines = [];
-  lines.push(`${data.address || "?"}, ${data.city || "?"}`);
-  if (data.rent) lines.push(`CHF ${data.rent}/mo`);
-
-  const avail = [];
-  if (data.availableFrom) avail.push(`from ${data.availableFrom}`);
-  if (data.until && data.until !== "No time restrictions")
-    avail.push(`until ${data.until}`);
-  else if (data.until) avail.push("permanent");
-  if (avail.length) lines.push(avail.join(" "));
-
-  // Flatfox fields
-  if (data.particulars) lines.push(`Type: ${data.particulars}`);
-  if (data.livingspace) lines.push(`Size: ${data.livingspace}`);
-  if (data.facilities) lines.push(`Facilities: ${data.facilities}`);
-
-  // wgzimmer fields
-  if (data.nearby) lines.push(`Near: ${data.nearby.replace(/\n/g, "; ")}`);
-  if (data.room)
-    lines.push(`Room: ${data.room.replace(/\n/g, " ").substring(0, 200)}`);
-  if (data.lookingFor)
-    lines.push(
-      `Want: ${data.lookingFor.replace(/\n/g, " ").substring(0, 200)}`,
-    );
-  if (data.weAre)
-    lines.push(`WG: ${data.weAre.replace(/\n/g, " ").substring(0, 200)}`);
-
-  // Flatfox description (covers what wgzimmer splits into room/lookingFor/weAre)
-  if (data.description)
-    lines.push(
-      `Desc: ${data.description.replace(/\n/g, " ").substring(0, 300)}`,
-    );
-
-  lines.push(data.url || "");
-  return lines.join("\n");
-}
-
-// ── CLI ─────────────────────────────────────────────────────────────────────
-
-async function main() {
-  const args = process.argv.slice(2);
-  if (args.length === 0) {
-    console.log("Usage: node src/fetch-listing.mjs <url> [<url2> ...]");
-    console.log("       node src/fetch-listing.mjs --from-file <file>");
-    console.log("       node src/fetch-listing.mjs --summary <url>");
-    console.log("       node src/fetch-listing.mjs --summary --all");
-    process.exit(0);
-  }
-
-  if (args.includes("--all")) {
-    if (!fs.existsSync(LISTINGS_DIR)) {
-      console.log("No cached listings found. Fetch some listings first.");
-      process.exit(0);
-    }
-    const files = fs
-      .readdirSync(LISTINGS_DIR)
-      .filter((f) => f.endsWith(".json"));
-    if (!files.length) {
-      console.log("No cached listings found. Fetch some listings first.");
-      process.exit(0);
-    }
-    for (const f of files) {
-      const data = JSON.parse(
-        fs.readFileSync(path.join(LISTINGS_DIR, f), "utf8"),
-      );
-      console.log("\n---");
-      console.log(summarize(data));
-    }
-    return;
-  }
-
-  // --summary: compact summaries (from cache only)
-  if (args[0] === "--summary") {
-    const urls = args.slice(1).filter((a) => a.startsWith("http"));
-    for (const url of urls) {
-      const cached = loadCachedListing(url);
-      if (cached) {
-        console.log("\n---");
-        console.log(summarize(cached));
-      } else {
-        console.log(`\n--- [not cached] ${url}`);
-      }
-    }
-    return;
-  }
-
-  // Normal fetch mode
-  let urls;
-  if (args[0] === "--from-file") {
-    urls = fs
-      .readFileSync(args[1], "utf8")
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.startsWith("http"));
-  } else {
-    urls = args.filter((a) => a.startsWith("http"));
-  }
-
-  const results = await fetchListings(urls);
-
-  for (const { data } of results) {
-    printListing(data);
-  }
-}
-
-// Only run CLI when invoked directly
-const isMainModule =
-  process.argv[1] &&
-  (import.meta.url === "file://" + process.argv[1] ||
-    import.meta.url === new URL(process.argv[1], "file://").href);
-
-if (isMainModule) {
-  main().catch((e) => {
-    console.error("Fatal:", e.message);
-    process.exit(1);
-  });
 }

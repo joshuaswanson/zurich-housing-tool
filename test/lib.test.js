@@ -12,7 +12,6 @@ import {
   listingKey,
   noteKey,
   toFlatfoxDetails,
-  walkMin,
 } from "../src/lib.js";
 
 test("distKm measures ETH Zentrum to ETH Hönggerberg", () => {
@@ -21,10 +20,6 @@ test("distKm measures ETH Zentrum to ETH Hönggerberg", () => {
     { lat: 47.4085, lng: 8.5075 },
   );
   assert.ok(km > 4.6 && km < 4.8, `got ${km}`);
-});
-
-test("walkMin assumes 12 minutes per km", () => {
-  assert.equal(walkMin(2.5), 30);
 });
 
 test("cacheKeyFromUrl uses the wgzimmer UUID and the flatfox number", () => {

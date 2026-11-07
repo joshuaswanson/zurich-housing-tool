@@ -1,14 +1,13 @@
-#!/usr/bin/env node
 /**
- * Web dashboard server for zurich-housing-tool.
- * Usage: node src/server.js [port]
+ * Background process for the Zurich Housing Tool app. It serves the interface
+ * and the API on 127.0.0.1. The app starts it with port 0 and reads the
+ * chosen port from the first line it prints.
  */
 import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { execFile } from "child_process";
-import { promisify } from "util";
 import {
   DATA_DIR,
   WGZIMMER_LISTINGS_FILE,
@@ -25,6 +24,8 @@ import {
   readJson,
 } from "./lib.js";
 import { loadAllListings } from "./listings.js";
+import { scan as scanSources } from "./scan.js";
+import { fetchListings } from "./details.mjs";
 import {
   sendWgzimmerApplication,
   validateWgzimmerApplication,
@@ -40,10 +41,10 @@ import {
 } from "./sources/flatfox-session.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const execFileAsync = promisify(execFile);
-const SCAN_STEP_TIMEOUT_MS = 300000;
 const app = express();
-const PORT = parseInt(process.argv[2]) || 3456;
+const PORT = Number(process.argv[2] ?? 3456);
+// The macOS app sets this to its bundled Foundation Models helper.
+const APPLE_LLM = process.env.ZHT_APPLE_LLM;
 
 app.use(express.static(path.join(__dirname, "..", "public")));
 app.use(express.json());
@@ -68,17 +69,8 @@ app.get("/api/tracker", (req, res) => {
 
 let scanInProgress = false;
 
-function runNodeScript(args, timeout = SCAN_STEP_TIMEOUT_MS) {
-  return execFileAsync(process.execPath, args, {
-    cwd: __dirname,
-    timeout,
-    maxBuffer: 64 * 1024 * 1024,
-  });
-}
-
 // The detail pages are fetched one per second, after the scan has answered.
 const DETAILS_PER_SCAN = 60;
-const DETAILS_TIMEOUT_MS = 480000;
 let detailFetchInProgress = false;
 
 async function fetchWgzimmerDetailsInBackground() {
@@ -86,8 +78,9 @@ async function fetchWgzimmerDetailsInBackground() {
   if (urls.length === 0) return;
   detailFetchInProgress = true;
   try {
-    await runNodeScript(["fetch-listing.mjs", ...urls], DETAILS_TIMEOUT_MS);
-  } catch {
+    await fetchListings(urls);
+  } catch (e) {
+    console.log(`Detail fetch failed: ${e.message}`);
   } finally {
     detailFetchInProgress = false;
   }
@@ -119,8 +112,7 @@ app.post("/api/scan", async (req, res) => {
   }
   scanInProgress = true;
   try {
-    // Scan all sources
-    await runNodeScript(["monitor.js", "scan", "--fresh"]);
+    await scanSources();
     fetchWgzimmerDetailsInBackground();
     res.json({ ok: true, status: scanStatus() });
   } catch (e) {
@@ -150,7 +142,7 @@ app.get("/api/config", (req, res) => {
       studentHousing: config.exclude?.woko === true,
       shortSublets: config.exclude?.shortSublets !== false,
     },
-    llmProviders: process.platform === "darwin" ? ["ollama", "apple"] : ["ollama"],
+    llmProviders: APPLE_LLM ? ["ollama", "apple"] : ["ollama"],
     llmProvider: config.llm?.provider || "ollama",
   });
 });
@@ -269,7 +261,7 @@ app.post("/api/fetch-details", async (req, res) => {
   }
   detailFetchInProgress = true;
   try {
-    await runNodeScript(["fetch-listing.mjs", url]);
+    await fetchListings([url]);
     const details = loadCachedListing(url);
     if (!details) {
       return res.status(502).json({ error: "The listing page gave no details." });
@@ -566,20 +558,16 @@ async function generateWithOllama(prompt) {
 const APPLE_TIMEOUT_MS = 180000;
 
 function generateWithApple(prompt) {
-  if (process.platform !== "darwin") {
-    return Promise.reject(new Error("Apple Intelligence needs macOS 26 or later."));
+  if (!APPLE_LLM) {
+    return Promise.reject(new Error("Apple Intelligence is available in the macOS app only."));
   }
   return new Promise((resolve, reject) => {
     const child = execFile(
-      "uv",
-      ["run", "--quiet", "--script", path.join(__dirname, "apple-llm.py")],
-      { cwd: __dirname, timeout: APPLE_TIMEOUT_MS },
+      APPLE_LLM,
+      { timeout: APPLE_TIMEOUT_MS },
       (error, stdout, stderr) => {
-        if (error?.code === "ENOENT") {
-          reject(new Error("Apple Intelligence drafting needs uv. Install it from https://docs.astral.sh/uv/"));
-        } else if (error) {
-          const reason = stderr.trim().split("\n").at(-1);
-          reject(new Error(reason || `Apple Intelligence failed. ${error.message}`));
+        if (error) {
+          reject(new Error(stderr.trim() || `Apple Intelligence failed. ${error.message}`));
         } else {
           resolve({ message: stdout.trim(), model: "Apple Intelligence" });
         }
@@ -596,8 +584,7 @@ const startedDirectly =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (startedDirectly) {
-  app.listen(PORT, () => {
-    console.log(`\n  zurich-housing-tool dashboard`);
-    console.log(`  http://localhost:${PORT}\n`);
+  const server = app.listen(PORT, "127.0.0.1", () => {
+    console.log(`Dashboard at http://127.0.0.1:${server.address().port}/`);
   });
 }

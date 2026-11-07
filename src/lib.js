@@ -32,12 +32,10 @@ export { config };
 
 export const ETH_ZENTRUM = { lat: config.target.lat, lng: config.target.lng };
 export const MAX_PRICE = config.search.maxPrice || 2000;
-export const MAX_DISTANCE_KM = 5;
 
 export const DATA_DIR = path.join(HOME_DIR, "data");
 export const SEEN_FILE = path.join(DATA_DIR, "seen.json");
 export const LISTINGS_DIR = path.join(DATA_DIR, "listings");
-export const WGZIMMER_CACHE_FILE = path.join(DATA_DIR, "wgzimmer_cache.json");
 export const WGZIMMER_LISTINGS_FILE = path.join(
   DATA_DIR,
   "wgzimmer_listings.json",
@@ -110,19 +108,6 @@ export function distKm(a, b) {
       Math.cos((b.lat * Math.PI) / 180) *
       Math.sin(dLng / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
-
-/** Walking time estimate (5 km/h average) */
-export function walkMin(km) {
-  return Math.round(km * 12);
-}
-
-export function formatPrice(chf) {
-  return `CHF ${chf.toLocaleString("de-CH")}`;
-}
-
-export function timestamp() {
-  return new Date().toLocaleString("de-CH", { timeZone: "Europe/Zurich" });
 }
 
 // ── Geocoding ─────────────────────────────────────────────────────────────
@@ -377,7 +362,7 @@ export function listingKey(url) {
   );
 }
 
-// Same key that track.js uses for notes.
+// Notes are stored under the wgzimmer UUID, or the full URL for other sites.
 export function noteKey(url) {
   return (
     url.match(

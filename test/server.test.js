@@ -129,7 +129,7 @@ test("config reports the target and the default exclusions", async () => {
     shortSublets: true,
   });
   assert.equal(body.llmProvider, "ollama");
-  assert.equal(body.llmProviders.includes("apple"), process.platform === "darwin");
+  assert.deepEqual(body.llmProviders, ["ollama"]);
 });
 
 test("listings combine all four sources and skip unusable entries", async () => {

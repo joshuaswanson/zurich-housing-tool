@@ -4,7 +4,6 @@
   "description": "Find shared housing in Zurich across wgzimmer.ch, flatfox.ch, ronorp.net and students.ch in a macOS app",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
     "app": "bash macos/build.sh",
     "test": "node --test"
   },

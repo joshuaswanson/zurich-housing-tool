@@ -42,7 +42,7 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-const PORT = Number(process.argv[2] ?? 3456);
+const PORT = Number(process.argv[2] ?? 0);
 // The macOS app sets this to its bundled Foundation Models helper.
 const APPLE_LLM = process.env.ZHT_APPLE_LLM;
 

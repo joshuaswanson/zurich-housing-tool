@@ -1,153 +1,76 @@
-import test, { after, before } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
-import { launch } from "cloakbrowser";
 import {
-  extractListings,
-  goToNextPage,
-  readResultCounts,
-  scrapeSearchResults,
-  submitSearch,
+  parseResultRow,
+  parseResultsPage,
 } from "../src/sources/wgzimmer-scrape.mjs";
 
-const RESULTS_PAGE_URL = new URL(
-  "./fixtures/wgzimmer-results.html",
-  import.meta.url,
-).href;
+const row = ({ id, title, rent, meta, badges = [] }) => `
+<li class="result-row result-row--wish" id="inserat-${id}" data-ad-id="${id}">
+  <div class="result-row__facts">
+    <h2 class="result-row__title">
+      <a class="result-row__link" href="/wglink/en/${id}/">
+          ${title}
+      </a>
+    </h2>
+    <p class="result-row__rent">${rent}</p>
+    <p class="result-row__meta">
+      ${meta}
+    </p>
+    <ul class="result-row__badges">${badges.map((b) => `<li>${b}</li>`).join("")}</ul>
+    <p class="result-row__updated">Posted <time datetime="2026-10-29T22:53:02Z">1 week ago</time></p>
+  </div>
+</li>`;
 
-// ── In a real browser, against a saved results page ─────────────────────────
+const RESULTS_PAGE = `
+<ul class="results">
+${row({
+  id: "aaaaaaaa-1111-4111-8111-111111111111",
+  title: "8050 Zürich, near Oerlikon",
+  rent: "CHF 1190 per month",
+  meta: "Available now\n        ·\n          until 26.1.2027",
+  badges: ["Studio", "Furnished"],
+})}
+${row({
+  id: "bbbbbbbb-2222-4222-8222-222222222222",
+  title: "8032 Zürich",
+  rent: "CHF 1250 per month",
+  meta: "Available from 1.12.2026 · unlimited",
+})}
+</ul>
+<nav>
+  <a href="/en/wgzimmer/search/mate.html?region=zuerich&amp;max=3000&amp;seite=2#sortierung">2</a>
+  <a href="/en/wgzimmer/search/mate.html?region=zuerich&amp;max=3000&amp;seite=21#sortierung">21</a>
+</nav>`;
 
-let browser;
-let page;
-
-before(async () => {
-  browser = await launch({ headless: true });
-  page = await browser.newPage();
-  await page.goto(RESULTS_PAGE_URL, { waitUntil: "domcontentloaded" });
-});
-
-after(async () => {
-  await browser?.close();
-});
-
-test("result counts are read from the results page", async () => {
-  assert.deepEqual(await page.evaluate(readResultCounts), {
-    total: 3,
-    pages: 2,
-  });
-});
-
-test("listings are extracted from the result rows", async () => {
-  const listings = await page.evaluate(extractListings);
-  assert.equal(listings.length, 2);
+test("a results page gives its listings and the last page number", () => {
+  const { listings, lastPage } = parseResultsPage(RESULTS_PAGE);
+  assert.equal(lastPage, 21);
   assert.deepEqual(listings[0], {
-    url: "https://www.wgzimmer.ch/wglink/en/aaaaaaaa-1111-4111-8111-111111111111/zurich-stadt/1-12-2026-1560-zurich-stadt.html",
-    price: 1490,
-    posted: "6.10.2026",
-    availableFrom: "1.12.2026",
-    neighborhood: "Kreis 5",
-    until: "No time restrictions",
+    url: "https://www.wgzimmer.ch/wglink/en/aaaaaaaa-1111-4111-8111-111111111111/",
+    price: 1190,
+    place: "8050 Zürich",
+    availableFrom: "Immediately",
+    until: "26.1.2027",
+    posted: "29.10.2026",
     description:
-      "6.10.2026 | Zürich (Stadt) | Kreis 5 Limmatplatz | Limmatplatz, Limmat, HB | 1.12.2026 | Until: No time restrictions | 1,490",
+      "8050 Zürich, near Oerlikon | CHF 1190 per month | Available now · until 26.1.2027 | Studio | Furnished",
   });
-  assert.equal(listings[1].price, 900);
-  assert.equal(listings[1].neighborhood, "Wiedikon");
-  assert.equal(listings[1].until, "31.03.2027");
 });
 
-test("the displayed price wins over the price in the link", async () => {
-  const [first] = await page.evaluate(extractListings);
-  assert.match(first.url, /-1560-zurich/);
-  assert.equal(first.price, 1490);
+test("an open-ended listing has a start date and no end date", () => {
+  const { listings } = parseResultsPage(RESULTS_PAGE);
+  assert.equal(listings[1].availableFrom, "1.12.2026");
+  assert.equal(listings[1].until, undefined);
 });
 
-// ── The whole search flow, with a scripted page ─────────────────────────────
-
-function scriptedPage({ gotoFailures = 0, recaptchaFailures = 0, pages }) {
-  const calls = { goto: 0, submitted: 0, nextClicks: 0 };
-  let currentPage = 0;
-  return {
-    calls,
-    async goto() {
-      calls.goto++;
-      if (calls.goto <= gotoFailures) {
-        throw new Error("page.goto: Timeout 30000ms exceeded.\nCall log: ...");
-      }
-    },
-    async $() {
-      return null;
-    },
-    mouse: { async move() {} },
-    async selectOption() {},
-    async waitForFunction() {
-      if (recaptchaFailures-- > 0) throw new Error("Timeout");
-    },
-    async evaluate(fn) {
-      if (fn === submitSearch) calls.submitted++;
-      if (fn === readResultCounts) {
-        return { total: pages.flat().length, pages: pages.length };
-      }
-      if (fn === extractListings) return pages[currentPage];
-      if (fn === goToNextPage) {
-        calls.nextClicks++;
-        currentPage++;
-      }
-    },
-  };
-}
-
-const listing = (id) => ({ url: `https://www.wgzimmer.ch/wglink/en/${id}` });
-
-test("every result page is collected and duplicates are dropped", async () => {
-  const fake = scriptedPage({
-    pages: [[listing("a"), listing("b")], [listing("b"), listing("c")]],
+test("a page without results has one page and no listings", () => {
+  assert.deepEqual(parseResultsPage("<p>No ads found</p>"), {
+    listings: [],
+    lastPage: 1,
   });
-  const listings = await scrapeSearchResults(fake, 2000, "zurich-stadt", {
-    pace: 0,
-  });
-  assert.deepEqual(
-    listings.map((l) => l.url.split("/").pop()),
-    ["a", "b", "c"],
-  );
-  assert.equal(fake.calls.submitted, 1);
-  assert.equal(fake.calls.nextClicks, 1);
 });
 
-test("a search with no results returns an empty list", async () => {
-  const fake = scriptedPage({ pages: [] });
-  assert.deepEqual(
-    await scrapeSearchResults(fake, 2000, "zurich-stadt", { pace: 0 }),
-    [],
-  );
-});
-
-test("the search page is loaded again after a stall or a missing reCAPTCHA", async () => {
-  const fake = scriptedPage({
-    gotoFailures: 1,
-    recaptchaFailures: 1,
-    pages: [[listing("a")]],
-  });
-  const listings = await scrapeSearchResults(fake, 2000, "zurich-stadt", {
-    pace: 0,
-  });
-  assert.equal(listings.length, 1);
-  assert.equal(fake.calls.goto, 3);
-});
-
-test("the search gives up after three failed attempts", async () => {
-  const stalled = scriptedPage({ gotoFailures: 3, pages: [[listing("a")]] });
-  await assert.rejects(
-    scrapeSearchResults(stalled, 2000, "zurich-stadt", { pace: 0 }),
-    { message: "page.goto: Timeout 30000ms exceeded." },
-  );
-  assert.equal(stalled.calls.goto, 3);
-  assert.equal(stalled.calls.submitted, 0);
-
-  const noRecaptcha = scriptedPage({
-    recaptchaFailures: 3,
-    pages: [[listing("a")]],
-  });
-  await assert.rejects(
-    scrapeSearchResults(noRecaptcha, 2000, "zurich-stadt", { pace: 0 }),
-    { message: "reCAPTCHA script did not load" },
-  );
+test("a row without an ad id is skipped", () => {
+  assert.equal(parseResultRow("<div>advert</div>"), null);
 });

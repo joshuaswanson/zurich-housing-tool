@@ -77,7 +77,7 @@ async function scanFlatfox() {
 }
 
 async function scanWgzimmer() {
-  const listings = await scrapeWgzimmer(MAX_PRICE, "zurich-stadt");
+  const listings = await scrapeWgzimmer(MAX_PRICE);
   if (listings.length === 0) throw new Error("0 listings returned");
   fs.writeFileSync(WGZIMMER_LISTINGS_FILE, JSON.stringify(listings, null, 2));
   return listings

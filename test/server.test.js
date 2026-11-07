@@ -21,7 +21,7 @@ writeJson(path.join(dataDir, "wgzimmer_listings.json"), [
     price: 900,
     availableFrom: "1.11.2026",
     until: "31.5.2027",
-    neighborhood: "Wiedikon",
+    place: "8003 Zürich",
     description: "Wir suchen eine Mitbewohnerin | Wiedikon",
   },
   { url: "https://www.wgzimmer.ch/wglink/en/no-price.html" },

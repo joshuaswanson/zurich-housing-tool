@@ -2,59 +2,66 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { parseWgzimmerListing } from "../src/sources/wgzimmer-detail.mjs";
 
-const DETAIL_PAGE = `
-<div class="wrap col-wrap date-cost">
-  <h3 class="label">Dates and rent</h3>
-  <p><strong>Starting from</strong> 1.11.2026</p>
-  <p><strong>Until</strong> No time restrictions</p>
-  <p><strong>Monthly rent</strong> sFr. 1'250 .–</p>
-</div>
-<div class="wrap col-wrap adress-region">
-  <h3 class="label">Address</h3>
-  <p><strong>State</strong> Zurich (City)</p>
-  <p><strong>Address</strong> Beispielstrasse 12</p>
-  <p><strong>City</strong> 8045 Zürich</p>
-  <p><strong>Neighbourhood</strong> 3</p>
-  <p><strong>Nearby</strong> Tram 13, Coop &amp; Migros</p>
-  <script>
-    var map = new ol.Map({
-      view: new ol.View({ center: ol.proj.fromLonLat([8.5225431, 47.3607379]) })
-    });
-  </script>
-</div>
-<div class="wrap col-wrap mate-content nbb">
-  <h3 class="label">Description</h3>
-  <p><strong class="float">The room is</strong>17qm und möbliert.<br><br>
-  Ruhige Lage.</p>
-</div>
-<div class="wrap col-wrap room-content">
-  <h3 class="label">We are looking for</h3>
-  <p>Eine unkomplizierte Person.</p>
-</div>
-<div class="wrap col-wrap person-content">
-  <h3 class="label">We are</h3>
-  <p>Zwei Studierende.</p>
-</div>
-<div class="wrap col-wrap mate-contact">
-  <h3 class="label">Contact</h3>
+const detailPage = ({ until }) => `
+<aside class="ad-page__box">
+  <p class="ad-page__rent">
+    <span class="ad-page__rent-label">Rent per month</span>
+    <strong class="ad-page__rent-value">CHF 1'250</strong>
+  </p>
+  <dl class="ad-page__facts">
+    <div class="ad-page__fact"><dt>From</dt><dd>1.11.2026</dd></div>
+    <div class="ad-page__fact"><dt>Until</dt><dd>${until}</dd></div>
+    <div class="ad-page__fact"><dt>Address</dt><dd>
+      Beispielstrasse 12<br>
+      8045 Zürich
+    </dd></div>
+    <div class="ad-page__fact"><dt>District</dt><dd>Wiedikon</dd></div>
+    <div class="ad-page__fact"><dt>Furnished</dt><dd>Yes</dd></div>
+  </dl>
+</aside>
+<div class="ad-page__texts page__prose">
+  <section class="ad-page__text">
+    <h2>The room</h2>
+    <p class="ad-page__text-body">17qm und möbliert.\r\n\r\nRuhige Lage.</p>
+  </section>
+  <section class="ad-page__text">
+    <h2>We are looking for</h2>
+    <p class="ad-page__text-body">Eine unkomplizierte Person.</p>
+  </section>
+  <section class="ad-page__text">
+    <h2>About us</h2>
+    <p class="ad-page__text-body">Zwei Studierende.</p>
+  </section>
+  <section class="ad-page__text">
+    <h2>Nearby</h2>
+    <p class="ad-page__text-body">Tram 13, Coop &amp; Migros</p>
+  </section>
+  <section class="ad-map" data-lat="47.3607379" data-lon="8.5225431"></section>
 </div>`;
 
 test("wgzimmer detail page is parsed without a browser", () => {
-  assert.deepEqual(parseWgzimmerListing(DETAIL_PAGE, "https://example.test/x"), {
+  const page = detailPage({ until: "31.5.2027" });
+  assert.deepEqual(parseWgzimmerListing(page, "https://example.test/x"), {
     address: "Beispielstrasse 12",
     city: "8045 Zürich",
-    neighbourhood: "3",
+    neighbourhood: "Wiedikon",
     nearby: "Tram 13, Coop & Migros",
     rent: 1250,
     availableFrom: "1.11.2026",
-    until: "No time restrictions",
+    until: "31.5.2027",
+    furnished: "Yes",
     room: "17qm und möbliert.\n\nRuhige Lage.",
     lookingFor: "Eine unkomplizierte Person.",
     weAre: "Zwei Studierende.",
-    lng: 8.5225431,
     lat: 47.3607379,
+    lng: 8.5225431,
     url: "https://example.test/x",
   });
+});
+
+test("an open-ended listing has no end date", () => {
+  const parsed = parseWgzimmerListing(detailPage({ until: "Open-ended" }), "u");
+  assert.equal(parsed.until, undefined);
 });
 
 test("wgzimmer parser leaves out fields the page does not have", () => {

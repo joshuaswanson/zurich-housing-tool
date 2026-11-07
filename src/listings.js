@@ -48,7 +48,7 @@ export function loadAllListings() {
     const dist = hasCoords
       ? distKm(ZURICH_CENTER, { lat: cached.lat, lng: cached.lng })
       : null;
-    const text = [l.description, l.neighborhood, JSON.stringify(cached || "")]
+    const text = [l.description, JSON.stringify(cached || "")]
       .filter(Boolean)
       .join(" ");
     listings.push({
@@ -58,7 +58,7 @@ export function loadAllListings() {
       dist: dist ? Math.round(dist * 100) / 100 : null,
       lat: cached?.lat || null,
       lng: cached?.lng || null,
-      address: cached?.address || l.neighborhood || null,
+      address: cached?.address || l.place || null,
       description: l.description || "",
       availableFrom: l.availableFrom || null,
       until: l.until || null,

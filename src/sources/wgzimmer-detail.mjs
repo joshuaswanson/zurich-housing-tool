@@ -1,44 +1,48 @@
 /**
- * wgzimmer.ch listing detail pages.
- * A detail page is plain HTML and needs no browser, unlike the search form.
+ * wgzimmer.ch listing detail pages, read as plain HTML.
  */
 import { htmlToText } from "../lib.js";
 
+function fact(html, label) {
+  return html.match(
+    new RegExp(`<dt>${label}</dt>\\s*<dd>([\\s\\S]*?)</dd>`),
+  )?.[1];
+}
 
-/** The value in `<p><strong>Label</strong> value</p>`. */
-function labelled(html, label) {
+function textSection(html, heading) {
   const match = html.match(
-    new RegExp(`<strong[^>]*>${label}</strong>([^<]*)`),
+    new RegExp(
+      `<h2>${heading}</h2>\\s*<p class="ad-page__text-body">([\\s\\S]*?)</p>`,
+    ),
   );
-  return htmlToText(match?.[1]) || undefined;
+  return htmlToText(match?.[1]?.replace(/\r\n?/g, "\n")) || undefined;
 }
 
-/** The text of the block that starts after `opening`, up to the end of its div. */
-function section(html, opening) {
-  const start = html.indexOf(opening);
-  if (start === -1) return undefined;
-  const from = start + opening.length;
-  const end = html.indexOf("</div>", from);
-  return htmlToText(html.slice(from, end === -1 ? undefined : end)) || undefined;
-}
+const OPEN_ENDED = /^(open-ended|unlimited|unbefristet)$/i;
 
 export function parseWgzimmerListing(html, url) {
-  const rent = labelled(html, "Monthly rent")?.replace(/\D/g, "");
-  // The page's own map is centred on the listing.
-  const mapCentre = html.match(/fromLonLat\(\[([\d.]+),\s*([\d.]+)\]\)/);
+  const rent = html
+    .match(/class="ad-page__rent-value">([^<]*)</)?.[1]
+    .replace(/\D/g, "");
+  const addressLines = htmlToText(fact(html, "Address"))
+    .split("\n")
+    .filter(Boolean);
+  const until = htmlToText(fact(html, "Until"));
+  const map = html.match(/data-lat="([\d.]+)"\s+data-lon="([\d.]+)"/);
   const data = {
-    address: labelled(html, "Address"),
-    city: labelled(html, "City"),
-    neighbourhood: labelled(html, "Neighbourhood"),
-    nearby: labelled(html, "Nearby"),
+    address: addressLines.length > 1 ? addressLines[0] : undefined,
+    city: addressLines.at(-1),
+    neighbourhood: htmlToText(fact(html, "District")) || undefined,
+    nearby: textSection(html, "Nearby"),
     rent: rent ? parseInt(rent) : undefined,
-    availableFrom: labelled(html, "Starting from"),
-    until: labelled(html, "Until"),
-    room: section(html, "The room is</strong>"),
-    lookingFor: section(html, ">We are looking for</h3>"),
-    weAre: section(html, ">We are</h3>"),
-    lng: mapCentre ? parseFloat(mapCentre[1]) : undefined,
-    lat: mapCentre ? parseFloat(mapCentre[2]) : undefined,
+    availableFrom: htmlToText(fact(html, "From")) || undefined,
+    until: until && !OPEN_ENDED.test(until) ? until : undefined,
+    furnished: htmlToText(fact(html, "Furnished")) || undefined,
+    room: textSection(html, "The room"),
+    lookingFor: textSection(html, "We are looking for"),
+    weAre: textSection(html, "About us"),
+    lat: map ? parseFloat(map[1]) : undefined,
+    lng: map ? parseFloat(map[2]) : undefined,
     url,
   };
   return Object.fromEntries(
@@ -52,7 +56,7 @@ export async function fetchWgzimmerListing(url) {
   });
   if (!resp.ok) throw new Error(`wgzimmer ${resp.status}`);
   const data = parseWgzimmerListing(await resp.text(), url);
-  if (!data.address && !data.room) {
+  if (!data.city && !data.room) {
     throw new Error("listing page had no details");
   }
   return data;

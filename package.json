@@ -1,15 +1,11 @@
 {
   "name": "zurich-housing-monitor",
   "version": "2.0.0",
-  "description": "Find shared housing in Zurich across wgzimmer.ch, flatfox.ch, ronorp.net and students.ch",
+  "description": "Find shared housing in Zurich across wgzimmer.ch, flatfox.ch, ronorp.net and students.ch in a macOS app",
   "type": "module",
   "scripts": {
-    "scan": "node src/monitor.js scan",
-    "links": "node src/monitor.js links",
-    "fetch": "node src/fetch-listing.mjs",
-    "search": "node src/search.js",
-    "track": "node src/track.js",
-    "dashboard": "node src/server.js",
+    "start": "node src/server.js",
+    "app": "bash macos/build.sh",
     "test": "node --test"
   },
   "dependencies": {

@@ -119,9 +119,32 @@ test("the dashboard page is served", async () => {
   assert.match(await res.text(), /<title>Zurich housing tool<\/title>/);
 });
 
-test("drafting offers Ollama without the macOS app", async () => {
+test("drafting offers Ollama and an online service without the macOS app", async () => {
   const { body } = await get("/api/llm-providers");
-  assert.deepEqual(body, ["ollama"]);
+  assert.deepEqual(body, ["ollama", "api"]);
+});
+
+test("the API key is stored privately and never sent back", async () => {
+  assert.equal((await get("/api/llm-api")).body.keyEnding, null);
+  const saved = await post("/api/llm-api", {
+    service: "openrouter",
+    apiKey: "sk-or-test-1234",
+    model: "",
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.keyEnding, "1234");
+  assert.equal(saved.body.model, "openai/gpt-4.1-mini");
+  assert.equal(JSON.stringify((await get("/api/llm-api")).body).includes("sk-or"), false);
+  const file = path.join(home, "data", "llm-api.json");
+  assert.equal(fs.statSync(file).mode & 0o777, 0o600);
+
+  await post("/api/llm-api", { service: "openai", model: "gpt-test" });
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).apiKey, "sk-or-test-1234");
+});
+
+test("an unknown drafting service is refused", async () => {
+  const { status } = await post("/api/llm-api", { service: "other" });
+  assert.equal(status, 400);
 });
 
 test("listings combine all four sources and skip unusable entries", async () => {
@@ -324,6 +347,44 @@ test("drafting explains what is missing", async () => {
   const unfetched = await post("/api/generate", { url: FLATFOX_URL });
   assert.equal(unfetched.status, 400);
   assert.match(unfetched.body.error, /not fetched/i);
+});
+
+test("drafting through an online service sends the prompt with the saved key", async () => {
+  await post("/api/profile", { name: "Jane Doe", occupation: "Student" });
+  await post("/api/llm-api", { service: "openai", apiKey: "sk-test-9876", model: "gpt-test" });
+  const realFetch = globalThis.fetch;
+  let sent;
+  globalThis.fetch = async (url, options) => {
+    if (!String(url).startsWith("https://api.openai.com/")) return realFetch(url, options);
+    sent = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
+    return Response.json({ choices: [{ message: { content: " Hallo zusammen " } }] });
+  };
+  try {
+    const { status, body } = await post("/api/generate", { url: WG_URL, provider: "api" });
+    assert.equal(status, 200);
+    assert.deepEqual(body, { message: "Hallo zusammen", model: "gpt-test" });
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(sent.url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(sent.headers.Authorization, "Bearer sk-test-9876");
+  assert.equal(sent.body.model, "gpt-test");
+  assert.match(sent.body.messages[0].content, /Helles Zimmer/);
+});
+
+test("a rejected API key is reported", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) =>
+    String(url).startsWith("https://api.openai.com/")
+      ? Response.json({ error: { message: "bad key" } }, { status: 401 })
+      : realFetch(url, options);
+  try {
+    const { status, body } = await post("/api/generate", { url: WG_URL, provider: "api" });
+    assert.equal(status, 500);
+    assert.match(body.error, /rejected the API key/);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
 });
 
 test("scan status is empty before a scan and reported after one", async () => {

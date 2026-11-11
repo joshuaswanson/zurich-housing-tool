@@ -132,7 +132,57 @@ app.get("/api/scan-status", (req, res) => {
 // ── API: Drafting models available on this Mac ────────────────────────────
 
 app.get("/api/llm-providers", (req, res) => {
-  res.json(APPLE_LLM ? ["apple", "ollama"] : ["ollama"]);
+  res.json(APPLE_LLM ? ["apple", "ollama", "api"] : ["ollama", "api"]);
+});
+
+// ── API: Drafting through an online service ───────────────────────────────
+
+const API_SERVICES = {
+  openai: {
+    url: "https://api.openai.com/v1/chat/completions",
+    defaultModel: "gpt-4.1-mini",
+  },
+  openrouter: {
+    url: "https://openrouter.ai/api/v1/chat/completions",
+    defaultModel: "openai/gpt-4.1-mini",
+  },
+};
+const API_SETTINGS_FILE = path.join(DATA_DIR, "llm-api.json");
+
+function loadApiSettings() {
+  return readJson(API_SETTINGS_FILE, { service: "openai", apiKey: "", model: "" });
+}
+
+function publicApiSettings({ service, apiKey, model }) {
+  return {
+    service,
+    model: model || API_SERVICES[service].defaultModel,
+    keyEnding: apiKey ? apiKey.slice(-4) : null,
+    defaultModels: Object.fromEntries(
+      Object.entries(API_SERVICES).map(([name, s]) => [name, s.defaultModel]),
+    ),
+  };
+}
+
+app.get("/api/llm-api", (req, res) => {
+  res.json(publicApiSettings(loadApiSettings()));
+});
+
+app.post("/api/llm-api", (req, res) => {
+  const { service, apiKey, model } = req.body;
+  if (!API_SERVICES[service]) {
+    return res.status(400).json({ error: "Choose OpenAI or OpenRouter." });
+  }
+  const settings = loadApiSettings();
+  settings.service = service;
+  settings.model = String(model || "").trim();
+  if (typeof apiKey === "string") settings.apiKey = apiKey.trim();
+  ensureDataDir();
+  fs.writeFileSync(API_SETTINGS_FILE, JSON.stringify(settings, null, 2), {
+    mode: 0o600,
+  });
+  fs.chmodSync(API_SETTINGS_FILE, 0o600);
+  res.json(publicApiSettings(settings));
 });
 
 // ── API: Get sent applications with messages ──────────────────────────────
@@ -519,7 +569,9 @@ ${listingDesc.substring(0, 2000)}
 Write the application message now. Do not include a subject line. Start with a greeting.`;
 
   const provider = req.body.provider || "ollama";
-  const generate = provider === "apple" ? generateWithApple : generateWithOllama;
+  const generate =
+    { apple: generateWithApple, api: generateWithApi }[provider] ||
+    generateWithOllama;
   try {
     res.json(await generate(prompt));
   } catch (e) {
@@ -554,6 +606,49 @@ async function generateWithOllama(prompt) {
   }
   const result = await ollamaRes.json();
   return { message: result.response, model };
+}
+
+const API_TIMEOUT_MS = 120000;
+
+async function generateWithApi(prompt) {
+  const { service, apiKey, model } = loadApiSettings();
+  const { url, defaultModel } = API_SERVICES[service];
+  if (!apiKey) {
+    throw new Error("Add an API key under Drafting in the settings first.");
+  }
+  const chosenModel = model || defaultModel;
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: chosenModel,
+        messages: [{ role: "user", content: prompt }],
+      }),
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+  } catch (e) {
+    throw new Error(`Could not reach ${serviceName(service)}. ${e.message}`);
+  }
+  const body = await resp.json().catch(() => ({}));
+  if (resp.status === 401) {
+    throw new Error(`${serviceName(service)} rejected the API key.`);
+  }
+  if (!resp.ok) {
+    const detail = body.error?.message || `HTTP ${resp.status}`;
+    throw new Error(`${serviceName(service)} returned an error. ${detail}`);
+  }
+  const message = body.choices?.[0]?.message?.content?.trim();
+  if (!message) throw new Error(`${serviceName(service)} returned no text.`);
+  return { message, model: chosenModel };
+}
+
+function serviceName(service) {
+  return service === "openrouter" ? "OpenRouter" : "OpenAI";
 }
 
 const APPLE_TIMEOUT_MS = 180000;

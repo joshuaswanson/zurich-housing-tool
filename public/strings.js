@@ -2,6 +2,7 @@ const STRINGS = {
   en: {
     by: "by",
     report_issue: "Report an issue",
+    buy_coffee: "Buy me a coffee",
     language: "Language",
     settings: "Settings",
     theme: "Theme",
@@ -178,6 +179,7 @@ const STRINGS = {
   de: {
     by: "von",
     report_issue: "Problem melden",
+    buy_coffee: "Spendier mir einen Kaffee",
     language: "Sprache",
     settings: "Einstellungen",
     theme: "Design",

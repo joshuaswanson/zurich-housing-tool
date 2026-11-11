@@ -14,7 +14,6 @@
   --accent: #1f4fa3;
   --accent-ink: #ffffff;
   --danger: #b3261e;
-  --report: #b3261e;
 
   --src-flatfox: #c2600f;
   --src-wgzimmer: #0b7f86;
@@ -43,7 +42,6 @@
   --accent: #8ab4f0;
   --accent-ink: #10203a;
   --danger: #f08a80;
-  --report: #c9372c;
 
   --src-flatfox: #f0994a;
   --src-wgzimmer: #3fbfc4;
@@ -289,17 +287,30 @@ a:hover {
   color: var(--ink);
 }
 
-.button-report,
-.button-report:hover {
-  background: var(--report);
-  border-color: var(--report);
-  color: #ffffff;
-  padding: 8px 14px;
-  text-decoration: none;
+.settings-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
 }
 
-.button-report:hover {
-  filter: brightness(1.1);
+.settings-links .button {
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.button-coffee,
+.button-coffee:hover:not(:disabled) {
+  background: #ffdd00;
+  border-color: #ffdd00;
+  color: #1a1a1a;
+}
+
+.button-coffee:hover {
+  filter: brightness(0.96);
 }
 
 .scan {

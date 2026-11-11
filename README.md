@@ -10,7 +10,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 ## Features
 
 - **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
-- **Application messages**: An on-device language model writes a message for each listing from your profile and the listing's description, in German or English
+- **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenAI or OpenRouter
 - **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
 - **Distances**: Each listing shows its distance and walking time from a location you choose
@@ -29,7 +29,7 @@ The app needs a Mac with Apple silicon and macOS 14 or later.
 
 Click Scan to collect listings from all four sites. Fill in the Profile tab once so the app can write application messages and send them for you. Your profile, notes and applications stay on your Mac.
 
-Message writing uses Apple Intelligence on macOS 26 or later. On older Macs, install [Ollama](https://ollama.com) to write messages. Everything else works without either.
+Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenAI or OpenRouter API key under Drafting in the settings. Everything else works without any of them.
 
 To send Flatfox messages from your own account, connect it in the Profile tab. Flatfox's own login page opens, so your password never passes through the app.
 

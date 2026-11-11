@@ -609,7 +609,7 @@ select {
 .api-field select {
   width: 100%;
   min-width: 0;
-  font: inherit;
+  padding: 7px 10px;
 }
 
 .api-note {

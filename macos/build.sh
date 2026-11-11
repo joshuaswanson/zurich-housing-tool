@@ -1,6 +1,7 @@
 #!/bin/bash
 # Builds "build/Zurich Housing Tool.app" with its own Node runtime.
 # Usage: npm run app
+# Requires rsvg-convert (brew install librsvg).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -48,7 +49,12 @@ npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent --prefix "$RESO
 echo "Icon"
 ICONSET="$CACHE/AppIcon.iconset"
 rm -rf "$ICONSET"
-swift macos/make-icon.swift macos/AppIcon.svg macos/AppIconMark.svg "$ICONSET"
+mkdir -p "$ICONSET"
+# AppKit drops SVG filters, so the baked shadows need rsvg-convert.
+for size in 16 32 128 256 512; do
+  rsvg-convert -w "$size" -h "$size" macos/AppIcon.svg -o "$ICONSET/icon_${size}x${size}.png"
+  rsvg-convert -w "$((size * 2))" -h "$((size * 2))" macos/AppIcon.svg -o "$ICONSET/icon_${size}x${size}@2x.png"
+done
 iconutil -c icns "$ICONSET" -o "$RESOURCES/AppIcon.icns"
 
 sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"

@@ -106,6 +106,7 @@ function setLanguage(next) {
   renderProfile(readProfileForm());
   renderFlatfoxSession();
   loadScanStatus();
+  if (apiSettings) showApiSettings(apiSettings);
 }
 
 
@@ -1392,13 +1393,64 @@ function showLlmChoice(providers) {
   if (!providers.includes(llmProvider)) llmProvider = providers[0];
   $("llm-setting").hidden = providers.length < 2;
   document.querySelectorAll("input[name='llm']").forEach((radio) => {
+    radio.closest("label").hidden = !providers.includes(radio.value);
     radio.checked = radio.value === llmProvider;
     radio.addEventListener("change", () => {
       llmProvider = radio.value;
       localStorage.setItem(LLM_KEY, radio.value);
+      $("api-settings").hidden = llmProvider !== "api";
     });
   });
+  $("api-settings").hidden = llmProvider !== "api";
 }
+
+let apiSettings = null;
+
+function showApiSettings(settings) {
+  apiSettings = settings;
+  $("api-service").value = settings.service;
+  $("api-model").value = settings.model;
+  $("api-key").value = "";
+  $("api-key").placeholder = settings.keyEnding
+    ? t("api_key_saved", { ending: settings.keyEnding })
+    : t("api_key_missing");
+}
+
+async function loadApiSettings() {
+  try {
+    showApiSettings(await (await fetch("/api/llm-api")).json());
+  } catch {}
+}
+
+async function saveApiSettings(e) {
+  e.preventDefault();
+  const payload = {
+    service: $("api-service").value,
+    model: $("api-model").value,
+  };
+  if ($("api-key").value.trim()) payload.apiKey = $("api-key").value;
+  try {
+    const res = await fetch("/api/llm-api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error);
+    showApiSettings(body);
+    $("api-status").textContent = t("api_saved");
+  } catch (err) {
+    $("api-status").textContent = err.message;
+  }
+}
+
+$("api-settings").addEventListener("submit", saveApiSettings);
+$("api-service").addEventListener("change", (e) => {
+  const defaults = Object.values(apiSettings?.defaultModels || {});
+  if (!$("api-model").value || defaults.includes($("api-model").value)) {
+    $("api-model").value = apiSettings?.defaultModels[e.target.value] || "";
+  }
+});
 
 const THEME_KEY = "zurich-housing-theme";
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
@@ -1627,6 +1679,7 @@ async function init() {
   try {
     showLlmChoice(await (await fetch("/api/llm-providers")).json());
   } catch {}
+  loadApiSettings();
   target =
     TARGET_PRESETS.find((t) => t.label === localStorage.getItem(TARGET_KEY)) ||
     TARGET_PRESETS[0];

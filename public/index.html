@@ -129,8 +129,34 @@
                   <input type="radio" name="llm" value="ollama" />
                   <span>Ollama</span>
                 </label>
+                <label>
+                  <input type="radio" name="llm" value="api" />
+                  <span>API</span>
+                </label>
               </span>
             </div>
+            <form class="api-settings" id="api-settings" hidden>
+              <label class="api-field">
+                <span data-i18n="api_service">Service</span>
+                <select id="api-service">
+                  <option value="openai">OpenAI</option>
+                  <option value="openrouter">OpenRouter</option>
+                </select>
+              </label>
+              <label class="api-field">
+                <span data-i18n="api_key">API key</span>
+                <input type="password" id="api-key" autocomplete="off" spellcheck="false" />
+              </label>
+              <label class="api-field">
+                <span data-i18n="api_model">Model</span>
+                <input type="text" id="api-model" autocomplete="off" spellcheck="false" />
+              </label>
+              <p class="api-note" data-i18n="api_note">The service receives your profile and the listing to write each message.</p>
+              <div class="api-actions">
+                <span class="api-status" id="api-status" role="status"></span>
+                <button type="submit" class="button" data-i18n="api_save">Save</button>
+              </div>
+            </form>
           </div>
         </details>
       </div>

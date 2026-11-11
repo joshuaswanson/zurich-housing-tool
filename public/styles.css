@@ -591,6 +591,46 @@ select {
   white-space: nowrap;
 }
 
+.api-settings {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.api-field {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.api-field input,
+.api-field select {
+  width: 100%;
+  min-width: 0;
+  font: inherit;
+}
+
+.api-note {
+  margin: 0;
+  max-width: 34ch;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.api-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.api-status {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .segmented {
   display: inline-flex;
   border: 1px solid var(--line);

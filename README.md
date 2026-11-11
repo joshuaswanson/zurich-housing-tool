@@ -19,7 +19,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 
 ## Install
 
-1. Download `Zurich Housing Tool.zip` from the [latest release](https://github.com/joshuaswanson/zurich-housing-tool/releases/latest) and open it.
+1. Download `Zurich.Housing.Tool.zip` from the [latest release](https://github.com/joshuaswanson/zurich-housing-tool/releases/latest) and open it.
 2. Drag Zurich Housing Tool into your Applications folder and open it.
 3. If macOS says it cannot check the app, open System Settings, go to Privacy & Security, and click Open Anyway.
 

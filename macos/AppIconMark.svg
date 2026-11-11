@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2d63c4" />
+      <stop offset="1" stop-color="#173d85" />
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" />
+      <stop offset="1" stop-color="#eef1f7" />
+    </linearGradient>
+    <clipPath id="house">
+      <path d="M2 12.5 14 2l12 10.5V26H2Z" />
+    </clipPath>
+  </defs>
+  <g transform="translate(232 232) scale(20)">
+    <g clip-path="url(#house)">
+      <rect width="28" height="28" fill="url(#wall)" />
+      <path d="M0 0 28 28H0Z" fill="url(#blue)" />
+    </g>
+    <path d="M2 12.5 14 2l12 10.5V26H2Z" fill="none" stroke="url(#blue)" stroke-width="1.6" stroke-linejoin="round" />
+  </g>
+</svg>

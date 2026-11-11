@@ -48,7 +48,7 @@ npm ci --omit=dev --ignore-scripts --no-audit --no-fund --silent --prefix "$RESO
 echo "Icon"
 ICONSET="$CACHE/AppIcon.iconset"
 rm -rf "$ICONSET"
-swift macos/make-icon.swift macos/AppIcon.svg "$ICONSET"
+swift macos/make-icon.swift macos/AppIcon.svg macos/AppIconMark.svg "$ICONSET"
 iconutil -c icns "$ICONSET" -o "$RESOURCES/AppIcon.icns"
 
 sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"

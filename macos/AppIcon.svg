@@ -1,15 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
-    <clipPath id="house">
-      <path d="M2 12.5 14 2l12 10.5V26H2Z" />
-    </clipPath>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fdfbf7" />
+      <stop offset="1" stop-color="#e6e0d3" />
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9" />
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0" />
+      <stop offset="1" stop-color="#000000" stop-opacity="0.08" />
+    </linearGradient>
   </defs>
-  <rect x="100" y="100" width="824" height="824" rx="185" fill="#f4f1ea" />
-  <g transform="translate(232 232) scale(20)">
-    <g clip-path="url(#house)">
-      <rect width="28" height="28" fill="#ffffff" />
-      <path d="M0 0 28 28H0Z" fill="#1f4fa3" />
-    </g>
-    <path d="M2 12.5 14 2l12 10.5V26H2Z" fill="none" stroke="#1f4fa3" stroke-width="1.6" stroke-linejoin="round" />
-  </g>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#tile)" />
+  <rect x="102" y="102" width="820" height="820" rx="183" fill="none" stroke="url(#edge)" stroke-width="4" />
 </svg>

@@ -1,6 +1,6 @@
 {
   "name": "zurich-housing-monitor",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "Find shared housing in Zurich across wgzimmer.ch, flatfox.ch, ronorp.net and students.ch in a macOS app",
   "type": "module",
   "scripts": {

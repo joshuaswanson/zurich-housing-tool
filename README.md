@@ -11,7 +11,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 
 - **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
 - **Application messages**: An on-device language model writes a message for each listing from your profile and the listing's description, in German or English
-- **Direct applications**: Review the draft and send it to WGZimmer or Flatfox from the app; the app uses each site's own contact form and anti-abuse checks in a background browser
+- **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
 - **Distances**: Each listing shows its distance and walking time from a location you choose
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice

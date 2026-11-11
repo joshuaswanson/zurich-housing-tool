@@ -1,10 +1,4 @@
-/**
- * Send a message through wgzimmer.ch's own contact form.
- *
- * The form is loaded lazily and its submit handler obtains an invisible
- * reCAPTCHA v3 token before doing a normal POST.  Keeping the whole flow in a
- * real browser means the token is created for the right origin and action.
- */
+/** Open WGZimmer's contact form for email verification and sending. */
 import { launch } from "cloakbrowser";
 
 const WGZIMMER_HOSTS = new Set(["wgzimmer.ch", "www.wgzimmer.ch"]);
@@ -12,7 +6,6 @@ const UUID_PATTERN =
   /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
 const PAGE_TIMEOUT_MS = 30000;
 const FORM_TIMEOUT_MS = 20000;
-const SEND_TIMEOUT_MS = 60000;
 
 function requiredText(value, label, maxLength) {
   const text = String(value ?? "").trim();
@@ -21,6 +14,12 @@ function requiredText(value, label, maxLength) {
     throw new Error(`${label} is too long (maximum ${maxLength} characters).`);
   }
   return text;
+}
+
+function optionalPhone(value) {
+  const phone = String(value ?? "").trim();
+  if (phone.length > 30) throw new Error("Phone is too long (maximum 30 characters).");
+  return phone;
 }
 
 /** Validate and normalize everything before starting a browser. */
@@ -45,7 +44,7 @@ export function validateWgzimmerApplication(application) {
   }
   parsed.hash = "";
 
-  const name = requiredText(application.name, "Name", 200);
+  const name = requiredText(application.name, "Name", 100);
   if (name.length < 2) throw new Error("Name must contain at least 2 characters.");
   const email = requiredText(application.email, "Email", 320);
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -57,8 +56,8 @@ export function validateWgzimmerApplication(application) {
     uuid: uuid.toLowerCase(),
     name,
     email,
-    phone: String(application.phone ?? "").trim().slice(0, 100),
-    message: requiredText(application.message, "Message", 10000),
+    phone: optionalPhone(application.phone),
+    message: requiredText(application.message, "Message", 3000),
   };
 }
 
@@ -114,55 +113,44 @@ async function dismissCookieBanner(page) {
 }
 
 /**
- * Submit one application. `launcher` is injectable so the browser workflow can
- * be tested without contacting WGZimmer.
+ * WGZimmer now requires an email OTP. Keep its visible browser open so the
+ * applicant can verify their address and submit using the site's own controls.
+ * A prepared form is deliberately not reported as a sent application.
  */
 export async function sendWgzimmerApplication(application, launcher = launch) {
   const data = validateWgzimmerApplication(application);
-  const browser = await launcher({ headless: true, humanize: true });
-
+  const browser = await launcher({ headless: false, humanize: true });
+  let handedOver = false;
   try {
     const page = await browser.newPage();
-    const listingResponse = await page.goto(data.url, {
-      waitUntil: "networkidle",
+    const response = await page.goto(data.url, {
+      waitUntil: "domcontentloaded",
       timeout: PAGE_TIMEOUT_MS,
     });
-    if (listingResponse && !listingResponse.ok()) {
-      throw new Error(`WGZimmer returned HTTP ${listingResponse.status()}.`);
-    }
-
-    await dismissCookieBanner(page);
-    const contactLink = await page.$('a[onclick*="showContactDetail"]');
-    if (!contactLink) {
-      throw new Error("This listing no longer has a WGZimmer contact form.");
-    }
-    await contactLink.click();
-    await page.waitForSelector("#searchMateContactMailForm", {
-      state: "visible",
-      timeout: FORM_TIMEOUT_MS,
-    });
-
-    await page.fill("#senderName", data.name);
-    await page.fill("#senderEmail", data.email);
-    await page.fill("#senderPhone", data.phone);
-    await page.fill("#senderText", data.message);
-
-    // Clicking the site's button runs its own submitSearchMateForm function,
-    // including grecaptcha.execute with WGZimmer's configured action.
-    const navigation = page.waitForNavigation({
-      waitUntil: "domcontentloaded",
-      timeout: SEND_TIMEOUT_MS,
-    });
-    await page.click('#searchMateContactMailForm input[type="submit"]');
-    const response = await navigation;
     if (response && !response.ok()) {
       throw new Error(`WGZimmer returned HTTP ${response.status()}.`);
     }
-
-    const result = classifyWgzimmerSendResponse(await page.content());
-    if (!result.ok) throw new Error(result.error);
-    return { ok: true };
+    await dismissCookieBanner(page);
+    try {
+      await page.waitForSelector("#kontakt form.contact-form__form", {
+        state: "visible",
+        timeout: FORM_TIMEOUT_MS,
+      });
+    } catch {
+      throw new Error("This listing no longer has a WGZimmer contact form.");
+    }
+    await page.fill("#kontakt-name", data.name);
+    await page.fill("#kontakt-email", data.email);
+    await page.fill("#kontakt-phone", data.phone);
+    await page.fill("#kontakt-text", data.message);
+    await page.locator("#kontakt").scrollIntoViewIfNeeded();
+    await page.bringToFront();
+    // Closing the window releases the browser process. Do not close the form
+    // when this request returns: the user still needs to verify and send it.
+    page.once("close", () => { void browser.close().catch(() => {}); });
+    handedOver = true;
+    return { ok: false, requiresCompletion: true };
   } finally {
-    await browser.close();
+    if (!handedOver) await browser.close();
   }
 }

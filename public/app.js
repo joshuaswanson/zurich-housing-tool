@@ -762,6 +762,15 @@ async function sendDirectDraft(listing, message) {
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
     await saveDraft();
+    if (data.requiresCompletion) {
+      button.disabled = false;
+      button.textContent = t(`send_${source}`);
+      $("dialog-hint").textContent = t("wgzimmer_complete_in_browser");
+      $("dialog-hint").hidden = false;
+      $("dialog-applied").textContent = t("act_apply");
+      $("dialog-applied").hidden = statusOf(listing.url) === "applied";
+      return;
+    }
     await track(listing.url, "apply");
     button.textContent = t(`sent_${source}`);
     $("dialog-hint").textContent = t(`sent_${source}`);
@@ -776,8 +785,7 @@ async function sendDirectDraft(listing, message) {
   }
 }
 
-// WGZimmer and Flatfox run their own contact forms and anti-abuse checks
-// in a background browser. Other sources keep their normal hand-off.
+// WGZimmer opens a visible form for email verification; Flatfox sends directly.
 async function handOverDraft() {
   const listing = draftListing();
   const message = $("dialog-editor").value;

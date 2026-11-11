@@ -350,8 +350,8 @@ app.post("/api/send-wgzimmer", async (req, res) => {
 
   wgzimmerSendsInProgress.add(key);
   try {
-    await sendWgzimmerApplication(application);
-    res.json({ ok: true });
+    const result = await sendWgzimmerApplication(application);
+    res.json(result);
   } catch (e) {
     res.status(502).json({ error: e.message.substring(0, 300) });
   } finally {

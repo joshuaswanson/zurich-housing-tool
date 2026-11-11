@@ -53,76 +53,69 @@ test("WGZimmer send responses require an explicit success signal", () => {
   );
 });
 
-test("sending uses WGZimmer's contact button and normal form submission", async () => {
+function browserFixture({ missingForm = false } = {}) {
   const calls = [];
   let closed = false;
-  const response = { ok: () => true, status: () => 200 };
+  let closeWindow;
   const page = {
     goto: async (url, options) => {
       calls.push(["goto", url, options]);
-      return response;
+      return { ok: () => true };
     },
-    $: async (selector) => {
-      calls.push(["$", selector]);
-      if (selector === ".fc-cta-consent") return null;
-      return { click: async () => calls.push(["contact-click"]) };
+    $: async () => null,
+    waitForSelector: async (selector) => {
+      assert.equal(selector, "#kontakt form.contact-form__form");
+      if (missingForm) throw new Error("Timeout");
     },
-    waitForSelector: async (selector, options) =>
-      calls.push(["waitForSelector", selector, options]),
     fill: async (selector, value) => calls.push(["fill", selector, value]),
-    waitForNavigation: () => Promise.resolve(response),
-    click: async (selector) => calls.push(["submit-click", selector]),
-    content: async () => "<p>Your email was successfully sent.</p>",
+    locator: (selector) => {
+      assert.equal(selector, "#kontakt");
+      return { scrollIntoViewIfNeeded: async () => {} };
+    },
+    bringToFront: async () => calls.push(["front"]),
+    once: (event, callback) => {
+      assert.equal(event, "close");
+      closeWindow = callback;
+    },
   };
-  const launcher = async (options) => {
-    calls.push(["launch", options]);
-    return {
-      newPage: async () => page,
-      close: async () => {
-        closed = true;
-      },
-    };
+  return {
+    calls,
+    get closed() { return closed; },
+    closeWindow: () => closeWindow(),
+    launcher: async (options) => {
+      calls.push(["launch", options]);
+      return { newPage: async () => page, close: async () => { closed = true; } };
+    },
   };
+}
 
-  assert.deepEqual(await sendWgzimmerApplication(APPLICATION, launcher), {
-    ok: true,
+test("current WGZimmer form is filled and handed over without claiming a send", async () => {
+  const fixture = browserFixture();
+  assert.deepEqual(await sendWgzimmerApplication(APPLICATION, fixture.launcher), {
+    ok: false, requiresCompletion: true,
   });
-  assert.equal(closed, true);
-  assert.deepEqual(
-    calls.filter(([type]) => type === "fill"),
-    [
-      ["fill", "#senderName", "Test Person"],
-      ["fill", "#senderEmail", "test@example.com"],
-      ["fill", "#senderPhone", "+41 79 000 00 00"],
-      ["fill", "#senderText", "Hallo zusammen"],
-    ],
-  );
-  assert.ok(calls.some(([type]) => type === "contact-click"));
-  assert.ok(calls.some(([type]) => type === "submit-click"));
+  assert.equal(fixture.closed, false);
+  assert.equal(fixture.calls[0][1].headless, false);
+  assert.equal(fixture.calls[1][2].waitUntil, "domcontentloaded");
+  assert.deepEqual(fixture.calls.filter(([type]) => type === "fill"), [
+    ["fill", "#kontakt-name", "Test Person"],
+    ["fill", "#kontakt-email", "test@example.com"],
+    ["fill", "#kontakt-phone", "+41 79 000 00 00"],
+    ["fill", "#kontakt-text", "Hallo zusammen"],
+  ]);
+  fixture.closeWindow();
+  assert.equal(fixture.closed, true);
 });
 
-test("the background browser closes when WGZimmer rejects the send", async () => {
-  let closed = false;
-  const response = { ok: () => true, status: () => 200 };
-  const launcher = async () => ({
-    newPage: async () => ({
-      goto: async () => response,
-      $: async (selector) =>
-        selector === ".fc-cta-consent" ? null : { click: async () => {} },
-      waitForSelector: async () => {},
-      fill: async () => {},
-      waitForNavigation: () => Promise.resolve(response),
-      click: async () => {},
-      content: async () => "<p>reCAPTCHA error. Message not sent.</p>",
-    }),
-    close: async () => {
-      closed = true;
-    },
-  });
+test("missing contact form closes the browser and reports an actionable error", async () => {
+  const fixture = browserFixture({ missingForm: true });
+  await assert.rejects(sendWgzimmerApplication(APPLICATION, fixture.launcher), /no longer has/);
+  assert.equal(fixture.closed, true);
+});
 
-  await assert.rejects(
-    sendWgzimmerApplication(APPLICATION, launcher),
-    /reCAPTCHA/i,
-  );
-  assert.equal(closed, true);
+test("current form limits reject overlong values instead of truncating drafts", async () => {
+  for (const [field, length] of [["name", 101], ["phone", 31], ["message", 3001]]) {
+    await assert.rejects(sendWgzimmerApplication({ ...APPLICATION, [field]: "x".repeat(length) },
+      async () => { assert.fail("Invalid input must not launch a browser"); }), /too long/);
+  }
 });

@@ -1,6 +1,8 @@
 :root {
   color-scheme: light;
   --header-h: 64px;
+  /* The listings table needs this much room to fit without sideways scrolling. */
+  --list-min-width: 690px;
 
   --bg: #f5f6f6;
   --surface: #ffffff;
@@ -332,7 +334,7 @@ a:hover {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 46fr) minmax(0, 54fr);
+  grid-template-columns: minmax(0, 46fr) minmax(var(--list-min-width), 54fr);
   height: calc(100dvh - var(--header-h));
 }
 
@@ -949,7 +951,7 @@ tbody tr.is-active {
 }
 
 .table-scroll {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 .description {

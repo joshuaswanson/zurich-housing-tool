@@ -6,6 +6,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 NODE_VERSION=26.13.0
+SPARKLE_VERSION=2.10.1
+SPARKLE_SHA256=1a856d2a9edb8e628de88121d7be04cf0e2167f8641650b78fca00b14244cf27
 case "$(uname -m)" in
   arm64) ARCH=arm64; NODE_ARCH=arm64 ;;
   x86_64) ARCH=x86_64; NODE_ARCH=x64 ;;
@@ -32,13 +34,29 @@ if [ ! -f "$NODE_TARBALL" ]; then
   mv "$NODE_TARBALL.part" "$NODE_TARBALL"
 fi
 
+SPARKLE="$CACHE/Sparkle-$SPARKLE_VERSION"
+if [ ! -d "$SPARKLE/Sparkle.framework" ]; then
+  echo "Downloading Sparkle $SPARKLE_VERSION"
+  curl -fsSL "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz" -o "$SPARKLE.tar.xz"
+  if [ "$(shasum -a 256 "$SPARKLE.tar.xz" | awk '{ print $1 }')" != "$SPARKLE_SHA256" ]; then
+    rm -f "$SPARKLE.tar.xz"
+    echo "Sparkle download failed its checksum" >&2
+    exit 1
+  fi
+  mkdir -p "$SPARKLE"
+  tar -xJf "$SPARKLE.tar.xz" -C "$SPARKLE"
+fi
+
 rm -rf "$APP"
 CONTENTS="$APP/Contents"
 RESOURCES="$CONTENTS/Resources"
-mkdir -p "$CONTENTS/MacOS" "$RESOURCES/bin" "$RESOURCES/node/bin" "$RESOURCES/app"
+mkdir -p "$CONTENTS/MacOS" "$CONTENTS/Frameworks" "$RESOURCES/bin" "$RESOURCES/node/bin" "$RESOURCES/app"
 
 echo "Compiling"
-swiftc -O -parse-as-library -target "$ARCH-apple-macos14.0" macos/App.swift -o "$CONTENTS/MacOS/ZurichHousing"
+cp -R "$SPARKLE/Sparkle.framework" "$CONTENTS/Frameworks/"
+swiftc -O -parse-as-library -target "$ARCH-apple-macos14.0" \
+  -F "$SPARKLE" -framework Sparkle -Xlinker -rpath -Xlinker @executable_path/../Frameworks \
+  macos/App.swift -o "$CONTENTS/MacOS/ZurichHousing"
 swiftc -O -parse-as-library -target "$ARCH-apple-macos26.0" macos/AppleLLM.swift -o "$RESOURCES/bin/apple-llm"
 
 echo "Bundling Node and the dashboard"

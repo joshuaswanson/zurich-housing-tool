@@ -1,4 +1,5 @@
 import AppKit
+import Sparkle
 import WebKit
 
 @main
@@ -9,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var serverURL: URL?
     private var serverOutput = ""
     private var quitting = false
+    private let updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
 
     static func main() {
         let app = NSApplication.shared
@@ -189,6 +191,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
         let app = NSMenu()
         app.addItem(withTitle: "About Zurich Housing Tool", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        let checkForUpdates = app.addItem(withTitle: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        checkForUpdates.target = updater
         app.addItem(.separator())
         app.addItem(withTitle: "Show Data Folder", action: #selector(openDataFolder(_:)), keyEquivalent: "")
         app.addItem(.separator())

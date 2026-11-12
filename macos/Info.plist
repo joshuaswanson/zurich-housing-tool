@@ -26,6 +26,12 @@
   <true/>
   <key>NSHumanReadableCopyright</key>
   <string>Joshua Swanson</string>
+  <key>SUFeedURL</key>
+  <string>https://github.com/joshuaswanson/zurich-housing-tool/releases/latest/download/appcast.xml</string>
+  <key>SUPublicEDKey</key>
+  <string>2KdlHusf8VMEvhZZvVzyUAKoMtflbbzejlq1qwB5DQM=</string>
+  <key>SUEnableAutomaticChecks</key>
+  <true/>
   <key>NSAppTransportSecurity</key>
   <dict>
     <key>NSAllowsLocalNetworking</key>

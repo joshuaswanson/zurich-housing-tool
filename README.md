@@ -23,7 +23,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 2. Drag Zurich Housing Tool onto the Applications folder, then open it from Applications.
 3. If macOS says it cannot check the app, open System Settings, go to Privacy & Security, and click Open Anyway.
 
-The app needs a Mac with Apple silicon and macOS 14 or later.
+The app needs a Mac with Apple silicon and macOS 14 or later. It checks for new versions and updates itself.
 
 ## Getting started
 
@@ -44,12 +44,12 @@ npm install
 npm run app
 ```
 
-This creates `build/Zurich Housing Tool.app`.
+This creates `build/Zurich Housing Tool.app`. `npm run release` publishes the version in `package.json` as a GitHub release that installed copies pick up through [Sparkle](https://sparkle-project.org). It signs the update with the Sparkle key in your login Keychain.
 
 ### File structure
 
 ```
-macos/                The app window, the Apple Intelligence helper, the icon and the build script
+macos/                The app window, the Apple Intelligence helper, the icon, and the build and release scripts
 src/
   server.js           Background process behind the app window
   scan.js             Scan all sources

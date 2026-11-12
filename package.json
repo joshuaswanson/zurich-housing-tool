@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "app": "bash macos/build.sh",
+    "release": "bash macos/release.sh",
     "test": "node --test"
   },
   "dependencies": {

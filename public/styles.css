@@ -1258,3 +1258,58 @@ dialog textarea {
     max-width: calc(100vw - 48px);
   }
 }
+
+.listings-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 14px 0 6px;
+}
+
+.listings-bar .section-note {
+  margin: 0;
+}
+
+.message-input {
+  font: inherit;
+  padding: 8px 10px;
+  resize: vertical;
+}
+
+.batch-list {
+  margin: 12px 0;
+  padding-left: 22px;
+  max-height: 30dvh;
+  overflow-y: auto;
+}
+
+.batch-list li {
+  display: list-item;
+  padding: 2px 0;
+}
+
+.batch-list li span + span {
+  margin-left: 8px;
+}
+
+.batch-preview {
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  max-height: 24dvh;
+}
+
+.batch-preview:empty,
+.batch-list:empty,
+.batch-failed:empty {
+  display: none;
+}
+
+.batch-failed {
+  margin-top: 8px;
+  padding-left: 18px;
+  color: var(--danger);
+  font-size: 13px;
+}

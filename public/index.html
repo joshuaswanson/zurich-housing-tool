@@ -354,7 +354,10 @@
           </div>
         </form>
 
-        <p class="section-note" id="listings-note"></p>
+        <div class="listings-bar">
+          <p class="section-note" id="listings-note"></p>
+          <button class="button" type="button" id="batch-open" hidden></button>
+        </div>
         <div class="table-scroll">
           <table id="listings-table">
             <thead>
@@ -446,6 +449,11 @@
           </div>
           <form class="profile-form" id="profile-form">
             <div id="profile-fields"></div>
+            <label class="profile-field">
+              <span data-i18n="pf_message">Your message</span>
+              <textarea class="text-input message-input" name="message" rows="7"></textarea>
+              <small class="secondary" data-i18n="pf_message_hint">When you write one, it is used for every listing in place of a generated message. {address} and {title} are filled in for each listing.</small>
+            </label>
             <div class="row-actions">
               <button class="button button-primary" data-i18n="save_profile">
                 Save profile
@@ -468,6 +476,27 @@
         <button class="button" id="dialog-save" type="button" hidden></button>
         <button class="button" id="dialog-copy" type="button">
           <span data-i18n="copy_message">Copy message</span>
+        </button>
+        <form method="dialog">
+          <button class="button"><span data-i18n="close">Close</span></button>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog id="batch-dialog">
+      <h2 id="batch-title"></h2>
+      <p class="secondary" id="batch-intro"></p>
+      <ol class="batch-list" id="batch-list"></ol>
+      <pre class="batch-preview" id="batch-preview"></pre>
+      <p class="secondary dialog-hint" id="batch-status" role="status"></p>
+      <ul class="batch-failed" id="batch-failed"></ul>
+      <div class="dialog-actions">
+        <button class="button button-primary" id="batch-send" type="button"></button>
+        <button class="button" id="batch-stop" type="button" hidden>
+          <span data-i18n="batch_stop">Stop</span>
+        </button>
+        <button class="button" id="batch-profile" type="button" hidden>
+          <span data-i18n="batch_go_profile">Open Profile</span>
         </button>
         <form method="dialog">
           <button class="button"><span data-i18n="close">Close</span></button>

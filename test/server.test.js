@@ -462,3 +462,76 @@ test("only a fluent German entry counts as speaking German", async () => {
   assert.equal(germanLevel("English, French"), "none");
   assert.equal(germanLevel(undefined), "none");
 });
+
+test("a saved message is used for every listing in place of a generated one", async () => {
+  const { fillMessage } = await import("../src/server.js");
+  const listing = { address: "8004 Zürich", description: "Sunny room\nMore text" };
+  assert.equal(
+    fillMessage("Hello, I am interested in {title} at {address}.", listing),
+    "Hello, I am interested in Sunny room at 8004 Zürich.",
+  );
+  assert.equal(fillMessage("About {address}", { description: "Loft" }), "About Loft");
+
+  writeJson(path.join(dataDir, "flatfox_cache.json"), [
+    { pk: 10000001, latitude: 47.3808, longitude: 8.5173, price_display: 1200, address: "8004 Zürich" },
+  ]);
+  await post("/api/profile", { name: "Jane Doe", message: "Hi, is {address} still free?" });
+  assert.equal((await get("/api/profile")).body.profile.message, "Hi, is {address} still free?");
+  const { status, body } = await post("/api/generate", { url: FLATFOX_URL, provider: "api" });
+  assert.equal(status, 200);
+  assert.equal(body.message, "Hi, is 8004 Zürich still free?");
+});
+
+test("the saved message goes to new Flatfox listings in one paced batch", async () => {
+  const flatfoxUrl = (pk) => `https://flatfox.ch/en/flat/8004-zurich/${pk}/`;
+  writeJson(path.join(dataDir, "flatfox_cache.json"), [
+    { pk: 20000001, latitude: 47.38, longitude: 8.51, price_display: 1200, address: "A 1, 8004 Zürich", url: flatfoxUrl(20000001) },
+    { pk: 20000002, latitude: 47.38, longitude: 8.51, price_display: 1300, address: "B 2, 8004 Zürich", url: flatfoxUrl(20000002) },
+    { pk: 20000003, latitude: 47.38, longitude: 8.51, price_display: 1400, address: "C 3, 8004 Zürich", url: flatfoxUrl(20000003) },
+  ]);
+  const urls = (await get("/api/listings")).body
+    .filter((l) => l.source === "flatfox")
+    .map((l) => l.url);
+  assert.equal(urls.length, 3);
+
+  await post("/api/profile", { name: "Jane Doe" });
+  const noMessage = await post("/api/send-flatfox-batch", { urls });
+  assert.equal(noMessage.status, 400);
+  assert.match(noMessage.body.error, /message/i);
+
+  await post("/api/profile", { name: "Jane Doe", email: "jane@example.com", phone: "+41 79 000 00 00", message: "Hi about {address}" });
+  await post("/api/track", { url: urls[2], action: "shortlist" });
+
+  const sent = [];
+  app.locals.flatfoxBatchPauseMs = () => 0;
+  let release;
+  const gate = new Promise((resolve) => (release = resolve));
+  app.locals.sendFlatfox = async (application) => {
+    await gate;
+    if (application.url.includes("20000002")) throw new Error("Flatfox returned HTTP 500.");
+    sent.push(application);
+  };
+  const started = await post("/api/send-flatfox-batch", { urls: [...urls, "https://example.com/x"] });
+  assert.equal(started.status, 200);
+  assert.equal(started.body.total, 2);
+  assert.equal((await post("/api/send-flatfox-batch", { urls })).status, 409);
+  release();
+
+  let status;
+  do status = (await get("/api/send-flatfox-batch")).body;
+  while (status.running);
+  assert.equal(status.sent.length, 1);
+  assert.equal(status.failed.length, 1);
+  assert.match(status.failed[0].error, /HTTP 500/);
+  assert.equal(sent[0].message, "Hi about A 1, 8004 Zürich");
+  assert.equal(sent[0].email, "jane@example.com");
+
+  const tracker = (await get("/api/tracker")).body;
+  assert.ok(tracker.applied.some((e) => e.url === sent[0].url));
+  assert.ok(!tracker.applied.some((e) => e.url.includes("20000002")));
+  const messages = (await get("/api/applications")).body;
+  assert.ok(messages.some((m) => m.content.includes("Hi about A 1")));
+
+  const again = await post("/api/send-flatfox-batch", { urls: [urls[0], urls[2]] });
+  assert.equal(again.status, 400);
+});

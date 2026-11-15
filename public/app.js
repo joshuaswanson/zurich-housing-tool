@@ -76,7 +76,7 @@ let language =
 function t(key, values = {}) {
   return STRINGS[language][key].replace(
     /\{(\w+)\}/g,
-    (_, name) => values[name],
+    (match, name) => values[name] ?? match,
   );
 }
 
@@ -277,6 +277,7 @@ function applyFilters() {
   filteredListings = filtered;
   rowLimit = ROWS_PER_PAGE;
   renderTable(filtered);
+  renderBatchButton();
   setMapListings(filtered);
 }
 
@@ -483,7 +484,7 @@ function detailSections(details) {
 
 function detailRow(l) {
   const status = statusOf(l.url);
-  const actions = [["draft", "act_draft"]];
+  const actions = [["draft", draftLabelKey()]];
   if (status !== "applied") actions.push(["apply", "act_apply"]);
   if (!status) {
     actions.push(["shortlist", "act_shortlist"], ["exclude", "act_exclude"]);
@@ -839,6 +840,11 @@ async function saveDraft() {
 }
 
 let profileFields = [];
+let savedMessage = "";
+
+function draftLabelKey() {
+  return savedMessage ? "act_use_message" : "act_draft";
+}
 let flatfoxSession = { checking: true, connected: false, busy: false };
 
 function renderFlatfoxSession() {
@@ -967,18 +973,21 @@ function renderProfile(profile) {
         </label>`;
     })
     .join("");
+  $("profile-form").elements.message.value = profile?.message || "";
 }
 
 async function loadProfile() {
   try {
     const data = await (await fetch("/api/profile")).json();
     profileFields = data.fields;
+    savedMessage = data.profile?.message || "";
     renderProfile(data.profile);
   } catch {}
 }
 
 function readProfileForm() {
   const profile = {};
+  profile.message = $("profile-form").elements.message.value.trim();
   for (const input of $("profile-fields").querySelectorAll("input")) {
     const text = input.value.trim();
     if (input.name === "age") profile.age = text ? Number(text) : "";
@@ -993,8 +1002,13 @@ function readProfileForm() {
 
 async function saveProfile(e) {
   e.preventDefault();
-  const saved = await postJson("/api/profile", readProfileForm());
+  const profile = readProfileForm();
+  const saved = await postJson("/api/profile", profile);
   $("profile-status").textContent = saved ? t("profile_saved") : "";
+  if (saved) {
+    savedMessage = profile.message;
+    renderBatchButton();
+  }
 }
 
 async function loadMessages() {
@@ -1035,9 +1049,155 @@ async function draftMessage(url, button) {
     openDialog(t("draft_failed"), e.message);
   } finally {
     button.disabled = false;
-    button.textContent = t("act_draft");
+    button.textContent = t(draftLabelKey());
   }
 }
+
+// Sending to many listings
+
+const BATCH_LIMIT = 20;
+const BATCH_POLL_MS = 2000;
+let batchListings = [];
+
+function batchCandidates() {
+  return filteredListings
+    .filter((l) => l.source === "flatfox" && !statusOf(l.url))
+    .slice(0, BATCH_LIMIT);
+}
+
+function renderBatchButton() {
+  const n = batchCandidates().length;
+  $("batch-open").hidden = n === 0;
+  $("batch-open").textContent = t("batch_open", { n });
+}
+
+function fillMessage(template, listing) {
+  const title = (listing.description || "").split("\n")[0].trim();
+  return template
+    .replaceAll("{address}", listing.address || title)
+    .replaceAll("{title}", title || listing.address || "")
+    .trim();
+}
+
+function showBatchControls({ send = false, stop = false, profile = false }) {
+  $("batch-send").hidden = !send;
+  $("batch-send").disabled = false;
+  $("batch-stop").hidden = !stop;
+  $("batch-stop").disabled = false;
+  $("batch-profile").hidden = !profile;
+}
+
+async function openBatch() {
+  $("batch-status").textContent = "";
+  $("batch-failed").innerHTML = "";
+  $("batch-list").innerHTML = "";
+  $("batch-preview").textContent = "";
+  $("batch-dialog").showModal();
+
+  try {
+    const status = await (await fetch("/api/send-flatfox-batch")).json();
+    if (status.running) {
+      $("batch-title").textContent = t("batch_title", { n: status.total });
+      $("batch-intro").textContent = "";
+      watchBatch();
+      return;
+    }
+  } catch {}
+
+  if (!savedMessage) {
+    $("batch-title").textContent = t("batch_no_message_title");
+    $("batch-intro").textContent = t("batch_no_message");
+    showBatchControls({ profile: true });
+    return;
+  }
+
+  batchListings = batchCandidates();
+  const n = batchListings.length;
+  $("batch-title").textContent = t("batch_title", { n });
+  $("batch-intro").textContent = t("batch_intro");
+  $("batch-list").innerHTML = batchListings
+    .map(
+      (l) =>
+        `<li><span>${esc(l.address || t("address_missing"))}</span><span class="secondary">CHF ${esc(l.price)}</span></li>`,
+    )
+    .join("");
+  $("batch-preview").textContent = fillMessage(savedMessage, batchListings[0]);
+  $("batch-send").textContent = t("batch_send", { n });
+  showBatchControls({ send: true });
+}
+
+async function startBatch() {
+  $("batch-send").disabled = true;
+  try {
+    const res = await fetch("/api/send-flatfox-batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: batchListings.map((l) => l.url) }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    watchBatch();
+  } catch (e) {
+    $("batch-send").disabled = false;
+    $("batch-status").textContent = e.message;
+  }
+}
+
+let batchWatching = false;
+
+async function watchBatch() {
+  showBatchControls({ stop: true });
+  if (batchWatching) return;
+  batchWatching = true;
+  let status;
+  do {
+    try {
+      status = await (await fetch("/api/send-flatfox-batch")).json();
+    } catch {
+      break;
+    }
+    renderBatchStatus(status);
+    if (status.running) {
+      await new Promise((resolve) => setTimeout(resolve, BATCH_POLL_MS));
+    }
+  } while (status.running);
+  batchWatching = false;
+  showBatchControls({});
+  await Promise.all([load(), loadMessages()]);
+}
+
+function renderBatchStatus(status) {
+  const counts = { sent: status.sent.length, total: status.total };
+  $("batch-status").textContent = !status.running
+    ? t("batch_done", counts)
+    : status.stopping
+      ? t("batch_stopping")
+      : status.current
+        ? t("batch_progress", { ...counts, current: status.current })
+        : t("batch_waiting", counts);
+  $("batch-failed").innerHTML = status.failed
+    .map(
+      (f) =>
+        `<li><strong>${t("batch_failed")}</strong> ${esc(f.address || f.url)}: ${esc(f.error)}</li>`,
+    )
+    .join("");
+}
+
+async function stopBatch() {
+  $("batch-stop").disabled = true;
+  await postJson("/api/send-flatfox-batch/stop", {});
+}
+
+function openProfileFromBatch() {
+  $("batch-dialog").close();
+  selectTab($("tab-profile"));
+  $("profile-form").elements.message.focus();
+}
+
+$("batch-open").addEventListener("click", openBatch);
+$("batch-send").addEventListener("click", startBatch);
+$("batch-stop").addEventListener("click", stopBatch);
+$("batch-profile").addEventListener("click", openProfileFromBatch);
 
 // Map
 

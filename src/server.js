@@ -249,44 +249,48 @@ const TRACK_ACTIONS = {
   untrack: null,
 };
 
+function trackListing(url, action, { address, price, reason } = {}) {
+  const tracker = {
+    applied: [],
+    shortlisted: [],
+    rejected: [],
+    excluded: [],
+    notes: {},
+    ...readJson(TRACKER_FILE, {}),
+  };
+  const today = new Date().toISOString().split("T")[0];
+  const key = listingKey(url);
+
+  let entry = null;
+  for (const category of TRACKER_CATEGORIES) {
+    const idx = tracker[category].findIndex((e) => listingKey(e.url) === key);
+    if (idx > -1) entry = tracker[category].splice(idx, 1)[0];
+  }
+
+  const category = TRACK_ACTIONS[action];
+  if (category) {
+    entry = entry || {
+      url,
+      address: address || null,
+      price: price || null,
+      date: today,
+    };
+    if (action === "reject") entry.rejectedDate = today;
+    if (action === "exclude") entry.reason = reason || null;
+    tracker[category].push(entry);
+  }
+
+  fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+}
+
 app.post("/api/track", (req, res) => {
-  const { url, action, address, price, reason } = req.body;
+  const { url, action } = req.body;
   if (!url) return res.status(400).json({ error: "url required" });
   if (!(action in TRACK_ACTIONS)) {
     return res.status(400).json({ error: "unknown action" });
   }
   try {
-    const tracker = {
-      applied: [],
-      shortlisted: [],
-      rejected: [],
-      excluded: [],
-      notes: {},
-      ...readJson(TRACKER_FILE, {}),
-    };
-    const today = new Date().toISOString().split("T")[0];
-    const key = listingKey(url);
-
-    let entry = null;
-    for (const category of TRACKER_CATEGORIES) {
-      const idx = tracker[category].findIndex((e) => listingKey(e.url) === key);
-      if (idx > -1) entry = tracker[category].splice(idx, 1)[0];
-    }
-
-    const category = TRACK_ACTIONS[action];
-    if (category) {
-      entry = entry || {
-        url,
-        address: address || null,
-        price: price || null,
-        date: today,
-      };
-      if (action === "reject") entry.rejectedDate = today;
-      if (action === "exclude") entry.reason = reason || null;
-      tracker[category].push(entry);
-    }
-
-    fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+    trackListing(url, action, req.body);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -372,7 +376,7 @@ app.get("/api/profile", (req, res) => {
 
 app.post("/api/profile", (req, res) => {
   const profile = {};
-  for (const field of PROFILE_FIELDS) {
+  for (const field of [...PROFILE_FIELDS, "message"]) {
     if (req.body[field] !== undefined && req.body[field] !== "") {
       profile[field] = req.body[field];
     }
@@ -387,16 +391,20 @@ app.post("/api/profile", (req, res) => {
 
 // ── API: Save an application message ─────────────────────────────────────
 
+function saveApplication(url, message) {
+  const appDir = path.join(DATA_DIR, "applications");
+  fs.mkdirSync(appDir, { recursive: true });
+  const name = listingKey(url).replace(/[^a-zA-Z0-9-]/g, "_").slice(-80);
+  fs.writeFileSync(path.join(appDir, `${name}.md`), `${url}\n\n${message}\n`);
+}
+
 app.post("/api/application", (req, res) => {
   const { url, message } = req.body;
   if (!url || !message) {
     return res.status(400).json({ error: "url and message required" });
   }
   try {
-    const appDir = path.join(DATA_DIR, "applications");
-    fs.mkdirSync(appDir, { recursive: true });
-    const name = listingKey(url).replace(/[^a-zA-Z0-9-]/g, "_").slice(-80);
-    fs.writeFileSync(path.join(appDir, `${name}.md`), `${url}\n\n${message}\n`);
+    saveApplication(url, message);
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -569,6 +577,129 @@ app.post("/api/send-flatfox", async (req, res) => {
   }
 });
 
+// ── API: Send the saved message to many Flatfox listings ────────────────
+
+// Small batches with pauses keep the sending pace close to a person's, so
+// Flatfox does not treat the account as a spammer.
+const FLATFOX_BATCH_LIMIT = 20;
+const FLATFOX_BATCH_MAX_FAILURES_IN_ROW = 3;
+app.locals.flatfoxBatchPauseMs = () => 20000 + Math.random() * 20000;
+app.locals.sendFlatfox = (application) =>
+  sendFlatfoxApplication(
+    application,
+    persistentFlatfoxLauncher(FLATFOX_BROWSER_PROFILE_DIR),
+  );
+
+let flatfoxBatch = null;
+
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function batchStatus() {
+  if (!flatfoxBatch) return { running: false };
+  const { running, total, sent, failed, current, stopping } = flatfoxBatch;
+  return { running, total, sent, failed, current, stopping };
+}
+
+function trackedKeys() {
+  const tracker = readJson(TRACKER_FILE, {});
+  return new Set(
+    TRACKER_CATEGORIES.flatMap((category) =>
+      (tracker[category] || []).map((e) => listingKey(e.url)),
+    ),
+  );
+}
+
+async function runFlatfoxBatch(batch, listings, profile) {
+  let failuresInRow = 0;
+  for (const [index, listing] of listings.entries()) {
+    if (batch.stopping) break;
+    if (index > 0) await wait(app.locals.flatfoxBatchPauseMs());
+    while (flatfoxBrowserBusy && !batch.stopping) await wait(1000);
+    if (batch.stopping) break;
+
+    const message = fillMessage(profile.message, listing);
+    batch.current = listing.address || listing.url;
+    flatfoxBrowserBusy = true;
+    try {
+      await app.locals.sendFlatfox({
+        url: listing.url,
+        message,
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone,
+      });
+      saveApplication(listing.url, message);
+      trackListing(listing.url, "apply", listing);
+      batch.sent.push(listing.url);
+      failuresInRow = 0;
+    } catch (e) {
+      batch.failed.push({
+        url: listing.url,
+        address: listing.address,
+        error: e.message.substring(0, 300),
+      });
+      failuresInRow += 1;
+      if (failuresInRow >= FLATFOX_BATCH_MAX_FAILURES_IN_ROW) break;
+    } finally {
+      flatfoxBrowserBusy = false;
+    }
+  }
+  batch.current = null;
+  batch.running = false;
+}
+
+app.get("/api/send-flatfox-batch", (req, res) => {
+  res.json(batchStatus());
+});
+
+app.post("/api/send-flatfox-batch", (req, res) => {
+  if (flatfoxBatch?.running) {
+    return res.status(409).json({ error: "Messages are already being sent." });
+  }
+  const profile = readJson(PROFILE_FILE, {}) || {};
+  if (!profile.message?.trim()) {
+    return res.status(400).json({
+      error: "Write your message in the Profile tab first.",
+    });
+  }
+  const urls = Array.isArray(req.body.urls) ? req.body.urls : [];
+  const wanted = new Set(urls.map(listingKey));
+  const tracked = trackedKeys();
+  const listings = loadAllListings()
+    .filter((l) => l.source === "flatfox")
+    .filter((l) => wanted.has(listingKey(l.url)))
+    .filter((l) => !tracked.has(listingKey(l.url)))
+    .slice(0, FLATFOX_BATCH_LIMIT);
+  if (listings.length === 0) {
+    return res.status(400).json({ error: "No new Flatfox listings to send to." });
+  }
+  try {
+    validateFlatfoxApplication({
+      ...profile,
+      url: listings[0].url,
+      message: fillMessage(profile.message, listings[0]),
+    });
+  } catch (e) {
+    return res.status(400).json({ error: e.message });
+  }
+
+  flatfoxBatch = {
+    running: true,
+    total: listings.length,
+    sent: [],
+    failed: [],
+    current: null,
+    stopping: false,
+  };
+  runFlatfoxBatch(flatfoxBatch, listings, profile);
+  res.json(batchStatus());
+});
+
+app.post("/api/send-flatfox-batch/stop", (req, res) => {
+  if (flatfoxBatch?.running) flatfoxBatch.stopping = true;
+  res.json(batchStatus());
+});
+
 // ── API: Generate application message with a local model ──────────────────
 
 const OLLAMA_URL = "http://localhost:11434";
@@ -606,6 +737,20 @@ export function germanLevel(languages) {
   return entries.some((entry) => FLUENT_PATTERN.test(entry)) ? "fluent" : "learning";
 }
 
+function findListing(url) {
+  const key = listingKey(url);
+  return loadAllListings().find((l) => listingKey(l.url) === key);
+}
+
+/** The saved message with {address} and {title} filled in for a listing. */
+export function fillMessage(template, listing) {
+  const title = (listing?.description || "").split("\n")[0].trim();
+  return template
+    .replaceAll("{address}", listing?.address || title)
+    .replaceAll("{title}", title || listing?.address || "")
+    .trim();
+}
+
 app.post("/api/generate", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "url required" });
@@ -618,8 +763,11 @@ app.post("/api/generate", async (req, res) => {
     });
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
+  if (profile.message?.trim()) {
+    return res.json({ message: fillMessage(profile.message, findListing(url)) });
+  }
   // Contact details are for the contact form and stay out of the prompt.
-  const { email, phone, ...promptProfile } = profile;
+  const { email, phone, message, ...promptProfile } = profile;
 
   const listing = loadCachedListing(url);
   if (!listing) {

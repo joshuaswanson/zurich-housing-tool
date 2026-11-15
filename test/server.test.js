@@ -397,3 +397,28 @@ test("scan status is empty before a scan and reported after one", async () => {
   assert.equal(body.sources.flatfox.count, 2);
   assert.equal(body.fetchingDetails, false);
 });
+
+test("geocoding retries after network errors and remembers misses", async () => {
+  const { geocodeAddress } = await import("../src/lib.js");
+  const answers = [
+    () => {
+      throw new Error("offline");
+    },
+    () => Response.json([{ lat: "47.37", lon: "8.54" }]),
+    () => Response.json([]),
+  ];
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => answers[calls++]();
+  try {
+    assert.equal(await geocodeAddress("Seefeldstrasse 1"), null);
+    const found = { lat: 47.37, lng: 8.54 };
+    assert.deepEqual(await geocodeAddress("Seefeldstrasse 1"), found);
+    assert.deepEqual(await geocodeAddress("Seefeldstrasse 1"), found);
+    assert.equal(await geocodeAddress("Nowhere 99"), null);
+    assert.equal(await geocodeAddress("Nowhere 99"), null);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.equal(calls, 3);
+});

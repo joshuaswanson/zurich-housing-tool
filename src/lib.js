@@ -95,7 +95,8 @@ function saveGeocodeCache(cache) {
 
 /**
  * Geocode an address to { lat, lng } using Nominatim (OpenStreetMap).
- * Results are permanently cached to avoid rate limiting.
+ * Matches and "no match" answers are cached to stay within Nominatim's rate
+ * limit. Network and server errors are not, so the next call tries again.
  * Returns null if geocoding fails.
  */
 export async function geocodeAddress(address) {
@@ -103,8 +104,12 @@ export async function geocodeAddress(address) {
 
   const cache = loadGeocodeCache();
   const key = address.trim().toLowerCase();
+  // false marks an address with no match. A null entry may come from a
+  // network error, so it is looked up again.
+  if (cache[key] === false) return null;
   if (cache[key]) return cache[key];
 
+  let results;
   try {
     const suffix = GEOCODE_SUFFIX ? ", " + GEOCODE_SUFFIX : "";
     const query = encodeURIComponent(address + suffix);
@@ -112,21 +117,20 @@ export async function geocodeAddress(address) {
       `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`,
       { headers: { "User-Agent": "swiss-housing-monitor/2.0" } },
     );
-    const results = await resp.json();
-    if (results.length > 0) {
-      const coords = {
-        lat: parseFloat(results[0].lat),
-        lng: parseFloat(results[0].lon),
-      };
-      cache[key] = coords;
-      saveGeocodeCache(cache);
-      return coords;
-    }
-  } catch {}
+    if (!resp.ok) return null;
+    results = await resp.json();
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(results)) return null;
 
-  cache[key] = null;
+  const coords =
+    results.length > 0
+      ? { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) }
+      : null;
+  cache[key] = coords || false;
   saveGeocodeCache(cache);
-  return null;
+  return coords;
 }
 
 // ── Text ──────────────────────────────────────────────────────────────────

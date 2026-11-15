@@ -34,35 +34,6 @@ Message writing uses Apple Intelligence on macOS 26 or later. You can also insta
 
 To send Flatfox messages from your own account, connect it in the Profile tab. Flatfox's own login page opens, so your password never passes through the app.
 
-## Building from source
-
-Building the app needs [Node.js](https://nodejs.org) and Xcode:
-
-```bash
-git clone https://github.com/joshuaswanson/zurich-housing-tool.git
-cd zurich-housing-tool
-npm install
-npm run app
-```
-
-This creates `build/Zurich Housing Tool.app`. `npm run release` publishes the version in `package.json` as a GitHub release that installed copies pick up through [Sparkle](https://sparkle-project.org). It signs the update with the Sparkle key in your login Keychain.
-
-### File structure
-
-```
-macos/                The app window, the Apple Intelligence helper, the icon, and the build and release scripts
-src/
-  server.js           Background process behind the app window
-  scan.js             Scan all sources
-  details.mjs         Fetch full listing details
-  listings.js         Combine the source caches into one listing list
-  lib.js              Shared utilities
-  sources/            One module per housing site
-public/               The app's interface
-test/                 Tests
-assets/               Images for the README
-```
-
 ## Support
 
 If you find this useful, [buy me a coffee](https://buymeacoffee.com/swanson).

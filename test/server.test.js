@@ -451,3 +451,14 @@ test("an apartment search drops room-only sites and writes to a landlord", async
   assert.match(prompt, /landlord or property manager/);
   assert.match(prompt, /application dossier/);
 });
+
+test("only a fluent German entry counts as speaking German", async () => {
+  const { germanLevel } = await import("../src/server.js");
+  assert.equal(germanLevel("Deutsch (Muttersprache), Englisch"), "fluent");
+  assert.equal(germanLevel("English native, German C1"), "fluent");
+  assert.equal(germanLevel("English, a bit of German"), "learning");
+  assert.equal(germanLevel("Native English and basic German"), "learning");
+  assert.equal(germanLevel("Fluent in English and German A2"), "learning");
+  assert.equal(germanLevel("English, French"), "none");
+  assert.equal(germanLevel(undefined), "none");
+});

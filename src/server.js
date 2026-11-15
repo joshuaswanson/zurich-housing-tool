@@ -553,6 +553,21 @@ async function chooseOllamaModel() {
   return bySize[0]?.name || null;
 }
 
+const FLUENT_PATTERN =
+  /fluent|native|mother tongue|bilingual|\bC[12]\b|fliessend|fließend|Muttersprache|verhandlungssicher/i;
+
+/**
+ * "fluent", "learning" or "none" from the profile's free-text languages.
+ * Only a German entry that states a fluent level counts as fluent.
+ */
+export function germanLevel(languages) {
+  const entries = (languages || "")
+    .split(/[,;/\n]|\band\b|\bund\b/i)
+    .filter((entry) => /german|deutsch/i.test(entry));
+  if (entries.length === 0) return "none";
+  return entries.some((entry) => FLUENT_PATTERN.test(entry)) ? "fluent" : "learning";
+}
+
 app.post("/api/generate", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "url required" });
@@ -588,12 +603,12 @@ app.post("/api/generate", async (req, res) => {
     /[äöüß]|Zürich|Strasse|Wohnung/i.test(listingDesc) &&
     !/english version|ENG|For English/i.test(listingDesc.substring(0, 200));
 
-  const speaksGerman = /german|deutsch/i.test(profile.languages || "");
+  const german = germanLevel(profile.languages);
   const languageNote = !isGerman
     ? "The listing is in English. Write in English only."
-    : speaksGerman
+    : german === "fluent"
       ? "The listing is in German. Write the message in German only."
-      : "The listing is in German. Write the message in German first, then add the line '(Übersetzt mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and the English version below it. In the German version, say briefly that you are learning German and are comfortable communicating in English.";
+      : `The listing is in German. Write the message in German first, then add the line '(Übersetzt mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and the English version below it. In the German version, say briefly that ${german === "learning" ? "you are learning German and" : "you"} are comfortable communicating in English.`;
 
   const task =
     currentSearch().type === "apartment"

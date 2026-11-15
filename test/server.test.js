@@ -465,12 +465,10 @@ test("only a fluent German entry counts as speaking German", async () => {
 
 test("a saved message is used for every listing in place of a generated one", async () => {
   const { fillMessage } = await import("../src/server.js");
-  const listing = { address: "8004 Zürich", description: "Sunny room\nMore text" };
   assert.equal(
-    fillMessage("Hello, I am interested in {title} at {address}.", listing),
-    "Hello, I am interested in Sunny room at 8004 Zürich.",
+    fillMessage("Is the room at {address} free? {address}", { address: "8004 Zürich" }),
+    "Is the room at 8004 Zürich free? 8004 Zürich",
   );
-  assert.equal(fillMessage("About {address}", { description: "Loft" }), "About Loft");
 
   writeJson(path.join(dataDir, "flatfox_cache.json"), [
     { pk: 10000001, latitude: 47.3808, longitude: 8.5173, price_display: 1200, address: "8004 Zürich" },

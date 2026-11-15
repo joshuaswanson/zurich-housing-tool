@@ -1072,11 +1072,7 @@ function renderBatchButton() {
 }
 
 function fillMessage(template, listing) {
-  const title = (listing.description || "").split("\n")[0].trim();
-  return template
-    .replaceAll("{address}", listing.address || title)
-    .replaceAll("{title}", title || listing.address || "")
-    .trim();
+  return template.replaceAll("{address}", listing.address || "").trim();
 }
 
 function showBatchControls({ send = false, stop = false, profile = false }) {
@@ -1117,8 +1113,8 @@ async function openBatch() {
   $("batch-intro").textContent = t("batch_intro");
   $("batch-list").innerHTML = batchListings
     .map(
-      (l) =>
-        `<li><span>${esc(l.address || t("address_missing"))}</span><span class="secondary">CHF ${esc(l.price)}</span></li>`,
+      (l, i) =>
+        `<li><button type="button" class="batch-item" data-index="${i}" aria-pressed="${i === 0}"><span>${esc(l.address || t("address_missing"))}</span><span class="secondary">CHF ${esc(l.price)}</span></button></li>`,
     )
     .join("");
   $("batch-preview").textContent = fillMessage(savedMessage, batchListings[0]);
@@ -1194,6 +1190,17 @@ function openProfileFromBatch() {
   $("profile-form").elements.message.focus();
 }
 
+$("batch-list").addEventListener("click", (e) => {
+  const item = e.target.closest(".batch-item");
+  if (!item) return;
+  $("batch-list").querySelectorAll(".batch-item").forEach((other) => {
+    other.setAttribute("aria-pressed", other === item);
+  });
+  $("batch-preview").textContent = fillMessage(
+    savedMessage,
+    batchListings[item.dataset.index],
+  );
+});
 $("batch-open").addEventListener("click", openBatch);
 $("batch-send").addEventListener("click", startBatch);
 $("batch-stop").addEventListener("click", stopBatch);

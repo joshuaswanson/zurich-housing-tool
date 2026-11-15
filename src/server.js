@@ -742,13 +742,9 @@ function findListing(url) {
   return loadAllListings().find((l) => listingKey(l.url) === key);
 }
 
-/** The saved message with {address} and {title} filled in for a listing. */
+/** The saved message with {address} filled in for a listing. */
 export function fillMessage(template, listing) {
-  const title = (listing?.description || "").split("\n")[0].trim();
-  return template
-    .replaceAll("{address}", listing?.address || title)
-    .replaceAll("{title}", title || listing?.address || "")
-    .trim();
+  return template.replaceAll("{address}", listing?.address || "").trim();
 }
 
 app.post("/api/generate", async (req, res) => {

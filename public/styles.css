@@ -1322,3 +1322,19 @@ dialog textarea {
 .api-heading {
   font-weight: 600;
 }
+
+.batch-item {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.batch-item:hover,
+.batch-item[aria-pressed="true"] {
+  background: var(--line-soft);
+}

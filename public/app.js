@@ -352,11 +352,8 @@ function renderTable(listings) {
             <div>${esc(availability(l))}</div>
             ${endDate(l) ? `<div class="secondary">${esc(t("until", { date: endDate(l) }))}</div>` : ""}
           </td>
-          <td><span class="source"><i class="dot dot-${esc(l.source)}"></i>${esc(l.source)}</span></td>
           <td>
-            <div class="row-actions">
-              <a href="${esc(l.url)}" target="_blank" rel="noopener">${t("open")}</a>
-            </div>
+            <a class="source source-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(t("open_on", { source: l.source }))}"><i class="dot dot-${esc(l.source)}"></i>${esc(l.source)}<span class="external" aria-hidden="true">↗</span></a>
           </td>
         </tr>`,
     )
@@ -498,7 +495,7 @@ function detailRow(l) {
   row.dataset.url = l.url;
   row.dataset.id = l.id;
   row.innerHTML = `
-    <td colspan="6">
+    <td colspan="5">
       <div class="detail">
         <div data-role="sections"></div>
         <div class="detail-note">

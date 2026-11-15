@@ -5,7 +5,7 @@
   </picture>
 </h1>
 
-This tool scrapes the major Swiss housing platforms, filters the results, tracks your applications, and generates an application message for each listing from its description.
+A macOS app that scrapes the major Swiss housing platforms, filters and maps the results, and writes and sends application messages en masse.
 
 ## Features
 

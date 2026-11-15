@@ -864,6 +864,7 @@ function renderFlatfoxSession() {
   button.hidden = flatfoxStep !== null;
   button.disabled =
     flatfoxSession.checking || flatfoxSession.busy || flatfoxSession.connected;
+  button.classList.toggle("is-done", Boolean(flatfoxSession.connected));
   button.textContent = t(
     flatfoxSession.connected
       ? "flatfox_connected_button"

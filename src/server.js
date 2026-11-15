@@ -38,7 +38,7 @@ import {
 } from "./sources/flatfox-send.mjs";
 import {
   checkFlatfoxSession,
-  loginFlatfox,
+  FlatfoxLogin,
   persistentFlatfoxLauncher,
 } from "./sources/flatfox-session.mjs";
 
@@ -464,24 +464,64 @@ app.get("/api/flatfox-session", async (req, res) => {
   }
 });
 
-app.post("/api/flatfox-session/login", async (req, res) => {
-  if (flatfoxBrowserBusy) {
-    return res.status(409).json({
-      error: "Flatfox is already being opened or used by another request.",
-    });
-  }
+// A sign-in keeps the Flatfox profile open between its steps and gives it
+// up after a few idle minutes.
+const FLATFOX_LOGIN_IDLE_MS = 5 * 60 * 1000;
+let flatfoxLogin = null;
+let flatfoxLoginTimer = null;
 
-  flatfoxBrowserBusy = true;
-  try {
-    ensureDataDir();
-    const status = await loginFlatfox(FLATFOX_BROWSER_PROFILE_DIR);
-    flatfoxConnected = status.connected;
-    res.json(status);
-  } catch (e) {
-    res.status(502).json({ error: e.message.substring(0, 300) });
-  } finally {
+async function endFlatfoxLogin() {
+  clearTimeout(flatfoxLoginTimer);
+  const login = flatfoxLogin;
+  flatfoxLogin = null;
+  if (login) {
+    await login.close();
     flatfoxBrowserBusy = false;
   }
+}
+
+app.post("/api/flatfox-session/login", async (req, res) => {
+  const { email, password, code } = req.body;
+  clearTimeout(flatfoxLoginTimer);
+  try {
+    let status;
+    if (email) {
+      await endFlatfoxLogin();
+      if (flatfoxBrowserBusy) {
+        return res.status(409).json({
+          error: "Flatfox is busy with another request. Try again in a moment.",
+        });
+      }
+      flatfoxBrowserBusy = true;
+      ensureDataDir();
+      flatfoxLogin = new FlatfoxLogin(FLATFOX_BROWSER_PROFILE_DIR);
+      status = await flatfoxLogin.start(String(email).trim());
+    } else if (flatfoxLogin) {
+      status = await flatfoxLogin.submit({ password, code });
+    } else {
+      return res.status(409).json({ error: "Start again with your email." });
+    }
+    if (status.connected) {
+      flatfoxConnected = true;
+      await endFlatfoxLogin();
+    } else {
+      flatfoxLoginTimer = setTimeout(endFlatfoxLogin, FLATFOX_LOGIN_IDLE_MS);
+    }
+    res.json(status);
+  } catch (e) {
+    // A wrong password or code can be retried in the same sign-in.
+    if (flatfoxLogin?.step) {
+      flatfoxLoginTimer = setTimeout(endFlatfoxLogin, FLATFOX_LOGIN_IDLE_MS);
+    } else {
+      await endFlatfoxLogin();
+    }
+    res.status(400).json({ error: e.message.split("\n")[0].substring(0, 300) });
+  }
+});
+
+app.post("/api/flatfox-session/cancel", async (req, res) => {
+  await endFlatfoxLogin();
+  res.json({ ok: true });
 });
 
 app.post("/api/send-flatfox", async (req, res) => {

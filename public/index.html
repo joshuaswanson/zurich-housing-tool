@@ -413,15 +413,36 @@
             These details are used to generate application messages. They stay on this Mac.
           </p>
           <div class="account-connection">
-            <div>
-              <strong data-i18n="flatfox_account">Flatfox account</strong>
-              <p class="secondary" id="flatfox-session-status" role="status">
-                Checking connection…
-              </p>
+            <div class="account-header">
+              <div>
+                <strong data-i18n="flatfox_account">Flatfox account</strong>
+                <p class="secondary" id="flatfox-session-status" role="status">
+                  Checking connection…
+                </p>
+              </div>
+              <button class="button" id="flatfox-login" type="button" disabled>
+                <span data-i18n="flatfox_connect">Connect Flatfox</span>
+              </button>
             </div>
-            <button class="button" id="flatfox-login" type="button" disabled>
-              <span data-i18n="flatfox_connect">Connect Flatfox</span>
-            </button>
+            <form class="flatfox-signin" id="flatfox-signin" hidden>
+              <label class="profile-field">
+                <span data-i18n="flatfox_email">Email</span>
+                <input class="text-input" type="email" id="flatfox-email" autocomplete="username" spellcheck="false" required />
+              </label>
+              <label class="profile-field" id="flatfox-password-field" hidden>
+                <span data-i18n="flatfox_password">Flatfox password</span>
+                <input class="text-input" type="password" id="flatfox-password" autocomplete="current-password" />
+              </label>
+              <label class="profile-field" id="flatfox-code-field" hidden>
+                <span id="flatfox-code-label" data-i18n="flatfox_code">Code from Flatfox's email</span>
+                <input class="text-input" type="text" id="flatfox-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" />
+              </label>
+              <div class="api-actions">
+                <span class="api-status" id="flatfox-signin-status" role="status"></span>
+                <button class="button" type="button" id="flatfox-cancel" data-i18n="cancel">Cancel</button>
+                <button class="button button-primary" type="submit" id="flatfox-continue" data-i18n="flatfox_continue">Continue</button>
+              </div>
+            </form>
           </div>
           <form class="profile-form" id="profile-form">
             <div id="profile-fields"></div>

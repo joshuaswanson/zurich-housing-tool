@@ -1142,10 +1142,8 @@ dialog textarea {
 }
 
 .account-connection {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  display: grid;
+  gap: 14px;
   max-width: 60ch;
   margin-bottom: 20px;
   padding: 14px;
@@ -1156,6 +1154,28 @@ dialog textarea {
 
 .account-connection p {
   margin-top: 3px;
+}
+
+.account-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.flatfox-signin {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.flatfox-signin .text-input {
+  padding: 7px 10px;
+}
+
+.flatfox-signin .api-status.is-error {
+  color: var(--danger);
 }
 
 .dialog-hint {

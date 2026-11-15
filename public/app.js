@@ -846,8 +846,6 @@ function renderFlatfoxSession() {
   const status = $("flatfox-session-status");
   if (flatfoxSession.checking) {
     status.textContent = t("flatfox_checking");
-  } else if (flatfoxSession.connecting) {
-    status.textContent = t("flatfox_connecting");
   } else if (flatfoxSession.error) {
     status.textContent = `${t("flatfox_login_failed")}: ${flatfoxSession.error}`;
   } else {
@@ -857,11 +855,9 @@ function renderFlatfoxSession() {
         : "flatfox_disconnected",
     );
   }
+  button.hidden = flatfoxStep !== null;
   button.disabled =
-    flatfoxSession.checking ||
-    flatfoxSession.connecting ||
-    flatfoxSession.busy ||
-    flatfoxSession.connected;
+    flatfoxSession.checking || flatfoxSession.busy || flatfoxSession.connected;
   button.textContent = t(
     flatfoxSession.connected
       ? "flatfox_connected_button"
@@ -887,30 +883,76 @@ async function loadFlatfoxSession() {
   renderFlatfoxSession();
 }
 
-async function connectFlatfox() {
-  flatfoxSession = {
-    checking: false,
-    connecting: true,
-    connected: flatfoxSession.connected,
-  };
+// The steps follow Flatfox's own login form: email, then the password or a
+// code Flatfox emails, and a code again when it does not know this Mac yet.
+let flatfoxStep = null;
+
+function setFlatfoxStatus(text, isError = false) {
+  const status = $("flatfox-signin-status");
+  status.textContent = text;
+  status.classList.toggle("is-error", isError);
+}
+
+function showFlatfoxStep(step, { newDevice = false } = {}) {
+  flatfoxStep = step;
+  $("flatfox-signin").hidden = step === null;
+  $("flatfox-email").readOnly = step !== "email";
+  $("flatfox-password-field").hidden = step !== "password";
+  $("flatfox-code-field").hidden = step !== "code";
+  $("flatfox-code-label").textContent = t(
+    newDevice ? "flatfox_code_new_device" : "flatfox_code",
+  );
+  setFlatfoxStatus("");
   renderFlatfoxSession();
+  const field = { email: "flatfox-email", password: "flatfox-password", code: "flatfox-code" }[step];
+  if (field) $(field).focus();
+}
+
+function connectFlatfox() {
+  const profileEmail = $("profile-fields").querySelector("input[name='email']")?.value.trim();
+  if (!$("flatfox-email").value && profileEmail) $("flatfox-email").value = profileEmail;
+  $("flatfox-password").value = "";
+  $("flatfox-code").value = "";
+  showFlatfoxStep("email");
+}
+
+async function continueFlatfox(e) {
+  e.preventDefault();
+  const payload =
+    flatfoxStep === "email"
+      ? { email: $("flatfox-email").value.trim() }
+      : flatfoxStep === "password"
+        ? { password: $("flatfox-password").value }
+        : { code: $("flatfox-code").value.replace(/\s/g, "") };
+  $("flatfox-continue").disabled = true;
+  setFlatfoxStatus(t("flatfox_waiting"));
   try {
     const res = await fetch("/api/flatfox-session/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
+    if (res.status === 409) showFlatfoxStep("email");
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    flatfoxSession = { checking: false, ...data };
-  } catch (e) {
-    flatfoxSession = {
-      checking: false,
-      connected: false,
-      error: e.message,
-    };
+    if (data.connected) {
+      $("flatfox-password").value = "";
+      flatfoxSession = { checking: false, connected: true };
+      showFlatfoxStep(null);
+    } else {
+      showFlatfoxStep(data.step, data);
+    }
+  } catch (err) {
+    setFlatfoxStatus(err.message, true);
+  } finally {
+    $("flatfox-continue").disabled = false;
   }
-  renderFlatfoxSession();
+}
+
+function cancelFlatfox() {
+  $("flatfox-password").value = "";
+  showFlatfoxStep(null);
+  fetch("/api/flatfox-session/cancel", { method: "POST" }).catch(() => {});
 }
 
 function renderProfile(profile) {
@@ -1681,6 +1723,8 @@ $("dialog-send").addEventListener("click", handOverDraft);
 $("dialog-applied").addEventListener("click", markDraftApplied);
 $("profile-form").addEventListener("submit", saveProfile);
 $("flatfox-login").addEventListener("click", connectFlatfox);
+$("flatfox-signin").addEventListener("submit", continueFlatfox);
+$("flatfox-cancel").addEventListener("click", cancelFlatfox);
 $("message-dialog").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close();
 });

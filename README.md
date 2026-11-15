@@ -32,7 +32,7 @@ Click Scan to collect listings from all four sites. Fill in the Profile tab once
 
 Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenAI or OpenRouter API key in the settings. Everything else works without any of them.
 
-To send Flatfox messages from your own account, connect it in the Profile tab. Flatfox's own login page opens, so your password never passes through the app.
+To send Flatfox messages from your own account, sign in to Flatfox in the Profile tab. Your password goes only to Flatfox and is not saved.
 
 ## Support
 

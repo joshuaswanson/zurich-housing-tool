@@ -11,7 +11,6 @@ const ROOT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const HOME_DIR = process.env.ZHT_HOME || ROOT_DIR;
 
 export const ZURICH_CENTER = { lat: 47.3764, lng: 8.5483 };
-export const MAX_PRICE = 3000;
 export const MIN_DURATION_DAYS = 60;
 
 export const DATA_DIR = path.join(HOME_DIR, "data");
@@ -35,6 +34,32 @@ if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {
 }
 export const PROFILE_FILE = path.join(HOME_DIR, "profile.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
+export const SEARCH_FILE = path.join(DATA_DIR, "search.json");
+
+// wgzimmer and students.ch list rooms in shared flats only. The ronorp ids are
+// its Wohnen subcategories: 144 WG, 142 Wohnung, 141 furnished apartment,
+// 143 house.
+export const SEARCHES = {
+  room: {
+    maxPrice: 3000,
+    sources: ["flatfox", "wgzimmer", "ronorp", "students"],
+    flatfoxCategories: ["SHARED"],
+    ronorpSubcategories: ["144"],
+  },
+  apartment: {
+    maxPrice: 6000,
+    sources: ["flatfox", "ronorp"],
+    flatfoxCategories: ["APARTMENT", "HOUSE"],
+    ronorpSubcategories: ["142", "141", "143"],
+  },
+};
+
+/** The search the user picked in the settings, rooms unless they chose apartments. */
+export function currentSearch() {
+  const { housing } = readJson(SEARCH_FILE, {});
+  const type = housing in SEARCHES ? housing : "room";
+  return { type, ...SEARCHES[type] };
+}
 
 export const FLATFOX_BOUNDS = {
   north: 47.4204,

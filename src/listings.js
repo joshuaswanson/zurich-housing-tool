@@ -12,6 +12,7 @@ import {
   STUDENT_HOUSING_PATTERN,
   MIN_DURATION_DAYS,
   SPAM_PATTERNS,
+  currentSearch,
   distKm,
   hasEndDate,
   isGenderRestricted,
@@ -31,15 +32,18 @@ function listingFlags(text, dates) {
 }
 
 /**
- * Every listing from the four source caches in one shape, with the flags the
+ * Every listing from the caches of the current search's sources in one shape, with the flags the
  * filters use. Wgzimmer and flatfox entries are merged with fetched details.
  */
 export function loadAllListings() {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
+  const { sources } = currentSearch();
+  const sourceCache = (source, file) =>
+    sources.includes(source) ? readJson(file, []) : [];
 
   // wgzimmer
-  for (const l of readJson(WGZIMMER_LISTINGS_FILE, [])) {
+  for (const l of sourceCache("wgzimmer", WGZIMMER_LISTINGS_FILE)) {
     if (!l.price) continue;
     const uuid = l.url.match(/([a-f0-9-]{36})/)?.[1];
     const id = `wgzimmer-${uuid || l.url.slice(-20)}`;
@@ -70,7 +74,7 @@ export function loadAllListings() {
   }
 
   // flatfox
-  for (const p of readJson(FLATFOX_CACHE_FILE, [])) {
+  for (const p of sourceCache("flatfox", FLATFOX_CACHE_FILE)) {
     const km = distKm(ZURICH_CENTER, { lat: p.latitude, lng: p.longitude });
     const id = `flatfox-${p.pk}`;
     const url = `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`;
@@ -97,7 +101,7 @@ export function loadAllListings() {
   }
 
   // ronorp
-  for (const l of readJson(RONORP_CACHE_FILE, [])) {
+  for (const l of sourceCache("ronorp", RONORP_CACHE_FILE)) {
     if (!l.price || !l.isOffer) continue;
     const id = `ronorp-${l.url.split("/").pop()}`;
     const hasCoords = l.lat && l.lng;
@@ -123,7 +127,7 @@ export function loadAllListings() {
   }
 
   // students.ch
-  for (const l of readJson(STUDENTS_CACHE_FILE, [])) {
+  for (const l of sourceCache("students", STUDENTS_CACHE_FILE)) {
     if (!l.price) continue;
     const id = `students-${l.url.match(/details\/(\d+)/)?.[1]}`;
     const hasCoords = l.lat && l.lng;

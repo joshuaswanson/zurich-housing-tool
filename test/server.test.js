@@ -422,3 +422,32 @@ test("geocoding retries after network errors and remembers misses", async () => 
   }
   assert.equal(calls, 3);
 });
+
+test("the search covers rooms until apartments are chosen", async () => {
+  assert.deepEqual((await get("/api/search")).body, { housing: "room", maxPrice: 3000 });
+  assert.equal((await post("/api/search", { housing: "castle" })).status, 400);
+});
+
+test("an apartment search drops room-only sites and writes to a landlord", async () => {
+  const { status, body } = await post("/api/search", { housing: "apartment" });
+  assert.equal(status, 200);
+  assert.deepEqual(body, { housing: "apartment", maxPrice: 6000 });
+  assert.ok(!fs.existsSync(path.join(dataDir, "flatfox_cache.json")));
+  assert.ok(!fs.existsSync(path.join(dataDir, "ronorp_cache.json")));
+  assert.deepEqual((await get("/api/listings")).body, []);
+
+  const realFetch = globalThis.fetch;
+  let prompt;
+  globalThis.fetch = async (url, options) => {
+    if (!String(url).startsWith("https://api.openai.com/")) return realFetch(url, options);
+    prompt = JSON.parse(options.body).messages[0].content;
+    return Response.json({ choices: [{ message: { content: "Guten Tag" } }] });
+  };
+  try {
+    assert.equal((await post("/api/generate", { url: WG_URL, provider: "api" })).status, 200);
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+  assert.match(prompt, /landlord or property manager/);
+  assert.match(prompt, /application dossier/);
+});

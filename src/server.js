@@ -13,7 +13,11 @@ import {
   WGZIMMER_LISTINGS_FILE,
   TRACKER_FILE,
   PROFILE_FILE,
-  MAX_PRICE,
+  FLATFOX_CACHE_FILE,
+  RONORP_CACHE_FILE,
+  SEARCHES,
+  SEARCH_FILE,
+  currentSearch,
   loadCachedListing,
   SCAN_STATUS_FILE,
   listingKey,
@@ -96,7 +100,7 @@ function unfetchedWgzimmerUrls(limit) {
     ),
   );
   const urls = readJson(WGZIMMER_LISTINGS_FILE, [])
-    .filter((l) => l.price && l.price <= MAX_PRICE)
+    .filter((l) => l.price && l.price <= currentSearch().maxPrice)
     .filter((l) => !loadCachedListing(l.url))
     .filter((l) => !trackedKeys.has(listingKey(l.url)))
     .sort((a, b) => a.price - b.price)
@@ -127,6 +131,36 @@ function scanStatus() {
 
 app.get("/api/scan-status", (req, res) => {
   res.json(scanStatus());
+});
+
+// ── API: Rooms or apartments ──────────────────────────────────────────────
+
+function publicSearch() {
+  const { type, maxPrice } = currentSearch();
+  return { housing: type, maxPrice };
+}
+
+app.get("/api/search", (req, res) => {
+  res.json(publicSearch());
+});
+
+// flatfox and ronorp keep one cache for both searches, so switching clears
+// them until the next scan.
+app.post("/api/search", (req, res) => {
+  const { housing } = req.body;
+  if (!(housing in SEARCHES)) {
+    return res.status(400).json({ error: "Unknown search" });
+  }
+  if (scanInProgress || detailFetchInProgress) {
+    return res.status(409).json({ error: "A scan is already running." });
+  }
+  if (housing !== currentSearch().type) {
+    ensureDataDir();
+    fs.writeFileSync(SEARCH_FILE, JSON.stringify({ housing }, null, 2));
+    fs.rmSync(FLATFOX_CACHE_FILE, { force: true });
+    fs.rmSync(RONORP_CACHE_FILE, { force: true });
+  }
+  res.json(publicSearch());
 });
 
 // ── API: Drafting models available on this Mac ────────────────────────────
@@ -554,11 +588,21 @@ app.post("/api/generate", async (req, res) => {
     /[äöüß]|Zürich|Strasse|Wohnung/i.test(listingDesc) &&
     !/english version|ENG|For English/i.test(listingDesc.substring(0, 200));
 
-  const prompt = `You are writing a short, friendly WG (shared flat) application message. Write from the perspective of the applicant based on their profile below. The message should be tailored to the specific listing. Be genuine, not generic. Keep it under 200 words.
+  const speaksGerman = /german|deutsch/i.test(profile.languages || "");
+  const languageNote = !isGerman
+    ? "The listing is in English. Write in English only."
+    : speaksGerman
+      ? "The listing is in German. Write the message in German only."
+      : "The listing is in German. Write the message in German first, then add the line '(Übersetzt mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and the English version below it. In the German version, say briefly that you are learning German and are comfortable communicating in English.";
 
-${isGerman ? "The listing is in German. Write the message in German first, then add a note '(Übersetzung mit Hilfe eines Übersetzungsdienstes. Englische Originalversion unten.)' and include the English version below." : "The listing is in English. Write in English only."}
+  const task =
+    currentSearch().type === "apartment"
+      ? 'You are writing a short application message to a landlord or property manager (Verwaltung) in Switzerland about an apartment. Write from the perspective of the applicant based on their profile below. Be polite, concise and professional: introduce the applicant, their job and why the apartment fits, offer to send a complete application dossier and ask to view the apartment. Tailor it to the listing. Do not invent facts that are not in the profile. Keep it under 180 words. In German, use the formal "Sie".'
+      : "You are writing a short, friendly WG (shared flat) application message. Write from the perspective of the applicant based on their profile below. The message should be tailored to the specific listing. Be genuine, not generic. Keep it under 200 words.";
 
-${profile.languages && /german|deutsch/i.test(profile.languages) ? "" : "If writing in German, mention that you can read/follow German but need to speak English day-to-day."}
+  const prompt = `${task}
+
+${languageNote}
 
 APPLICANT PROFILE:
 ${JSON.stringify(promptProfile, null, 2)}

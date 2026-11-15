@@ -1,17 +1,17 @@
 /**
- * Scans flatfox, wgzimmer, ronorp and students.ch, writes each source's
+ * Scans the sources of the current search, writes each source's
  * cache to data/, records the scan status and when each listing was first seen.
  */
 
 import fs from "fs";
 import {
-  MAX_PRICE,
   FLATFOX_BOUNDS,
   WGZIMMER_LISTINGS_FILE,
   FLATFOX_CACHE_FILE,
   RONORP_CACHE_FILE,
   STUDENTS_CACHE_FILE,
   SCAN_STATUS_FILE,
+  currentSearch,
   fetchFlatfoxDetails,
   ensureDataDir,
   loadSeen,
@@ -29,14 +29,16 @@ const FLATFOX_MAX_SPLIT_DEPTH = 4;
  * may be truncated, so the area is then split into quadrants and each one
  * fetched separately.
  */
-async function fetchFlatfoxPins(bounds, depth = 0) {
+async function fetchFlatfoxPins(search, bounds, depth = 0) {
   const url = new URL("https://flatfox.ch/api/v1/pin/");
   url.searchParams.set("north", bounds.north);
   url.searchParams.set("south", bounds.south);
   url.searchParams.set("east", bounds.east);
   url.searchParams.set("west", bounds.west);
-  url.searchParams.set("object_category", "SHARED");
-  url.searchParams.set("max_price", MAX_PRICE);
+  for (const category of search.flatfoxCategories) {
+    url.searchParams.append("object_category", category);
+  }
+  url.searchParams.set("max_price", search.maxPrice);
   url.searchParams.set("ordering", "-created");
   url.searchParams.set("max_count", FLATFOX_PIN_LIMIT);
 
@@ -57,14 +59,16 @@ async function fetchFlatfoxPins(bounds, depth = 0) {
   ];
   const all = [];
   for (const quadrant of quadrants) {
-    all.push(...(await fetchFlatfoxPins(quadrant, depth + 1)));
+    all.push(...(await fetchFlatfoxPins(search, quadrant, depth + 1)));
   }
   return all;
 }
 
-async function scanFlatfox() {
+async function scanFlatfox(search) {
   const pinsByPk = new Map();
-  for (const p of await fetchFlatfoxPins(FLATFOX_BOUNDS)) pinsByPk.set(p.pk, p);
+  for (const p of await fetchFlatfoxPins(search, FLATFOX_BOUNDS)) {
+    pinsByPk.set(p.pk, p);
+  }
   const pins = [...pinsByPk.values()];
   try {
     const details = await fetchFlatfoxDetails(pins.map((p) => p.pk));
@@ -76,31 +80,31 @@ async function scanFlatfox() {
   return pins.map((p) => ({ id: `flatfox-${p.pk}`, price: p.price_display }));
 }
 
-async function scanWgzimmer() {
-  const listings = await scrapeWgzimmer(MAX_PRICE);
+async function scanWgzimmer(search) {
+  const listings = await scrapeWgzimmer(search.maxPrice);
   if (listings.length === 0) throw new Error("0 listings returned");
   fs.writeFileSync(WGZIMMER_LISTINGS_FILE, JSON.stringify(listings, null, 2));
   return listings
-    .filter((l) => l.price && l.price <= MAX_PRICE)
+    .filter((l) => l.price && l.price <= search.maxPrice)
     .map((l) => ({
       id: `wgzimmer-${l.url.match(/([a-f0-9-]{36})/)?.[1] || l.url.slice(-30)}`,
       price: l.price,
     }));
 }
 
-async function scanRonorp() {
-  const listings = await scrapeRonorp();
+async function scanRonorp(search) {
+  const listings = await scrapeRonorp(search.ronorpSubcategories);
   fs.writeFileSync(RONORP_CACHE_FILE, JSON.stringify(listings, null, 2));
   return listings
-    .filter((l) => l.price && l.price <= MAX_PRICE)
+    .filter((l) => l.price && l.price <= search.maxPrice)
     .map((l) => ({ id: `ronorp-${l.url.split("/").pop()}`, price: l.price }));
 }
 
-async function scanStudents() {
+async function scanStudents(search) {
   const listings = await scrapeStudents();
   fs.writeFileSync(STUDENTS_CACHE_FILE, JSON.stringify(listings, null, 2));
   return listings
-    .filter((l) => l.price && l.price <= MAX_PRICE)
+    .filter((l) => l.price && l.price <= search.maxPrice)
     .map((l) => ({
       id: `students-${l.url.match(/details\/(\d+)/)[1]}`,
       price: l.price,
@@ -114,14 +118,15 @@ const SOURCES = {
   students: scanStudents,
 };
 
-/** Scan every source and return the scan status that was written. */
+/** Scan the sources of the current search and return the scan status that was written. */
 export async function scan() {
   ensureDataDir();
+  const search = currentSearch();
   const sources = {};
   const found = [];
-  for (const [name, scanSource] of Object.entries(SOURCES)) {
+  for (const name of search.sources) {
     try {
-      const listings = await scanSource();
+      const listings = await SOURCES[name](search);
       console.log(`${name}: ${listings.length} listings`);
       found.push(...listings);
       sources[name] = { ok: true, count: listings.length };

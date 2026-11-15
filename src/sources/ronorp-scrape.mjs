@@ -1,5 +1,5 @@
 /**
- * ronorp.net source for Zurich WG listings.
+ * ronorp.net source for Zurich housing listings.
  * Opens the public housing list in a background browser and reads the posts
  * the page loads from ronorp's API while it scrolls.
  */
@@ -7,8 +7,14 @@
 import { launch } from "cloakbrowser";
 import { geocodeAddress, htmlToText } from "../lib.js";
 
-const LIST_URL =
-  "https://ronorp.net/zurich/market/housing/living?sub_category_id=%5B%22144%22%5D&city=zurich&postType=housing&categoryId=140";
+function listUrl(subcategories) {
+  const url = new URL("https://ronorp.net/zurich/market/housing/living");
+  url.searchParams.set("sub_category_id", JSON.stringify(subcategories));
+  url.searchParams.set("city", "zurich");
+  url.searchParams.set("postType", "housing");
+  url.searchParams.set("categoryId", "140");
+  return url.toString();
+}
 const POSTS_RESPONSE = "/api/market/category/housing?";
 const SCROLL_PAUSE_MS = 1200;
 const MAX_SCROLLS = 40;
@@ -79,7 +85,7 @@ async function locateByPostcode(listings) {
   }
 }
 
-async function loadPosts() {
+async function loadPosts(subcategories) {
   const browser = await launch({ headless: true });
   const posts = new Map();
   let total = Infinity;
@@ -96,7 +102,7 @@ async function loadPosts() {
         }
       } catch {}
     });
-    await page.goto(LIST_URL, { waitUntil: "networkidle", timeout: 45000 });
+    await page.goto(listUrl(subcategories), { waitUntil: "networkidle", timeout: 45000 });
     let stalled = 0;
     for (
       let scroll = 0;
@@ -115,8 +121,9 @@ async function loadPosts() {
   return [...posts.values()];
 }
 
-export async function scrapeRonorp() {
-  const offers = (await loadPosts()).map(toListing).filter((l) => l.isOffer);
+/** Offers in the given ronorp Wohnen subcategories. */
+export async function scrapeRonorp(subcategories) {
+  const offers = (await loadPosts(subcategories)).map(toListing).filter((l) => l.isOffer);
   await locateByPostcode(offers);
   return offers;
 }

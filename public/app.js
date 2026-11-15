@@ -1675,6 +1675,47 @@ $("message-dialog").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close();
 });
 
+let search = { housing: "room", maxPrice: 3000 };
+
+function showSearch(next, { showAllPrices = false } = {}) {
+  search = next;
+  document.querySelector(
+    `input[name='housing'][value='${search.housing}']`,
+  ).checked = true;
+  $("f-price").max = search.maxPrice;
+  if (showAllPrices) $("f-price").value = search.maxPrice;
+}
+
+async function loadSearch() {
+  try {
+    showSearch(await (await fetch("/api/search")).json());
+  } catch {}
+}
+
+async function setSearch(housing) {
+  const status = $("scan-status");
+  const res = await fetch("/api/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ housing }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    showSearch(search);
+    status.classList.add("is-error");
+    status.textContent = data.error;
+    return;
+  }
+  showSearch(data, { showAllPrices: true });
+  $("settings").open = false;
+  await load();
+  scan();
+}
+
+document.querySelectorAll("input[name='housing']").forEach((radio) => {
+  radio.addEventListener("change", () => setSearch(radio.value));
+});
+
 async function init() {
   try {
     showLlmChoice(await (await fetch("/api/llm-providers")).json());
@@ -1687,6 +1728,7 @@ async function init() {
     `input[name='language'][value='${language}']`,
   ).checked = true;
   translatePage();
+  await loadSearch();
   restoreFilters();
   $("target-select").innerHTML = TARGET_PRESETS
     .map((t) => `<option>${esc(t.label)}</option>`)

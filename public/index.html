@@ -74,6 +74,19 @@
             </svg>
           </summary>
           <div class="settings-menu">
+            <div class="settings-row" role="radiogroup" aria-labelledby="housing-label">
+              <span id="housing-label" data-i18n="housing">Looking for</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="housing" value="room" />
+                  <span data-i18n="housing_room">Rooms</span>
+                </label>
+                <label>
+                  <input type="radio" name="housing" value="apartment" />
+                  <span data-i18n="housing_apartment">Apartments</span>
+                </label>
+              </span>
+            </div>
             <div class="settings-row" role="radiogroup" aria-labelledby="language-label">
               <span id="language-label" data-i18n="language">Language</span>
               <span class="segmented">

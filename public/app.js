@@ -602,6 +602,15 @@ function selectListing(id, { fromMap = false } = {}) {
   else flyToListing(id);
 }
 
+function toggleListing(row) {
+  if (row.nextElementSibling?.classList.contains("detail-row")) {
+    row.nextElementSibling.remove();
+    row.classList.remove("is-active");
+  } else {
+    selectListing(row.dataset.id);
+  }
+}
+
 function revealRow(id) {
   selectTab($("tab-listings"));
   const index = filteredListings.findIndex((l) => l.id === id);
@@ -1642,13 +1651,13 @@ $("listings-body").addEventListener("click", (e) => {
     return;
   }
   const row = e.target.closest("tr.listing-row");
-  if (row && !e.target.closest("a")) selectListing(row.dataset.id);
+  if (row && !e.target.closest("a")) toggleListing(row);
 });
 $("listings-body").addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;
   if (!e.target.matches("tr.listing-row")) return;
   e.preventDefault();
-  selectListing(e.target.dataset.id);
+  toggleListing(e.target);
 });
 $("listings-body").addEventListener("mouseover", (e) => {
   const row = e.target.closest("tr.listing-row");

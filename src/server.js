@@ -615,6 +615,8 @@ app.post("/api/generate", async (req, res) => {
 
   const prompt = `${task}
 
+Use only the parts of the profile that matter for this listing and what it asks for. Leave out details that do not help this application. The message does not need to mention everything in the profile.
+
 ${languageNote}
 
 APPLICANT PROFILE:

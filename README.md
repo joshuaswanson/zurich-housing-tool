@@ -10,6 +10,7 @@ This tool scrapes the major Swiss housing platforms, filters the results, tracks
 ## Features
 
 - **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
+- **Rooms or apartments**: Look for a room in a shared flat on all four sites, or for a whole apartment or house on Flatfox and ronorp
 - **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenAI or OpenRouter
 - **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters

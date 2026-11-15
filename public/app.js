@@ -504,7 +504,7 @@ function detailRow(l) {
           <button class="button" type="button" data-action="save-note">${t("save_note")}</button>
         </div>
         <div class="row-actions" data-role="actions">
-          ${actionButtons(actions)}
+          ${actionButtons(actions.slice(0, 1))}${llmPicker()}${actionButtons(actions.slice(1))}
           <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
         </div>
         <div class="row-actions" data-role="exclude-form" hidden>
@@ -1601,20 +1601,40 @@ function focusRow(id) {
 const LLM_KEY = "zurich-housing-llm";
 let llmProvider = localStorage.getItem(LLM_KEY);
 
+let llmProviders = [];
+const API_SERVICE_NAMES = { openai: "OpenAI", openrouter: "OpenRouter" };
+
 function showLlmChoice(providers) {
+  llmProviders = providers;
   if (!providers.includes(llmProvider)) llmProvider = providers[0];
-  $("llm-setting").hidden = providers.length < 2;
-  document.querySelectorAll("input[name='llm']").forEach((radio) => {
-    radio.closest("label").hidden = !providers.includes(radio.value);
-    radio.checked = radio.value === llmProvider;
-    radio.addEventListener("change", () => {
-      llmProvider = radio.value;
-      localStorage.setItem(LLM_KEY, radio.value);
-      $("api-settings").hidden = llmProvider !== "api";
-    });
-  });
-  $("api-settings").hidden = llmProvider !== "api";
+  $("api-settings").hidden = !providers.includes("api");
 }
+
+function providerName(provider) {
+  if (provider === "apple") return "Apple";
+  if (provider === "ollama") return "Ollama";
+  return API_SERVICE_NAMES[apiSettings?.service] || "API";
+}
+
+function llmPicker() {
+  if (savedMessage || llmProviders.length < 2) return "";
+  const options = llmProviders
+    .map(
+      (p) =>
+        `<option value="${p}"${p === llmProvider ? " selected" : ""}>${esc(providerName(p))}</option>`,
+    )
+    .join("");
+  return `<select class="llm-picker" data-role="llm" aria-label="${t("llm")}" title="${t("llm")}">${options}</select>`;
+}
+
+document.addEventListener("change", (e) => {
+  if (e.target.dataset?.role !== "llm") return;
+  llmProvider = e.target.value;
+  localStorage.setItem(LLM_KEY, llmProvider);
+  document.querySelectorAll("select[data-role='llm']").forEach((select) => {
+    select.value = llmProvider;
+  });
+});
 
 let apiSettings = null;
 
@@ -1921,7 +1941,6 @@ async function setSearch(housing) {
     return;
   }
   showSearch(data, { showAllPrices: true });
-  $("settings").open = false;
   await load();
   // A scan that is already running scans again for the new choice.
   if (!scanRunning) scan();

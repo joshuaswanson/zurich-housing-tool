@@ -1313,3 +1313,12 @@ dialog textarea {
   color: var(--danger);
   font-size: 13px;
 }
+
+.llm-picker {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.api-heading {
+  font-weight: 600;
+}

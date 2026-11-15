@@ -74,19 +74,6 @@
             </svg>
           </summary>
           <div class="settings-menu">
-            <div class="settings-row" role="radiogroup" aria-labelledby="housing-label">
-              <span id="housing-label" data-i18n="housing">Looking for</span>
-              <span class="segmented">
-                <label>
-                  <input type="radio" name="housing" value="room" />
-                  <span data-i18n="housing_room">Rooms</span>
-                </label>
-                <label>
-                  <input type="radio" name="housing" value="apartment" />
-                  <span data-i18n="housing_apartment">Apartments</span>
-                </label>
-              </span>
-            </div>
             <div class="settings-row" role="radiogroup" aria-labelledby="language-label">
               <span id="language-label" data-i18n="language">Language</span>
               <span class="segmented">
@@ -117,30 +104,8 @@
                 </label>
               </span>
             </div>
-            <div
-              class="settings-row"
-              id="llm-setting"
-              role="radiogroup"
-              aria-labelledby="llm-label"
-              hidden
-            >
-              <span id="llm-label" data-i18n="llm">Generate with</span>
-              <span class="segmented">
-                <label>
-                  <input type="radio" name="llm" value="apple" />
-                  <span>Apple</span>
-                </label>
-                <label>
-                  <input type="radio" name="llm" value="ollama" />
-                  <span>Ollama</span>
-                </label>
-                <label>
-                  <input type="radio" name="llm" value="api" />
-                  <span>API</span>
-                </label>
-              </span>
-            </div>
-            <form class="api-settings" id="api-settings" hidden>
+            <form class="api-settings" id="api-settings">
+              <span class="api-heading" data-i18n="api_heading">Online service for messages</span>
               <label class="api-field">
                 <span data-i18n="api_service">Service</span>
                 <select id="api-service">
@@ -264,6 +229,16 @@
           aria-labelledby="tab-listings"
         >
         <form class="filters" id="filters">
+          <span class="segmented housing-switch" role="radiogroup" aria-label="Looking for" data-i18n-aria-label="housing">
+            <label>
+              <input type="radio" name="housing" value="room" />
+              <span data-i18n="housing_room">WG rooms</span>
+            </label>
+            <label>
+              <input type="radio" name="housing" value="apartment" />
+              <span data-i18n="housing_apartment">Apartments</span>
+            </label>
+          </span>
           <label class="filter filter-search">
             <span data-i18n="search">Search</span>
             <input

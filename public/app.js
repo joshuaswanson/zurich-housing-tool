@@ -681,7 +681,10 @@ async function loadScanStatus() {
   } catch {}
 }
 
+let scanRunning = false;
+
 async function scan() {
+  scanRunning = true;
   const button = $("scan-button");
   const status = $("scan-status");
   button.disabled = true;
@@ -704,6 +707,7 @@ async function scan() {
 
   button.disabled = false;
   button.textContent = t("scan");
+  scanRunning = false;
 }
 
 // Messages
@@ -1709,7 +1713,8 @@ async function setSearch(housing) {
   showSearch(data, { showAllPrices: true });
   $("settings").open = false;
   await load();
-  scan();
+  // A scan that is already running scans again for the new choice.
+  if (!scanRunning) scan();
 }
 
 document.querySelectorAll("input[name='housing']").forEach((radio) => {

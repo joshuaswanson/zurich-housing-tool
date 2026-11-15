@@ -76,6 +76,9 @@ const DETAILS_PER_SCAN = 60;
 let detailFetchInProgress = false;
 
 async function fetchWgzimmerDetailsInBackground() {
+  if (detailFetchInProgress || !currentSearch().sources.includes("wgzimmer")) {
+    return;
+  }
   const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
   if (urls.length === 0) return;
   detailFetchInProgress = true;
@@ -108,13 +111,19 @@ function unfetchedWgzimmerUrls(limit) {
   return [...new Set(urls)].slice(0, limit);
 }
 
+// A switch between rooms and apartments during a scan is picked up by
+// scanning again once the current pass ends.
 app.post("/api/scan", async (req, res) => {
-  if (scanInProgress || detailFetchInProgress) {
+  if (scanInProgress) {
     return res.status(409).json({ error: "A scan is already running." });
   }
   scanInProgress = true;
   try {
-    await scanSources();
+    let scanned;
+    do {
+      scanned = currentSearch().type;
+      await scanSources();
+    } while (scanned !== currentSearch().type);
     fetchWgzimmerDetailsInBackground();
     res.json({ ok: true, status: scanStatus() });
   } catch (e) {
@@ -150,9 +159,6 @@ app.post("/api/search", (req, res) => {
   const { housing } = req.body;
   if (!(housing in SEARCHES)) {
     return res.status(400).json({ error: "Unknown search" });
-  }
-  if (scanInProgress || detailFetchInProgress) {
-    return res.status(409).json({ error: "A scan is already running." });
   }
   if (housing !== currentSearch().type) {
     ensureDataDir();
@@ -326,12 +332,6 @@ app.post("/api/fetch-details", async (req, res) => {
       .status(400)
       .json({ error: "Details can be fetched for wgzimmer and flatfox only." });
   }
-  if (scanInProgress || detailFetchInProgress) {
-    return res
-      .status(409)
-      .json({ error: "A scan or another fetch is already running." });
-  }
-  detailFetchInProgress = true;
   try {
     await fetchListings([url]);
     const details = loadCachedListing(url);
@@ -341,8 +341,6 @@ app.post("/api/fetch-details", async (req, res) => {
     res.json({ details });
   } catch (e) {
     res.status(500).json({ error: e.message.substring(0, 100) });
-  } finally {
-    detailFetchInProgress = false;
   }
 });
 

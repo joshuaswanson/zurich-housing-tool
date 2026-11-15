@@ -30,7 +30,7 @@ The app needs a Mac with Apple silicon and macOS 14 or later. It checks for new 
 
 Click Scan to collect listings from all four sites. Fill in the Profile tab once so the app can write application messages and send them for you. Your profile, notes and applications stay on your Mac.
 
-Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenAI or OpenRouter API key under Drafting in the settings. Everything else works without any of them.
+Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenAI or OpenRouter API key in the settings. Everything else works without any of them.
 
 To send Flatfox messages from your own account, connect it in the Profile tab. Flatfox's own login page opens, so your password never passes through the app.
 

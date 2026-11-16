@@ -556,12 +556,30 @@ function showRouteOnMap(route) {
       .filter((leg) => leg.path.length > 1)
       .map((leg) => ({
         type: "Feature",
-        properties: { walk: leg.type === "walk", color: leg.color || cssVar("--accent") },
+        properties: {
+          walk: leg.type === "walk",
+          color: leg.color || cssVar("--accent"),
+          textColor: leg.textColor || "#ffffff",
+          line: leg.line || "",
+        },
         geometry: { type: "LineString", coordinates: leg.path.map((p) => [p.lng, p.lat]) },
       })),
   };
+  for (const feature of [...routeGeojson.features]) {
+    if (!feature.properties.line) continue;
+    const coords = feature.geometry.coordinates;
+    const [a, b] = [coords[Math.floor((coords.length - 1) / 2)], coords[Math.ceil((coords.length - 1) / 2)]];
+    const middle = coords.length % 2 ? a : [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    routeGeojson.features.push({
+      type: "Feature",
+      properties: feature.properties,
+      geometry: { type: "Point", coordinates: middle },
+    });
+  }
   map?.getSource("route")?.setData(routeGeojson);
-  const coords = routeGeojson.features.flatMap((f) => f.geometry.coordinates);
+  const coords = routeGeojson.features
+    .filter((f) => f.geometry.type === "LineString")
+    .flatMap((f) => f.geometry.coordinates);
   if (map && coords.length > 1) {
     const bounds = coords.reduce(
       (b, c) => b.extend(c),
@@ -569,6 +587,13 @@ function showRouteOnMap(route) {
     );
     map.fitBounds(bounds, { padding: 60, maxZoom: 15.5, duration: 800 });
   }
+}
+
+function toggleRouteOnMap(row, button) {
+  const showing = button.dataset.showing === "true";
+  showRouteOnMap(showing ? null : row.route);
+  button.dataset.showing = String(!showing);
+  button.textContent = t(showing ? "route_show" : "route_hide");
 }
 
 function stopName(name) {
@@ -604,9 +629,12 @@ async function loadRoute(row, l) {
       <div class="detail-section">
         <dt>${t("route_title", { place: esc(target.label), n: route.minutes })}</dt>
         <dd><ol class="route-legs">${route.legs.map(routeLeg).join("")}</ol>
-        <p class="secondary route-note">${t("route_note")}</p></dd>
+        <div class="route-actions">
+          <button class="button" type="button" data-action="show-route">${t("route_show")}</button>
+          <span class="secondary route-note">${t("route_note")}</span>
+        </div></dd>
       </div>`;
-    showRouteOnMap(route);
+    row.route = route;
   } catch (e) {
     if (row.isConnected) box.innerHTML = `<p class="secondary">${t("route_failed")}</p>`;
   }
@@ -2071,7 +2099,7 @@ function buildMapStyle() {
         id: "route-walk",
         type: "line",
         source: "route",
-        filter: ["==", ["get", "walk"], true],
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["==", ["get", "walk"], true]],
         layout: { "line-cap": "round" },
         paint: {
           "line-color": cssVar("--muted"),
@@ -2083,12 +2111,29 @@ function buildMapStyle() {
         id: "route-ride",
         type: "line",
         source: "route",
-        filter: ["==", ["get", "walk"], false],
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["==", ["get", "walk"], false]],
         layout: { "line-cap": "round", "line-join": "round" },
         paint: {
           "line-color": ["get", "color"],
           "line-width": 5,
           "line-opacity": 0.9,
+        },
+      },
+      {
+        id: "route-label",
+        type: "symbol",
+        source: "route",
+        filter: ["==", ["geometry-type"], "Point"],
+        layout: {
+          "text-field": ["get", "line"],
+          "text-font": ["Noto Sans Bold"],
+          "text-size": 13,
+          "text-allow-overlap": true,
+        },
+        paint: {
+          "text-color": ["get", "textColor"],
+          "text-halo-color": ["get", "color"],
+          "text-halo-width": 4,
         },
       },
       {
@@ -2482,6 +2527,7 @@ function onListingTableClick(e) {
     const action = button.dataset.action;
     if (action === "compose") composeMessage(url);
     else if (action === "expand-section") expandSection(button);
+    else if (action === "show-route") toggleRouteOnMap(row, button);
     else if (action === "fetch-details") fetchDetails(row, button);
     else if (action === "note") openNote(row);
     else if (action === "exclude") toggleExcludeForm(row, true);

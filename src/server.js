@@ -677,13 +677,9 @@ function batchStatus() {
   return { running, total, sent, failed, current, stopping };
 }
 
-function trackedKeys() {
+function appliedKeys() {
   const tracker = readJson(TRACKER_FILE, {});
-  return new Set(
-    TRACKER_CATEGORIES.flatMap((category) =>
-      (tracker[category] || []).map((e) => listingKey(e.url)),
-    ),
-  );
+  return new Set((tracker.applied || []).map((e) => listingKey(e.url)));
 }
 
 async function runFlatfoxBatch(batch, listings, profile, template) {
@@ -742,14 +738,14 @@ app.post("/api/send-flatfox-batch", (req, res) => {
   }
   const urls = Array.isArray(req.body.urls) ? req.body.urls : [];
   const wanted = new Set(urls.map(listingKey));
-  const tracked = trackedKeys();
+  const applied = appliedKeys();
   const listings = loadAllListings()
     .filter((l) => l.source === "flatfox")
     .filter((l) => wanted.has(listingKey(l.url)))
-    .filter((l) => !tracked.has(listingKey(l.url)))
+    .filter((l) => !applied.has(listingKey(l.url)))
     .slice(0, FLATFOX_BATCH_LIMIT);
   if (listings.length === 0) {
-    return res.status(400).json({ error: "No new Flatfox listings to send to." });
+    return res.status(400).json({ error: "No Flatfox listings left to send to." });
   }
   try {
     validateFlatfoxApplication({

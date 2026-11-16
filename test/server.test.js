@@ -508,7 +508,7 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
   assert.match(noTemplate.body.error, /template/i);
 
   await post("/api/template", { template: "Hi about {address}" });
-  await post("/api/track", { url: urls[2], action: "shortlist" });
+  await post("/api/track", { url: urls[2], action: "apply" });
 
   const sent = [];
   app.locals.flatfoxBatchPauseMs = () => 0;

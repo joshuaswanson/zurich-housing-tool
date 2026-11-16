@@ -549,6 +549,20 @@ function expandSection(button) {
 // Public transport from an open listing to the chosen ETH or UZH location.
 let routeGeojson = { type: "FeatureCollection", features: [] };
 
+// The timetable gives no coordinates for the walks from the listing and to
+// the destination, so the route starts and ends at those two points.
+function withEnds(route, listing, destination) {
+  const legs = route.legs.map((leg) => ({ ...leg, path: [...leg.path] }));
+  const start = { lat: listing.lat, lng: listing.lng };
+  const end = { lat: destination.lat, lng: destination.lng };
+  if (legs[0]?.type === "walk") legs[0].path.unshift(start);
+  else legs.unshift({ type: "walk", path: [start, legs[0]?.path[0] || end] });
+  const last = legs[legs.length - 1];
+  if (last.type === "walk") last.path.push(end);
+  else legs.push({ type: "walk", path: [last.path[last.path.length - 1], end] });
+  return { ...route, legs };
+}
+
 function showRouteOnMap(route) {
   routeGeojson = {
     type: "FeatureCollection",
@@ -634,7 +648,7 @@ async function loadRoute(row, l) {
           <span class="secondary route-note">${t("route_note")}</span>
         </div></dd>
       </div>`;
-    row.route = route;
+    row.route = withEnds(route, l, target);
   } catch (e) {
     if (row.isConnected) box.innerHTML = `<p class="secondary">${t("route_failed")}</p>`;
   }
@@ -2111,6 +2125,18 @@ function buildMapStyle() {
           "line-color": cssVar("--muted"),
           "line-width": 3,
           "line-dasharray": [0.5, 2],
+        },
+      },
+      {
+        id: "route-casing",
+        type: "line",
+        source: "route",
+        filter: ["all", ["==", ["geometry-type"], "LineString"], ["==", ["get", "walk"], false]],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": cssVar("--ink"),
+          "line-opacity": 0.55,
+          "line-width": 8,
         },
       },
       {

@@ -974,12 +974,6 @@ tbody tr.is-active td {
   border-bottom-color: transparent;
 }
 
-tbody tr.is-active:not(.has-details) .description {
-  display: block;
-  max-width: 60ch;
-  white-space: pre-line;
-}
-
 tbody tr.detail-row {
   background: var(--row-hover);
 }

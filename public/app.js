@@ -526,12 +526,8 @@ async function loadDetails(row, l) {
     );
     details = await res.json();
   } catch {}
-  const sections = detailSections(details);
-  row.querySelector("[data-role='sections']").innerHTML = sections;
-  row.previousElementSibling?.classList.toggle(
-    "has-details",
-    sections !== "",
-  );
+  row.querySelector("[data-role='sections']").innerHTML =
+    detailSections(details) || detailSections({ description: summary(l) });
   row.querySelector("[data-action='fetch-details']").hidden =
     Boolean(details) || !FETCHABLE_SOURCES.includes(l.source);
 }

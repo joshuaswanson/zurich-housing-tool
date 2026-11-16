@@ -30,7 +30,7 @@ The app needs a Mac with Apple silicon and macOS 14 or later. It checks for new 
 
 ## Getting started
 
-Click Scan to collect listings from all four sites. Fill in the Profile tab once so the app can write application messages and send them for you. Your profile, notes and applications stay on your Mac.
+Click Scan to collect WG rooms and apartments from all four sites. Fill in the Profile tab once so the app can write application messages and send them for you. Your profile, notes and applications are stored on your Mac. When OpenRouter writes a message, it receives your profile and the listing.
 
 Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenRouter API key in the settings, and pick which one writes each message. Everything else works without any of them.
 

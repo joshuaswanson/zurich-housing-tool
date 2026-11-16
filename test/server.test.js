@@ -127,7 +127,6 @@ test("drafting offers Ollama and an online service without the macOS app", async
 test("the API key is stored privately and never sent back", async () => {
   assert.equal((await get("/api/llm-api")).body.keyEnding, null);
   const saved = await post("/api/llm-api", {
-    service: "openrouter",
     apiKey: "sk-or-test-1234",
     model: "",
   });
@@ -138,13 +137,16 @@ test("the API key is stored privately and never sent back", async () => {
   const file = path.join(home, "data", "llm-api.json");
   assert.equal(fs.statSync(file).mode & 0o777, 0o600);
 
-  await post("/api/llm-api", { service: "openai", model: "gpt-test" });
+  await post("/api/llm-api", { model: "gpt-test" });
   assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).apiKey, "sk-or-test-1234");
 });
 
-test("an unknown drafting service is refused", async () => {
-  const { status } = await post("/api/llm-api", { service: "other" });
-  assert.equal(status, 400);
+test("a key saved for another service is not sent to OpenRouter", async () => {
+  const file = path.join(home, "data", "llm-api.json");
+  const before = fs.readFileSync(file, "utf8");
+  fs.writeFileSync(file, JSON.stringify({ service: "openai", apiKey: "sk-openai-5678", model: "gpt-x" }));
+  assert.deepEqual((await get("/api/llm-api")).body, { model: "openai/gpt-4.1-mini", keyEnding: null });
+  fs.writeFileSync(file, before);
 });
 
 test("listings combine all four sources and skip unusable entries", async () => {
@@ -351,11 +353,11 @@ test("drafting explains what is missing", async () => {
 
 test("drafting through an online service sends the prompt with the saved key", async () => {
   await post("/api/profile", { name: "Jane Doe", occupation: "Student" });
-  await post("/api/llm-api", { service: "openai", apiKey: "sk-test-9876", model: "gpt-test" });
+  await post("/api/llm-api", { apiKey: "sk-test-9876", model: "gpt-test" });
   const realFetch = globalThis.fetch;
   let sent;
   globalThis.fetch = async (url, options) => {
-    if (!String(url).startsWith("https://api.openai.com/")) return realFetch(url, options);
+    if (!String(url).startsWith("https://openrouter.ai/")) return realFetch(url, options);
     sent = { url: String(url), headers: options.headers, body: JSON.parse(options.body) };
     return Response.json({ choices: [{ message: { content: " Hallo zusammen " } }] });
   };
@@ -366,7 +368,7 @@ test("drafting through an online service sends the prompt with the saved key", a
   } finally {
     globalThis.fetch = realFetch;
   }
-  assert.equal(sent.url, "https://api.openai.com/v1/chat/completions");
+  assert.equal(sent.url, "https://openrouter.ai/api/v1/chat/completions");
   assert.equal(sent.headers.Authorization, "Bearer sk-test-9876");
   assert.equal(sent.body.model, "gpt-test");
   assert.match(sent.body.messages[0].content, /Helles Zimmer/);
@@ -375,7 +377,7 @@ test("drafting through an online service sends the prompt with the saved key", a
 test("a rejected API key is reported", async () => {
   const realFetch = globalThis.fetch;
   globalThis.fetch = async (url, options) =>
-    String(url).startsWith("https://api.openai.com/")
+    String(url).startsWith("https://openrouter.ai/")
       ? Response.json({ error: { message: "bad key" } }, { status: 401 })
       : realFetch(url, options);
   try {
@@ -439,7 +441,7 @@ test("an apartment search drops room-only sites and writes to a landlord", async
   const realFetch = globalThis.fetch;
   let prompt;
   globalThis.fetch = async (url, options) => {
-    if (!String(url).startsWith("https://api.openai.com/")) return realFetch(url, options);
+    if (!String(url).startsWith("https://openrouter.ai/")) return realFetch(url, options);
     prompt = JSON.parse(options.body).messages[0].content;
     return Response.json({ choices: [{ message: { content: "Guten Tag" } }] });
   };

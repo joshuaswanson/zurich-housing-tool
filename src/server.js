@@ -175,32 +175,23 @@ app.get("/api/llm-providers", (req, res) => {
   res.json(APPLE_LLM ? ["apple", "ollama", "api"] : ["ollama", "api"]);
 });
 
-// ── API: Drafting through an online service ───────────────────────────────
+// ── API: Drafting through OpenRouter ─────────────────────────────────────
 
-const API_SERVICES = {
-  openai: {
-    url: "https://api.openai.com/v1/chat/completions",
-    defaultModel: "gpt-4.1-mini",
-  },
-  openrouter: {
-    url: "https://openrouter.ai/api/v1/chat/completions",
-    defaultModel: "openai/gpt-4.1-mini",
-  },
-};
+const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+const OPENROUTER_DEFAULT_MODEL = "openai/gpt-4.1-mini";
 const API_SETTINGS_FILE = path.join(DATA_DIR, "llm-api.json");
 
+// Settings saved for another service hold a key OpenRouter would refuse.
 function loadApiSettings() {
-  return readJson(API_SETTINGS_FILE, { service: "openai", apiKey: "", model: "" });
+  const saved = readJson(API_SETTINGS_FILE, {});
+  if (saved.service && saved.service !== "openrouter") return { apiKey: "", model: "" };
+  return { apiKey: saved.apiKey || "", model: saved.model || "" };
 }
 
-function publicApiSettings({ service, apiKey, model }) {
+function publicApiSettings({ apiKey, model }) {
   return {
-    service,
-    model: model || API_SERVICES[service].defaultModel,
+    model: model || OPENROUTER_DEFAULT_MODEL,
     keyEnding: apiKey ? apiKey.slice(-4) : null,
-    defaultModels: Object.fromEntries(
-      Object.entries(API_SERVICES).map(([name, s]) => [name, s.defaultModel]),
-    ),
   };
 }
 
@@ -209,12 +200,8 @@ app.get("/api/llm-api", (req, res) => {
 });
 
 app.post("/api/llm-api", (req, res) => {
-  const { service, apiKey, model } = req.body;
-  if (!API_SERVICES[service]) {
-    return res.status(400).json({ error: "Choose OpenAI or OpenRouter." });
-  }
-  const settings = loadApiSettings();
-  settings.service = service;
+  const { apiKey, model } = req.body;
+  const settings = { ...loadApiSettings(), service: "openrouter" };
   settings.model = String(model || "").trim();
   if (typeof apiKey === "string") settings.apiKey = apiKey.trim();
   ensureDataDir();
@@ -846,15 +833,14 @@ async function generateWithOllama(prompt) {
 const API_TIMEOUT_MS = 120000;
 
 async function generateWithApi(prompt) {
-  const { service, apiKey, model } = loadApiSettings();
-  const { url, defaultModel } = API_SERVICES[service];
+  const { apiKey, model } = loadApiSettings();
   if (!apiKey) {
-    throw new Error("Add an API key under Drafting in the settings first.");
+    throw new Error("Add an OpenRouter API key in the settings first.");
   }
-  const chosenModel = model || defaultModel;
+  const chosenModel = model || OPENROUTER_DEFAULT_MODEL;
   let resp;
   try {
-    resp = await fetch(url, {
+    resp = await fetch(OPENROUTER_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -867,23 +853,19 @@ async function generateWithApi(prompt) {
       signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
   } catch (e) {
-    throw new Error(`Could not reach ${serviceName(service)}. ${e.message}`);
+    throw new Error(`Could not reach OpenRouter. ${e.message}`);
   }
   const body = await resp.json().catch(() => ({}));
   if (resp.status === 401) {
-    throw new Error(`${serviceName(service)} rejected the API key.`);
+    throw new Error(`OpenRouter rejected the API key.`);
   }
   if (!resp.ok) {
     const detail = body.error?.message || `HTTP ${resp.status}`;
-    throw new Error(`${serviceName(service)} returned an error. ${detail}`);
+    throw new Error(`OpenRouter returned an error. ${detail}`);
   }
   const message = body.choices?.[0]?.message?.content?.trim();
-  if (!message) throw new Error(`${serviceName(service)} returned no text.`);
+  if (!message) throw new Error(`OpenRouter returned no text.`);
   return { message, model: chosenModel };
-}
-
-function serviceName(service) {
-  return service === "openrouter" ? "OpenRouter" : "OpenAI";
 }
 
 const APPLE_TIMEOUT_MS = 180000;

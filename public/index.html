@@ -127,6 +127,7 @@
                 <button class="button" id="flatfox-login" type="button" disabled>
                   <span data-i18n="flatfox_connect">Connect Flatfox</span>
                 </button>
+                <button class="button" id="flatfox-logout" type="button" data-i18n="ethz_disconnect" hidden>Sign out</button>
               </div>
               <form class="flatfox-signin" id="flatfox-signin" hidden>
                 <label class="profile-field">
@@ -492,7 +493,7 @@
         >
           <p class="section-note" data-i18n="template_intro">Click “Use template” when you send a message to start from this text. It is also what goes out when you send to several Flatfox listings at once. {address} is replaced with each listing&#39;s address.</p>
           <form class="profile-form" id="template-form">
-            <textarea class="text-input message-input" id="template-editor" rows="10" aria-label="Template" data-i18n-aria-label="tab_template"></textarea>
+            <textarea class="text-input message-input" id="template-editor" rows="13" aria-label="Template" data-i18n-aria-label="tab_template" data-i18n-placeholder="template_placeholder"></textarea>
             <div class="row-actions">
               <button class="button button-primary" data-i18n="save_template">Save template</button>
               <span class="secondary" id="template-status" role="status"></span>

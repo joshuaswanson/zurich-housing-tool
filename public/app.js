@@ -1066,9 +1066,9 @@ function renderFlatfoxSession() {
         : "flatfox_disconnected",
     );
   }
-  button.hidden = flatfoxStep !== null;
-  button.disabled =
-    flatfoxSession.checking || flatfoxSession.busy || flatfoxSession.connected;
+  button.hidden = flatfoxStep !== null || flatfoxSession.connected;
+  $("flatfox-logout").hidden = !flatfoxSession.connected;
+  button.disabled = flatfoxSession.checking || flatfoxSession.busy;
   button.textContent = t(
     flatfoxSession.connected
       ? "flatfox_connected_button"
@@ -1236,6 +1236,12 @@ async function continueFlatfox(e) {
   } finally {
     $("flatfox-continue").disabled = false;
   }
+}
+
+async function signOutFlatfox() {
+  if (!(await postJson("/api/flatfox-session/logout", {}))) return;
+  flatfoxSession = { checking: false, connected: false };
+  renderFlatfoxSession();
 }
 
 function cancelFlatfox() {
@@ -2601,6 +2607,7 @@ $("template-form").addEventListener("submit", saveTemplate);
 $("flatfox-login").addEventListener("click", connectFlatfox);
 $("flatfox-signin").addEventListener("submit", continueFlatfox);
 $("flatfox-cancel").addEventListener("click", cancelFlatfox);
+$("flatfox-logout").addEventListener("click", signOutFlatfox);
 $("message-dialog").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close();
 });

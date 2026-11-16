@@ -1084,32 +1084,60 @@ function showMessage(url) {
 let composeRequest = 0;
 const OLLAMA_MODEL_KEY = "zurich-housing-ollama-model";
 let ollamaModels = [];
+let ollama = { models: [], unreachable: true, installed: true };
 
-async function loadOllamaModels() {
-  try {
-    const data = await (await fetch("/api/ollama-models")).json();
-    ollamaModels = data.models;
-    const remembered = localStorage.getItem(OLLAMA_MODEL_KEY);
-    const selected = ollamaModels.includes(remembered) ? remembered : data.default;
-    $("dialog-ollama-model").innerHTML = ollamaModels
-      .map((m) => `<option${m === selected ? " selected" : ""}>${esc(m)}</option>`)
-      .join("");
-  } catch {
-    ollamaModels = [];
-  }
+function showOllamaStatus(data) {
+  ollama = data;
+  ollamaModels = data.models;
+  const remembered = localStorage.getItem(OLLAMA_MODEL_KEY);
+  const selected = ollamaModels.includes(remembered) ? remembered : data.default;
+  $("dialog-ollama-model").innerHTML = ollamaModels
+    .map((m) => `<option${m === selected ? " selected" : ""}>${esc(m)}</option>`)
+    .join("");
   showOllamaModels();
 }
 
+async function loadOllamaModels() {
+  try {
+    showOllamaStatus(await (await fetch("/api/ollama-models")).json());
+  } catch {
+    showOllamaStatus({ models: [], unreachable: true, installed: true });
+  }
+}
+
+async function startOllama() {
+  const button = $("dialog-ollama-start");
+  button.disabled = true;
+  button.textContent = t("ollama_starting");
+  try {
+    const res = await fetch("/api/ollama/start", { method: "POST" });
+    const data = await res.json();
+    showOllamaStatus(data);
+    if (!res.ok) setComposeStatus(data.error, true);
+    else setComposeStatus("");
+  } catch (e) {
+    setComposeStatus(e.message, true);
+  }
+  button.disabled = false;
+  button.textContent = t("ollama_start");
+}
+
+function ollamaNote() {
+  if (ollama.unreachable) {
+    return t(ollama.installed ? "model_ollama_missing" : "model_ollama_not_installed");
+  }
+  if (ollamaModels.length === 0) return t("model_ollama_none");
+  return ollamaModels.length === 1 ? ollamaModels[0] : "";
+}
+
 function showOllamaModels() {
-  const ollamaSelect = llmProvider === "ollama" && ollamaModels.length > 1;
-  $("dialog-ollama-model").hidden = !ollamaSelect;
+  const isOllama = llmProvider === "ollama";
+  $("dialog-ollama-model").hidden = !isOllama || ollamaModels.length < 2;
+  $("dialog-ollama-start").hidden = !isOllama || !ollama.unreachable || !ollama.installed;
+  $("dialog-ollama-get").hidden = !isOllama || !ollama.unreachable || ollama.installed;
   $("dialog-api-model").hidden = llmProvider !== "api";
   const note =
-    llmProvider === "apple"
-      ? t("model_apple")
-      : llmProvider === "ollama" && !ollamaSelect
-        ? ollamaModels[0] || t("model_ollama_missing")
-        : "";
+    llmProvider === "apple" ? t("model_apple") : isOllama ? ollamaNote() : "";
   $("dialog-model-note").textContent = note;
   $("dialog-model-note").hidden = !note;
   $("dialog-api-model").value = apiSettings?.model || "";
@@ -2045,6 +2073,7 @@ $("dialog-model").addEventListener("change", (e) => {
   showOllamaModels();
 });
 $("dialog-api-model").addEventListener("change", saveApiModel);
+$("dialog-ollama-start").addEventListener("click", startOllama);
 $("dialog-ollama-model").addEventListener("change", (e) => {
   localStorage.setItem(OLLAMA_MODEL_KEY, e.target.value);
 });

@@ -121,6 +121,7 @@ a:hover {
 
 #scan-button:disabled,
 #dialog-generate:disabled,
+#dialog-ollama-start:disabled,
 #batch-send:disabled,
 #flatfox-continue:disabled,
 [data-action="fetch-details"]:disabled {
@@ -1474,8 +1475,17 @@ dialog textarea {
 }
 
 #dialog-api-model,
-#dialog-ollama-model {
+#dialog-ollama-model,
+#dialog-ollama-start,
+#dialog-ollama-get {
   height: 30px;
+}
+
+#dialog-ollama-get {
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
 }
 
 #dialog-api-model {

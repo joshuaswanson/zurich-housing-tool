@@ -562,3 +562,30 @@ test("Ollama lists installed models and writes with the chosen one", async () =>
     globalThis.fetch = realFetch;
   }
 });
+
+test("Ollama reports whether it is installed when it is not running", async () => {
+  const realFetch = globalThis.fetch;
+  const realInstalls = app.locals.ollamaInstalls;
+  globalThis.fetch = async (url, options) => {
+    if (String(url).startsWith("http://localhost:11434/")) throw new Error("ECONNREFUSED");
+    return realFetch(url, options);
+  };
+  try {
+    app.locals.ollamaInstalls = [{ command: path.join(home, "missing-ollama") }];
+    assert.deepEqual((await get("/api/ollama-models")).body, {
+      models: [],
+      default: null,
+      unreachable: true,
+      installed: false,
+    });
+    const start = await post("/api/ollama/start", {});
+    assert.equal(start.status, 404);
+    assert.match(start.body.error, /not installed/);
+
+    app.locals.ollamaInstalls = [{ command: process.execPath }];
+    assert.equal((await get("/api/ollama-models")).body.installed, true);
+  } finally {
+    globalThis.fetch = realFetch;
+    app.locals.ollamaInstalls = realInstalls;
+  }
+});

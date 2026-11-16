@@ -7,7 +7,8 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath, pathToFileURL } from "url";
-import { execFile } from "child_process";
+import os from "os";
+import { execFile, spawn } from "child_process";
 import {
   DATA_DIR,
   WGZIMMER_LISTINGS_FILE,
@@ -723,16 +724,56 @@ export function fillMessage(template, listing) {
   return template.replaceAll("{address}", listing?.address || "").trim();
 }
 
-app.get("/api/ollama-models", async (req, res) => {
+// The Ollama app starts its own server. A Homebrew or script install only
+// has the command, which needs `ollama serve`.
+app.locals.ollamaInstalls = [
+  { app: "/Applications/Ollama.app" },
+  { app: path.join(os.homedir(), "Applications", "Ollama.app") },
+  { command: "/opt/homebrew/bin/ollama" },
+  { command: "/usr/local/bin/ollama" },
+];
+const OLLAMA_START_TIMEOUT_MS = 45000;
+
+function findOllama() {
+  return app.locals.ollamaInstalls.find((install) =>
+    fs.existsSync(install.app || install.command),
+  );
+}
+
+async function ollamaStatus() {
   try {
     const models = await installedOllamaModels();
-    res.json({
-      models: models.map((m) => m.name),
-      default: pickOllamaModel(models),
-    });
+    return { models: models.map((m) => m.name), default: pickOllamaModel(models) };
   } catch {
-    res.json({ models: [], default: null, unreachable: true });
+    return { models: [], default: null, unreachable: true, installed: Boolean(findOllama()) };
   }
+}
+
+app.get("/api/ollama-models", async (req, res) => {
+  res.json(await ollamaStatus());
+});
+
+app.post("/api/ollama/start", async (req, res) => {
+  let status = await ollamaStatus();
+  if (!status.unreachable) return res.json(status);
+  const install = findOllama();
+  if (!install) {
+    return res.status(404).json({ ...status, error: "Ollama is not installed." });
+  }
+  const child = install.app
+    ? spawn("open", ["-a", install.app], { stdio: "ignore" })
+    : spawn(install.command, ["serve"], { detached: true, stdio: "ignore" });
+  child.on("error", () => {});
+  child.unref();
+  const deadline = Date.now() + OLLAMA_START_TIMEOUT_MS;
+  while (status.unreachable && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    status = await ollamaStatus();
+  }
+  if (status.unreachable) {
+    return res.status(502).json({ ...status, error: "Ollama did not start." });
+  }
+  res.json(status);
 });
 
 app.post("/api/generate", async (req, res) => {

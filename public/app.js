@@ -6,6 +6,7 @@ const SOURCE_SITES = [
   "flatfox.ch",
   "ronorp.net",
   "students.ch",
+  "the ETH Housing Office",
 ];
 
 let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
@@ -104,6 +105,7 @@ function setLanguage(next) {
   renderApplications();
   renderProfile(readProfileForm());
   renderFlatfoxSession();
+  renderEthzSession();
   loadScanStatus();
   if (apiSettings) showApiSettings(apiSettings);
 }
@@ -356,11 +358,15 @@ function renderTable(listings) {
             ${endDate(l) ? `<div class="secondary">${esc(t("until", { date: endDate(l) }))}</div>` : ""}
           </td>
           <td>
-            <a class="source source-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(t("open_on", { source: l.source }))}"><i class="dot dot-${esc(l.source)}"></i>${esc(l.source)}<span class="external" aria-hidden="true">↗</span></a>
+            <a class="source source-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(t("open_on", { source: sourceLabel(l.source) }))}"><i class="dot dot-${esc(l.source)}"></i>${esc(sourceLabel(l.source))}<span class="external" aria-hidden="true">↗</span></a>
           </td>
         </tr>`,
     )
     .join("");
+}
+
+function sourceLabel(source) {
+  return source === "ethz" ? t("source_ethz") : source;
 }
 
 function renderShowMore(total) {
@@ -481,7 +487,8 @@ function expandSection(button) {
 }
 
 function detailSections(details) {
-  const sections = DETAIL_SECTIONS.filter((key) => details?.[key]);
+  const order = details?.sectionOrder || DETAIL_SECTIONS;
+  const sections = order.filter((key) => details?.[key]);
   if (sections.length === 0) return "";
   return `<dl class="detail-sections">${sections
     .map(
@@ -530,8 +537,8 @@ function detailRow(l) {
 }
 
 async function loadDetails(row, l) {
-  let details = null;
-  try {
+  let details = l.details || null;
+  if (!details) try {
     const res = await fetch(
       `/api/listing-details?url=${encodeURIComponent(l.url)}`,
     );
@@ -916,6 +923,84 @@ async function loadFlatfoxSession() {
   renderFlatfoxSession();
 }
 
+// ETH Housing Office
+
+let ethzSession = { connected: false };
+
+function renderEthzSession(note = "") {
+  $("ethz-status").textContent =
+    note ||
+    (ethzSession.connected
+      ? t("ethz_connected", { username: ethzSession.username })
+      : t("ethz_disconnected"));
+  const signingIn = !$("ethz-signin").hidden;
+  $("ethz-connect").hidden = ethzSession.connected || signingIn;
+  $("ethz-disconnect").hidden = !ethzSession.connected;
+}
+
+async function loadEthzSession() {
+  try {
+    ethzSession = await (await fetch("/api/ethz-session")).json();
+  } catch {}
+  renderEthzSession();
+}
+
+function showEthzSignin(open) {
+  $("ethz-signin").hidden = !open;
+  $("ethz-password").value = "";
+  $("ethz-signin-status").textContent = "";
+  $("ethz-signin-status").classList.remove("is-error");
+  renderEthzSession();
+  if (open) $("ethz-username").focus();
+}
+
+async function signInEthz(e) {
+  e.preventDefault();
+  const status = $("ethz-signin-status");
+  $("ethz-continue").disabled = true;
+  status.classList.remove("is-error");
+  status.textContent = t("ethz_signing_in");
+  try {
+    const res = await fetch("/api/ethz-session/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        username: $("ethz-username").value.trim(),
+        password: $("ethz-password").value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    ethzSession = data;
+    showEthzSignin(false);
+    const fields = data.imported.map((f) => t(`pf_${f}`).split(",")[0]).join(", ");
+    renderEthzSession(
+      fields
+        ? t("ethz_imported", { count: data.count, fields })
+        : t("ethz_loaded", { count: data.count }),
+    );
+    await Promise.all([loadProfile(), load()]);
+  } catch (err) {
+    status.classList.add("is-error");
+    status.textContent = err.message;
+  } finally {
+    $("ethz-password").value = "";
+    $("ethz-continue").disabled = false;
+  }
+}
+
+async function signOutEthz() {
+  await postJson("/api/ethz-session/logout", {});
+  ethzSession = { connected: false };
+  renderEthzSession();
+  await load();
+}
+
+$("ethz-connect").addEventListener("click", () => showEthzSignin(true));
+$("ethz-cancel").addEventListener("click", () => showEthzSignin(false));
+$("ethz-signin").addEventListener("submit", signInEthz);
+$("ethz-disconnect").addEventListener("click", signOutEthz);
+
 // The steps follow Flatfox's own login form: email, then the password or a
 // code Flatfox emails, and a code again when it does not know this Mac yet.
 let flatfoxStep = null;
@@ -991,12 +1076,17 @@ function cancelFlatfox() {
 // Each field gets a width on a twelve-column grid that suits its answer.
 const PROFILE_LAYOUT = {
   name: { span: 6, autocomplete: "name" },
-  age: { span: 2, type: "number" },
-  nationality: { span: 4 },
+  dateOfBirth: { span: 3, autocomplete: "bday" },
+  nationality: { span: 3 },
   email: { span: 7, type: "email", autocomplete: "email" },
   phone: { span: 5, type: "tel", autocomplete: "tel" },
-  occupation: { span: 12 },
-  languages: { span: 12 },
+  affiliation: { span: 4, options: ["", "Student", "PhD student", "Staff"] },
+  occupation: { span: 8 },
+  street: { span: 7, autocomplete: "street-address" },
+  postalCode: { span: 2, autocomplete: "postal-code" },
+  city: { span: 3, autocomplete: "address-level2" },
+  country: { span: 4, autocomplete: "country-name" },
+  languages: { span: 8 },
   hobbies: { span: 12 },
   situation: { span: 12, rows: 2 },
   futurePlans: { span: 12, rows: 2 },
@@ -1004,13 +1094,29 @@ const PROFILE_LAYOUT = {
   wgExperience: { span: 12, rows: 2 },
   extras: { span: 12, rows: 3 },
 };
+const AFFILIATION_KEYS = {
+  "": "pf_affiliation_none",
+  Student: "pf_affiliation_student",
+  "PhD student": "pf_affiliation_phd",
+  Staff: "pf_affiliation_staff",
+};
+
+function placeholder(field) {
+  const key = `ph_${field}`;
+  return key in STRINGS[language] ? ` placeholder="${esc(t(key))}"` : "";
+}
 
 function profileInput(field, text) {
-  const { type = "text", rows, autocomplete } = PROFILE_LAYOUT[field] || {};
-  if (rows) {
-    return `<textarea class="text-input" name="${field}" rows="${rows}">${esc(text)}</textarea>`;
+  const { type = "text", rows, autocomplete, options } = PROFILE_LAYOUT[field] || {};
+  if (options) {
+    return `<select name="${field}">${options
+      .map((o) => `<option value="${esc(o)}"${o === text ? " selected" : ""}>${esc(t(AFFILIATION_KEYS[o]))}</option>`)
+      .join("")}</select>`;
   }
-  return `<input class="text-input" type="${type}" name="${field}" value="${esc(text)}"${autocomplete ? ` autocomplete="${autocomplete}"` : ""} />`;
+  if (rows) {
+    return `<textarea class="text-input" name="${field}" rows="${rows}"${placeholder(field)}>${esc(text)}</textarea>`;
+  }
+  return `<input class="text-input" type="${type}" name="${field}" value="${esc(text)}"${placeholder(field)}${autocomplete ? ` autocomplete="${autocomplete}"` : ""} />`;
 }
 
 function renderProfile(profile) {
@@ -1057,10 +1163,9 @@ async function saveTemplate(e) {
 
 function readProfileForm() {
   const profile = {};
-  for (const input of $("profile-fields").querySelectorAll("input, textarea")) {
+  for (const input of $("profile-fields").querySelectorAll("input, textarea, select")) {
     const text = input.value.trim();
-    if (input.name === "age") profile.age = text ? Number(text) : "";
-    else if (input.name === "hobbies") {
+    if (input.name === "hobbies") {
       profile.hobbies = text
         ? text.split(",").map((hobby) => hobby.trim()).filter(Boolean)
         : "";
@@ -1318,18 +1423,21 @@ function setSelected(l, on) {
   else selected.delete(l.id);
 }
 
+// Any row can start a range. Shift-click then selects every selectable
+// listing between it and the clicked row.
 function toggleSelected(id, extendRange) {
   const listings = visibleListings();
   const index = listings.findIndex((l) => l.id === id);
   const target = listings[index];
-  if (!target || !selectable(target)) return;
-  const on = !selected.has(id);
+  if (!target) return;
   const anchor = listings.findIndex((l) => l.id === lastSelectedId);
   if (extendRange && anchor > -1) {
     const [from, to] = anchor < index ? [anchor, index] : [index, anchor];
-    for (const l of listings.slice(from, to + 1)) setSelected(l, on);
-  } else {
-    setSelected(target, on);
+    const range = listings.slice(from, to + 1).filter(selectable);
+    const on = !range.every((l) => selected.has(l.id));
+    for (const l of range) setSelected(l, on);
+  } else if (selectable(target)) {
+    setSelected(target, !selected.has(id));
   }
   lastSelectedId = id;
   renderSelection();
@@ -1547,6 +1655,8 @@ function buildMapStyle() {
     cssVar("--src-wgzimmer"),
     "students",
     cssVar("--src-students"),
+    "ethz",
+    cssVar("--src-ethz"),
     cssVar("--src-ronorp"),
   ];
   const placeLabel = (id, classes, minzoom, font, size) => ({
@@ -2256,6 +2366,7 @@ async function init() {
   loadProfile();
   loadTemplate();
   loadFlatfoxSession();
+  loadEthzSession();
   loadScanStatus();
   load();
 }

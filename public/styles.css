@@ -20,6 +20,7 @@
   --src-wgzimmer: #0b7f86;
   --src-ronorp: #7b4bb3;
   --src-students: #b8336a;
+  --src-ethz: #627313;
 
   --map-land: #eef0ee;
   --map-water: #c5d7e6;
@@ -49,6 +50,7 @@
   --src-wgzimmer: #3fbfc4;
   --src-ronorp: #b592e8;
   --src-students: #ef7fa8;
+  --src-ethz: #a8c54e;
 
   --map-land: #1b1e23;
   --map-water: #0e2233;
@@ -452,6 +454,10 @@ a:hover {
 
 .dot-ronorp {
   background: var(--src-ronorp);
+}
+
+.dot-ethz {
+  background: var(--src-ethz);
 }
 
 .dot-target {
@@ -1266,6 +1272,7 @@ dialog textarea {
   display: contents;
 }
 
+.settings-section .account-header p,
 .settings-section #flatfox-session-status {
   grid-column: 1 / -1;
   max-width: 34ch;
@@ -1745,4 +1752,19 @@ tbody tr.listing-row.is-selected {
 #panel-profile > .section-note,
 #panel-template > .section-note {
   margin-bottom: 18px;
+}
+
+.settings-section #ethz-connect,
+.settings-section #ethz-disconnect {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+#ethz-signin-status.is-error {
+  color: var(--danger);
+}
+
+.text-input::placeholder {
+  color: var(--muted);
+  opacity: 0.65;
 }

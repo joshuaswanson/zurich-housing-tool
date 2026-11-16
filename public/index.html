@@ -148,6 +148,32 @@
                 </div>
               </form>
             </div>
+            <div class="account-connection settings-section" id="ethz-section">
+              <div class="account-header">
+                <div>
+                  <span class="api-heading" data-i18n="ethz_account">ETH Housing Office</span>
+                  <p class="secondary" id="ethz-status" role="status"></p>
+                </div>
+                <button class="button" id="ethz-connect" type="button" data-i18n="ethz_connect">Connect</button>
+                <button class="button" id="ethz-disconnect" type="button" data-i18n="ethz_disconnect" hidden>Sign out</button>
+              </div>
+              <form class="flatfox-signin" id="ethz-signin" hidden>
+                <label class="profile-field">
+                  <span data-i18n="ethz_username">ETH user name</span>
+                  <input class="text-input" type="text" id="ethz-username" autocomplete="username" spellcheck="false" required />
+                </label>
+                <label class="profile-field">
+                  <span data-i18n="ethz_password">ETH password for web applications</span>
+                  <input class="text-input" type="password" id="ethz-password" autocomplete="current-password" required />
+                </label>
+                <p class="api-note" data-i18n="ethz_keychain">The password is kept in your Mac's Keychain so scans can sign in again when the session ends.</p>
+                <div class="api-actions">
+                  <span class="api-status" id="ethz-signin-status" role="status"></span>
+                  <button class="button" type="button" id="ethz-cancel" data-i18n="cancel">Cancel</button>
+                  <button class="button button-primary" type="submit" id="ethz-continue" data-i18n="flatfox_continue">Continue</button>
+                </div>
+              </form>
+            </div>
             <div class="settings-links">
               <a
                 class="button button-report"
@@ -187,6 +213,7 @@
           <span class="source"><i class="dot dot-flatfox"></i>flatfox.ch</span>
           <span class="source"><i class="dot dot-ronorp"></i>ronorp.net</span>
           <span class="source"><i class="dot dot-students"></i>students.ch</span>
+          <span class="source"><i class="dot dot-ethz"></i><span data-i18n="source_ethz_long">ETH Housing Office</span></span>
           <span class="source"
             ><i class="dot dot-approximate"></i
             ><span data-i18n="legend_approximate">postcode only</span></span
@@ -298,9 +325,9 @@
               type="range"
               id="f-dist"
               min="0.5"
-              max="5"
-              step="0.1"
-              value="5"
+              max="25"
+              step="0.5"
+              value="25"
             />
             <output id="f-dist-val"></output>
           </label>

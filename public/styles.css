@@ -1035,8 +1035,10 @@ td {
 }
 
 th:first-child,
-td:first-child {
-  padding-left: 8px;
+td:first-child,
+.select-col + th,
+.select-col + td {
+  padding-left: 12px;
 }
 
 tbody tr.listing-row {

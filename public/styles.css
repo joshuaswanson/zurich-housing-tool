@@ -1234,7 +1234,48 @@ dialog textarea {
 
 #profile-fields textarea {
   font: inherit;
+  line-height: 1.4;
+  min-height: calc(1.4em + 10px);
   resize: vertical;
+}
+
+.message-input {
+  min-height: calc(3 * 1.4em + 18px);
+  line-height: 1.4;
+}
+
+.account-connection.settings-section {
+  gap: 10px;
+  max-width: none;
+  margin: 0;
+  padding: 10px 0 0;
+  border: none;
+  border-top: 1px solid var(--line-soft);
+  border-radius: 0;
+  background: none;
+}
+
+.settings-section .account-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.settings-section .account-header > div {
+  display: contents;
+}
+
+.settings-section #flatfox-session-status {
+  grid-column: 1 / -1;
+  max-width: 34ch;
+  margin: 0;
+  font-size: 12px;
+  white-space: normal;
+}
+
+.settings-section .flatfox-signin {
+  padding-top: 10px;
 }
 
 @media (max-width: 700px) {
@@ -1631,4 +1672,9 @@ dialog textarea:disabled {
 
 .button#batch-profile {
   --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Ccircle cx="12" cy="8" r="4"/%3E%3Cpath d="M4 21a8 8 0 0 1 16 0"/%3E%3C/svg%3E');
+}
+
+.settings-section #flatfox-login {
+  grid-column: 2;
+  grid-row: 1;
 }

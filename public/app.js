@@ -1026,21 +1026,33 @@ function renderProfile(profile) {
         </label>`;
     })
     .join("");
-  $("profile-form").elements.message.value = profile?.message || "";
 }
 
 async function loadProfile() {
   try {
     const data = await (await fetch("/api/profile")).json();
     profileFields = data.fields;
-    savedMessage = data.profile?.message || "";
     renderProfile(data.profile);
   } catch {}
 }
 
+async function loadTemplate() {
+  try {
+    savedMessage = (await (await fetch("/api/template")).json()).template;
+    $("template-editor").value = savedMessage;
+  } catch {}
+}
+
+async function saveTemplate(e) {
+  e.preventDefault();
+  const template = $("template-editor").value.trim();
+  const saved = await postJson("/api/template", { template });
+  $("template-status").textContent = saved ? t("profile_saved") : "";
+  if (saved) savedMessage = template;
+}
+
 function readProfileForm() {
   const profile = {};
-  profile.message = $("profile-form").elements.message.value.trim();
   for (const input of $("profile-fields").querySelectorAll("input, textarea")) {
     const text = input.value.trim();
     if (input.name === "age") profile.age = text ? Number(text) : "";
@@ -1055,13 +1067,8 @@ function readProfileForm() {
 
 async function saveProfile(e) {
   e.preventDefault();
-  const profile = readProfileForm();
-  const saved = await postJson("/api/profile", profile);
+  const saved = await postJson("/api/profile", readProfileForm());
   $("profile-status").textContent = saved ? t("profile_saved") : "";
-  if (saved) {
-    savedMessage = profile.message;
-    renderBatchButton();
-  }
 }
 
 async function loadMessages() {
@@ -1372,8 +1379,8 @@ async function stopBatch() {
 
 function openProfileFromBatch() {
   $("batch-dialog").close();
-  selectTab($("tab-profile"));
-  $("profile-form").elements.message.focus();
+  selectTab($("tab-template"));
+  $("template-editor").focus();
 }
 
 $("batch-list").addEventListener("click", (e) => {
@@ -2082,6 +2089,7 @@ $("dialog-editor").addEventListener("input", () => {
 });
 $("dialog-applied").addEventListener("click", markDraftApplied);
 $("profile-form").addEventListener("submit", saveProfile);
+$("template-form").addEventListener("submit", saveTemplate);
 $("flatfox-login").addEventListener("click", connectFlatfox);
 $("flatfox-signin").addEventListener("submit", continueFlatfox);
 $("flatfox-cancel").addEventListener("click", cancelFlatfox);
@@ -2149,6 +2157,7 @@ async function init() {
   initMap();
   loadMessages();
   loadProfile();
+  loadTemplate();
   loadFlatfoxSession();
   loadScanStatus();
   load();

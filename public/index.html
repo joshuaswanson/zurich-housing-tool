@@ -116,6 +116,38 @@
                 <button type="submit" class="button" data-i18n="api_save">Save</button>
               </div>
             </form>
+            <div class="account-connection settings-section">
+              <div class="account-header">
+                <div>
+                  <span class="api-heading" data-i18n="flatfox_account">Flatfox account</span>
+                  <p class="secondary" id="flatfox-session-status" role="status">
+                    Checking connection…
+                  </p>
+                </div>
+                <button class="button" id="flatfox-login" type="button" disabled>
+                  <span data-i18n="flatfox_connect">Connect Flatfox</span>
+                </button>
+              </div>
+              <form class="flatfox-signin" id="flatfox-signin" hidden>
+                <label class="profile-field">
+                  <span data-i18n="flatfox_email">Email</span>
+                  <input class="text-input" type="email" id="flatfox-email" autocomplete="username" spellcheck="false" required />
+                </label>
+                <label class="profile-field" id="flatfox-password-field" hidden>
+                  <span data-i18n="flatfox_password">Flatfox password</span>
+                  <input class="text-input" type="password" id="flatfox-password" autocomplete="current-password" />
+                </label>
+                <label class="profile-field" id="flatfox-code-field" hidden>
+                  <span id="flatfox-code-label" data-i18n="flatfox_code">Code from Flatfox's email</span>
+                  <input class="text-input" type="text" id="flatfox-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" />
+                </label>
+                <div class="api-actions">
+                  <span class="api-status" id="flatfox-signin-status" role="status"></span>
+                  <button class="button" type="button" id="flatfox-cancel" data-i18n="cancel">Cancel</button>
+                  <button class="button button-primary" type="submit" id="flatfox-continue" data-i18n="flatfox_continue">Continue</button>
+                </div>
+              </form>
+            </div>
             <div class="settings-links">
               <a
                 class="button button-report"
@@ -208,6 +240,17 @@
             tabindex="-1"
           >
             <span data-i18n="tab_profile">Profile</span>
+          </button>
+          <button
+            class="tab"
+            type="button"
+            role="tab"
+            id="tab-template"
+            aria-controls="panel-template"
+            aria-selected="false"
+            tabindex="-1"
+          >
+            <span data-i18n="tab_template">Template</span>
           </button>
         </div>
 
@@ -379,50 +422,30 @@
           <p class="section-note" data-i18n="profile_intro">
             These details are used by the LLM to generate tailored application messages.
           </p>
-          <div class="account-connection">
-            <div class="account-header">
-              <div>
-                <strong data-i18n="flatfox_account">Flatfox account</strong>
-                <p class="secondary" id="flatfox-session-status" role="status">
-                  Checking connection…
-                </p>
-              </div>
-              <button class="button" id="flatfox-login" type="button" disabled>
-                <span data-i18n="flatfox_connect">Connect Flatfox</span>
-              </button>
-            </div>
-            <form class="flatfox-signin" id="flatfox-signin" hidden>
-              <label class="profile-field">
-                <span data-i18n="flatfox_email">Email</span>
-                <input class="text-input" type="email" id="flatfox-email" autocomplete="username" spellcheck="false" required />
-              </label>
-              <label class="profile-field" id="flatfox-password-field" hidden>
-                <span data-i18n="flatfox_password">Flatfox password</span>
-                <input class="text-input" type="password" id="flatfox-password" autocomplete="current-password" />
-              </label>
-              <label class="profile-field" id="flatfox-code-field" hidden>
-                <span id="flatfox-code-label" data-i18n="flatfox_code">Code from Flatfox's email</span>
-                <input class="text-input" type="text" id="flatfox-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" />
-              </label>
-              <div class="api-actions">
-                <span class="api-status" id="flatfox-signin-status" role="status"></span>
-                <button class="button" type="button" id="flatfox-cancel" data-i18n="cancel">Cancel</button>
-                <button class="button button-primary" type="submit" id="flatfox-continue" data-i18n="flatfox_continue">Continue</button>
-              </div>
-            </form>
-          </div>
           <form class="profile-form" id="profile-form">
             <div id="profile-fields"></div>
-            <label class="profile-field">
-              <span data-i18n="pf_message">Template</span>
-              <textarea class="text-input message-input" name="message" rows="7"></textarea>
-              <small class="secondary" data-i18n="pf_message_hint">Pick Template when you send a message to use it for that listing. It is also what goes out when you send to many Flatfox listings at once. {address} is replaced with each listing&#39;s address.</small>
-            </label>
             <div class="row-actions">
               <button class="button button-primary" data-i18n="save_profile">
                 Save profile
               </button>
               <span class="secondary" id="profile-status" role="status"></span>
+            </div>
+          </form>
+        </section>
+
+        <section
+          class="tab-panel"
+          role="tabpanel"
+          id="panel-template"
+          aria-labelledby="tab-template"
+          hidden
+        >
+          <p class="section-note" data-i18n="template_intro">Pick Use template when you send a message to start from this text. It is also what goes out when you send to several Flatfox listings at once. {address} is replaced with each listing&#39;s address.</p>
+          <form class="profile-form" id="template-form">
+            <textarea class="text-input message-input" id="template-editor" rows="10" aria-label="Template" data-i18n-aria-label="tab_template"></textarea>
+            <div class="row-actions">
+              <button class="button button-primary" data-i18n="save_template">Save template</button>
+              <span class="secondary" id="template-status" role="status"></span>
             </div>
           </form>
         </section>
@@ -483,7 +506,7 @@
           <span data-i18n="batch_stop">Stop</span>
         </button>
         <button class="button" id="batch-profile" type="button" hidden>
-          <span data-i18n="batch_go_profile">Open Profile</span>
+          <span data-i18n="batch_go_profile">Open Template</span>
         </button>
       </div>
     </dialog>

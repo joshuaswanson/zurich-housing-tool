@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   classifyWgzimmerSendResponse,
   sendWgzimmerApplication,
+  completeWgzimmerApplication,
   validateWgzimmerApplication,
 } from "../src/sources/wgzimmer-send.mjs";
 
@@ -64,14 +65,15 @@ function browserFixture({ missingForm = false } = {}) {
     },
     $: async () => null,
     waitForSelector: async (selector) => {
-      assert.equal(selector, "#kontakt form.contact-form__form");
+
       if (missingForm) throw new Error("Timeout");
     },
     fill: async (selector, value) => calls.push(["fill", selector, value]),
     locator: (selector) => {
-      assert.equal(selector, "#kontakt");
-      return { scrollIntoViewIfNeeded: async () => {} };
+      return { scrollIntoViewIfNeeded: async () => {}, click: async () => {}, innerHTML: async () => "<p>Your message was successfully sent.</p>" };
     },
+    waitForFunction: async () => {},
+    waitForNavigation: async () => ({ ok: () => true }),
     bringToFront: async () => calls.push(["front"]),
     once: (event, callback) => {
       assert.equal(event, "close");
@@ -91,9 +93,9 @@ function browserFixture({ missingForm = false } = {}) {
 
 test("current WGZimmer form is filled and handed over without claiming a send", async () => {
   const fixture = browserFixture();
-  assert.deepEqual(await sendWgzimmerApplication(APPLICATION, fixture.launcher), {
-    ok: false, requiresCompletion: true,
-  });
+  const result = await sendWgzimmerApplication(APPLICATION, fixture.launcher);
+  assert.equal(result.ok, false);
+  assert.ok(result.verificationId);
   assert.equal(fixture.closed, false);
   assert.equal(fixture.calls[0][1].headless, false);
   assert.equal(fixture.calls[1][2].waitUntil, "domcontentloaded");
@@ -103,7 +105,7 @@ test("current WGZimmer form is filled and handed over without claiming a send", 
     ["fill", "#kontakt-phone", "+41 79 000 00 00"],
     ["fill", "#kontakt-text", "Hallo zusammen"],
   ]);
-  fixture.closeWindow();
+  assert.deepEqual(await completeWgzimmerApplication(result.verificationId, "123456"), { ok: true });
   assert.equal(fixture.closed, true);
 });
 
@@ -118,4 +120,12 @@ test("current form limits reject overlong values instead of truncating drafts", 
     await assert.rejects(sendWgzimmerApplication({ ...APPLICATION, [field]: "x".repeat(length) },
       async () => { assert.fail("Invalid input must not launch a browser"); }), /too long/);
   }
+});
+
+ test("cancelling verification closes the browser and invalidates the session", async () => {
+  const fixture = browserFixture();
+  const { verificationId } = await sendWgzimmerApplication(APPLICATION, fixture.launcher);
+  assert.deepEqual(await completeWgzimmerApplication(verificationId, null, true), { cancelled: true });
+  assert.equal(fixture.closed, true);
+  await assert.rejects(completeWgzimmerApplication(verificationId, "123456"), /expired/);
 });

@@ -1,4 +1,5 @@
 /** Open WGZimmer's contact form for email verification and sending. */
+import { randomUUID } from "node:crypto";
 import { launch } from "cloakbrowser";
 
 const WGZIMMER_HOSTS = new Set(["wgzimmer.ch", "www.wgzimmer.ch"]);
@@ -113,12 +114,43 @@ async function dismissCookieBanner(page) {
 }
 
 /**
- * WGZimmer now requires an email OTP. Keep its visible browser open so the
- * applicant can verify their address and submit using the site's own controls.
- * A prepared form is deliberately not reported as a sent application.
+ * Request an email code using the site controls, then retain this browser
+ * for the verification endpoint. A code request is not a sent application.
  */
+const pending = new Map();
+
+export async function completeWgzimmerApplication(id, code, cancel = false) {
+  const session = pending.get(id);
+  if (!session) throw new Error("Verification expired. Start sending again.");
+  if (session.busy) throw new Error("Verification is already in progress.");
+  session.busy = true;
+  const { page, browser } = session;
+  try {
+    if (cancel) return { cancelled: true };
+    if (!/^\d{6}$/.test(String(code))) throw new Error("Enter the six-digit email code.");
+    await page.fill("#kontakt-code", String(code));
+    await page.locator('#kontakt [data-email-check]').click();
+    await page.waitForFunction(() => document.querySelector('#kontakt-email')?.readOnly, null, { timeout: 15000 });
+    const [response] = await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }),
+      page.locator('#kontakt button[type="submit"]').click(),
+    ]);
+    if (response && !response.ok()) throw new Error(`WG-Zimmer returned HTTP ${response.status()}.`);
+    const result = classifyWgzimmerSendResponse(await page.locator('#kontakt').innerHTML());
+    if (!result.ok) throw new Error(result.error + " Check WG-Zimmer before retrying.");
+    return result;
+  } finally {
+    pending.delete(id);
+    clearTimeout(session.timer);
+    await browser.close();
+  }
+}
+
 export async function sendWgzimmerApplication(application, launcher = launch) {
   const data = validateWgzimmerApplication(application);
+  if ([...pending.values()].some(session => session.uuid === data.uuid)) {
+    throw new Error("Finish or cancel the pending verification for this listing first.");
+  }
   const browser = await launcher({ headless: false, humanize: true });
   let handedOver = false;
   try {
@@ -145,11 +177,23 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
     await page.fill("#kontakt-text", data.message);
     await page.locator("#kontakt").scrollIntoViewIfNeeded();
     await page.bringToFront();
-    // Closing the window releases the browser process. Do not close the form
-    // when this request returns: the user still needs to verify and send it.
-    page.once("close", () => { void browser.close().catch(() => {}); });
+    await page.locator('#kontakt [data-email-send]').click();
+    await page.waitForSelector('#kontakt [data-email-code]:visible', { timeout: 45000 });
+    const verificationId = randomUUID();
+    const timer = setTimeout(() => {
+      pending.delete(verificationId);
+      void browser.close().catch(() => {});
+    }, 10 * 60 * 1000);
+    timer.unref();
+    pending.set(verificationId, { page, browser, timer, uuid: data.uuid, busy: false });
+    page.once("close", () => {
+      pending.delete(verificationId);
+      clearTimeout(timer);
+      void browser.close().catch(() => {});
+    });
     handedOver = true;
-    return { ok: false, requiresCompletion: true };
+    return { ok: false, verificationId };
+
   } finally {
     if (!handedOver) await browser.close();
   }

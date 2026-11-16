@@ -13,8 +13,8 @@ A macOS app that scrapes the major Swiss housing platforms, filters and maps the
 - **Rooms or apartments**: Look for a room in a shared flat, or for a whole apartment or house
 - **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenRouter
 - **Templates**: Write one message and pick it for any listing, with the address filled in
-- **Direct applications**: Review the draft and open a prefilled WG-Zimmer form to verify your email and send, or send directly to Flatfox from the app
-- **Send to many at once**: Select any number of listings and send your template to all of them. Flatfox goes out automatically, 20 at a time, and the others open one by one
+- **Direct applications**: Review the draft and send to WG-Zimmer after entering its email verification code in the app, or send directly to Flatfox from the app
+- **Send to many at once**: Select any number of listings and send your template to all of them. Flatfox goes out automatically, 20 at a time. WG-Zimmer messages are sent one by one after email verification; other sources open their contact page or email composer
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
 - **Distances and directions**: Each listing shows its distance from an ETH or UZH location you choose, and the tram and bus connection there, drawn on the map
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
@@ -33,6 +33,8 @@ The app needs a Mac with Apple silicon and macOS 14 or later. It checks for new 
 Click Scan to collect WG rooms and apartments from every source. Fill in the Profile tab once so the app can write application messages and send them for you. Your profile, notes and applications are stored on your Mac. When OpenRouter writes a message, it receives your profile and the listing.
 
 Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenRouter API key in the settings, and pick which one writes each message. Everything else works without any of them.
+
+To send a WG-Zimmer message, review your draft and click Send. WG-Zimmer emails you a six-digit verification code; enter it in the app to verify your address and send the message. Keep the WG-Zimmer browser window open during verification. The app marks the listing as applied only after WG-Zimmer confirms sending. You can cancel verification without sending.
 
 To send Flatfox messages from your own account, sign in to Flatfox in the settings. Your password goes only to Flatfox and is not saved.
 

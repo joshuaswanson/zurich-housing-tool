@@ -45,6 +45,7 @@ import { scan as scanSources } from "./scan.js";
 import { fetchListings } from "./details.mjs";
 import {
   sendWgzimmerApplication,
+  completeWgzimmerApplication,
   validateWgzimmerApplication,
 } from "./sources/wgzimmer-send.mjs";
 import {
@@ -632,6 +633,14 @@ app.post("/api/application", (req, res) => {
 // ── API: Send a WGZimmer application ─────────────────────────────────────
 
 const wgzimmerSendsInProgress = new Set();
+
+app.post("/api/wgzimmer-verify", async (req, res) => {
+  try {
+    res.json(await completeWgzimmerApplication(req.body.verificationId, req.body.code, req.body.cancel === true));
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 300) });
+  }
+});
 
 app.post("/api/send-wgzimmer", async (req, res) => {
   const profile = readJson(PROFILE_FILE, null);

@@ -1075,6 +1075,45 @@ function contactUrl(listing) {
   return listing.url;
 }
 
+async function verifyWgzimmer(data) {
+  if (!data.verificationId) return data;
+  const code = await new Promise(resolve => {
+    const dialog = document.createElement("dialog");
+    const form = document.createElement("form");
+    form.method = "dialog";
+    const label = document.createElement("label");
+    label.textContent = t("wgzimmer_code");
+    const input = document.createElement("input");
+    input.inputMode = "numeric";
+    input.autocomplete = "one-time-code";
+    input.pattern = "[0-9]{6}";
+    input.maxLength = 6;
+    input.required = true;
+    label.append(input);
+    const send = document.createElement("button");
+    send.textContent = t("send_wgzimmer");
+    const cancel = document.createElement("button");
+    cancel.type = "button";
+    cancel.textContent = t("wgzimmer_cancel");
+    cancel.onclick = () => dialog.close();
+    form.onsubmit = event => { event.preventDefault(); dialog.returnValue = input.value; dialog.close(); };
+    form.append(label, send, cancel);
+    dialog.append(form);
+    dialog.addEventListener("close", () => { resolve(dialog.returnValue || null); dialog.remove(); }, { once: true });
+    document.body.append(dialog);
+    dialog.showModal();
+    input.focus();
+  });
+  const response = await fetch("/api/wgzimmer-verify", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ verificationId: data.verificationId, code, cancel: !code }),
+  });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error);
+  if (result.cancelled) throw new Error(t("wgzimmer_cancelled"));
+  return result;
+}
+
 async function sendDirectDraft(listing, message) {
   const source = listing.source;
   const button = $("dialog-send");
@@ -1090,6 +1129,10 @@ async function sendDirectDraft(listing, message) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
+    if (source === "wgzimmer") {
+      const verified = await verifyWgzimmer(data);
+      if (!verified.ok && !verified.requiresCompletion) throw new Error("WG-Zimmer did not confirm sending.");
+    }
     await saveDraft();
     if (data.requiresCompletion) {
       button.disabled = false;
@@ -1852,6 +1895,13 @@ async function openManual(button) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      const result = await verifyWgzimmer(data);
+      if (!result.ok) throw new Error("WG-Zimmer did not confirm sending.");
+      await postJson("/api/application", { url: l.url, message });
+      await track(l.url, "apply");
+      button.textContent = t("status_applied");
+      delete button.dataset.manual;
+      return;
     } else {
       navigator.clipboard.writeText(message);
       if (l.contactEmail) {

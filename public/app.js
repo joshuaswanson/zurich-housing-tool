@@ -563,7 +563,7 @@ function withEnds(route, listing, destination) {
   return { ...route, legs };
 }
 
-function showRouteOnMap(route) {
+function showRouteOnMap(route, { fit = true } = {}) {
   routeGeojson = {
     type: "FeatureCollection",
     features: (route?.legs || [])
@@ -594,7 +594,7 @@ function showRouteOnMap(route) {
   const coords = routeGeojson.features
     .filter((f) => f.geometry.type === "LineString")
     .flatMap((f) => f.geometry.coordinates);
-  if (map && coords.length > 1) {
+  if (map && fit && coords.length > 1) {
     const bounds = coords.reduce(
       (b, c) => b.extend(c),
       new maplibregl.LngLatBounds(coords[0], coords[0]),
@@ -608,6 +608,33 @@ function toggleRouteOnMap(row, button) {
   showRouteOnMap(showing ? null : row.route);
   button.dataset.showing = String(!showing);
   button.textContent = t(showing ? "route_show" : "route_hide");
+  if (!showing) followTracks(row, button);
+}
+
+// The timetable only gives the stops, so each ride is drawn straight first
+// and then along its line's track once that arrives.
+async function followTracks(row, button) {
+  const route = row.route;
+  await Promise.all(
+    route.legs
+      .filter((leg) => leg.type !== "walk" && leg.line && !leg.tracked)
+      .map(async (leg) => {
+        try {
+          const res = await fetch("/api/route-shape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: leg.type, line: leg.line, stops: leg.path }),
+          });
+          const { path } = await res.json();
+          if (!res.ok || !path) return;
+          leg.path = path.map(([lng, lat]) => ({ lat, lng }));
+          leg.tracked = true;
+          if (row.route === route && button.dataset.showing === "true") {
+            showRouteOnMap(route, { fit: false });
+          }
+        } catch {}
+      }),
+  );
 }
 
 function stopName(name) {

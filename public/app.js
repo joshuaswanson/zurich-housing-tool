@@ -469,20 +469,27 @@ function renderApplications() {
       .join("") || `<p class="empty">${t("nothing_tracked")}</p>`;
 }
 
+const LONG_SECTION_CHARS = 700;
+
+function expandSection(button) {
+  button.previousElementSibling.classList.remove("is-clamped");
+  button.remove();
+}
+
 function detailSections(details) {
   const sections = DETAIL_SECTIONS.filter((key) => details?.[key]);
   if (sections.length === 0) return "";
   return `<dl class="detail-sections">${sections
     .map(
       (key) =>
-        `<div><dt>${t(`sec_${key}`)}</dt><dd>${esc(details[key])}</dd></div>`,
+        `<div class="detail-section"><dt>${t(`sec_${key}`)}</dt><dd${details[key].length > LONG_SECTION_CHARS ? ' class="is-clamped"' : ""}>${esc(details[key])}</dd>${details[key].length > LONG_SECTION_CHARS ? `<button class="link-button" type="button" data-action="expand-section">${t("show_more_text")}</button>` : ""}</div>`,
     )
     .join("")}</dl>`;
 }
 
 function detailRow(l) {
   const status = statusOf(l.url);
-  const actions = [["draft", draftLabelKey()]];
+  const actions = [];
   if (status !== "applied") actions.push(["apply", "act_apply"]);
   if (!status) {
     actions.push(["shortlist", "act_shortlist"], ["exclude", "act_exclude"]);
@@ -496,19 +503,22 @@ function detailRow(l) {
   row.innerHTML = `
     <td colspan="5">
       <div class="detail">
-        <div data-role="sections"></div>
-        <div class="detail-note">
-          <input class="text-input" type="text" data-role="note" aria-label="${t("note_label")}" placeholder="${t("note_placeholder")}" value="${esc(noteFor(l.url))}" />
-          <button class="button" type="button" data-action="save-note">${t("save_note")}</button>
-        </div>
-        <div class="row-actions" data-role="actions">
-          ${actionButtons(actions.slice(0, 1))}${llmPicker()}${actionButtons(actions.slice(1))}
-          <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
-        </div>
-        <div class="row-actions" data-role="exclude-form" hidden>
-          <input class="text-input" type="text" data-role="reason" aria-label="${t("reason_label")}" placeholder="${t("reason_placeholder")}" />
-          <button class="button" type="button" data-action="confirm-exclude">${t("act_exclude")}</button>
-          <button class="button" type="button" data-action="cancel-exclude">${t("cancel")}</button>
+        <div class="detail-body" data-role="sections"></div>
+        <div class="detail-footer">
+          <div class="row-actions" data-role="actions">
+            <button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>
+            ${actionButtons(actions)}
+            <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
+          </div>
+          <div class="row-actions" data-role="exclude-form" hidden>
+            <input class="text-input" type="text" data-role="reason" aria-label="${t("reason_label")}" placeholder="${t("reason_placeholder")}" />
+            <button class="button" type="button" data-action="confirm-exclude">${t("act_exclude")}</button>
+            <button class="button" type="button" data-action="cancel-exclude">${t("cancel")}</button>
+          </div>
+          <div class="detail-note">
+            <input class="text-input" type="text" data-role="note" aria-label="${t("note_label")}" placeholder="${t("note_placeholder")}" value="${esc(noteFor(l.url))}" />
+            <button class="button" type="button" data-action="save-note">${t("save_note")}</button>
+          </div>
         </div>
       </div>
     </td>`;
@@ -741,6 +751,9 @@ function openDialog(title, body, { draftFor = null } = {}) {
   $("dialog-send").disabled = false;
   $("dialog-applied").hidden = true;
   $("dialog-hint").hidden = true;
+  $("dialog-sources").hidden = true;
+  $("dialog-editor").disabled = false;
+  setComposeStatus("");
   $("message-dialog").showModal();
 }
 
@@ -836,9 +849,6 @@ async function saveDraft() {
 let profileFields = [];
 let savedMessage = "";
 
-function draftLabelKey() {
-  return savedMessage ? "act_use_message" : "act_draft";
-}
 let flatfoxSession = { checking: true, connected: false, busy: false };
 
 function renderFlatfoxSession() {
@@ -956,15 +966,45 @@ function cancelFlatfox() {
   fetch("/api/flatfox-session/cancel", { method: "POST" }).catch(() => {});
 }
 
+// Each field gets a width on a twelve-column grid that suits its answer.
+const PROFILE_LAYOUT = {
+  name: { span: 6, autocomplete: "name" },
+  age: { span: 2, type: "number" },
+  nationality: { span: 4 },
+  email: { span: 7, type: "email", autocomplete: "email" },
+  phone: { span: 5, type: "tel", autocomplete: "tel" },
+  occupation: { span: 12 },
+  languages: { span: 12 },
+  hobbies: { span: 12 },
+  situation: { span: 12, rows: 2 },
+  futurePlans: { span: 12, rows: 2 },
+  personality: { span: 12, rows: 2 },
+  wgExperience: { span: 12, rows: 2 },
+  extras: { span: 12, rows: 3 },
+};
+
+function profileInput(field, text) {
+  const { type = "text", rows, autocomplete } = PROFILE_LAYOUT[field] || {};
+  if (rows) {
+    return `<textarea class="text-input" name="${field}" rows="${rows}">${esc(text)}</textarea>`;
+  }
+  return `<input class="text-input" type="${type}" name="${field}" value="${esc(text)}"${autocomplete ? ` autocomplete="${autocomplete}"` : ""} />`;
+}
+
 function renderProfile(profile) {
-  $("profile-fields").innerHTML = profileFields
+  const ordered = [
+    ...Object.keys(PROFILE_LAYOUT).filter((f) => profileFields.includes(f)),
+    ...profileFields.filter((f) => !(f in PROFILE_LAYOUT)),
+  ];
+  $("profile-fields").innerHTML = ordered
     .map((field) => {
       const value = profile?.[field];
       const text = Array.isArray(value) ? value.join(", ") : (value ?? "");
+      const span = PROFILE_LAYOUT[field]?.span || 12;
       return `
-        <label class="profile-field">
+        <label class="profile-field" style="grid-column: span ${span}">
           <span>${t(`pf_${field}`)}</span>
-          <input class="text-input" type="${field === "age" ? "number" : "text"}" name="${field}" value="${esc(text)}" />
+          ${profileInput(field, text)}
         </label>`;
     })
     .join("");
@@ -983,7 +1023,7 @@ async function loadProfile() {
 function readProfileForm() {
   const profile = {};
   profile.message = $("profile-form").elements.message.value.trim();
-  for (const input of $("profile-fields").querySelectorAll("input")) {
+  for (const input of $("profile-fields").querySelectorAll("input, textarea")) {
     const text = input.value.trim();
     if (input.name === "age") profile.age = text ? Number(text) : "";
     else if (input.name === "hobbies") {
@@ -1023,29 +1063,90 @@ function showMessage(url) {
   );
 }
 
-async function draftMessage(url, button) {
-  button.disabled = true;
-  button.textContent = t("drafting");
+const MESSAGE_SOURCE_KEY = "zurich-housing-message-source";
+let composeRequest = 0;
+
+function messageSources() {
+  return ["template", ...llmProviders];
+}
+
+function sourceName(source) {
+  return source === "template" ? t("source_template") : providerName(source);
+}
+
+function renderMessageSources(selected) {
+  $("dialog-source").innerHTML = messageSources()
+    .map(
+      (source) => `
+        <label>
+          <input type="radio" name="message-source" value="${source}"${source === selected ? " checked" : ""} />
+          <span>${esc(sourceName(source))}</span>
+        </label>`,
+    )
+    .join("");
+}
+
+function setComposeStatus(text, isError = false) {
+  const status = $("dialog-source-status");
+  status.textContent = text;
+  status.hidden = !text;
+  status.classList.toggle("is-error", isError);
+}
+
+function composeMessage(url) {
+  openDialog(t("application_message"), "", { draftFor: url });
+  const remembered = localStorage.getItem(MESSAGE_SOURCE_KEY);
+  const source = messageSources().includes(remembered)
+    ? remembered
+    : savedMessage
+      ? "template"
+      : llmProvider;
+  renderMessageSources(source);
+  $("dialog-sources").hidden = false;
+  writeWith(source);
+}
+
+async function writeWith(source) {
+  localStorage.setItem(MESSAGE_SOURCE_KEY, source);
+  const request = ++composeRequest;
+  const editor = $("dialog-editor");
+  const listing = draftListing();
+  $("dialog-save").textContent = t("save_message");
+  if (source === "template") {
+    editor.disabled = false;
+    editor.value = savedMessage ? fillMessage(savedMessage, listing) : "";
+    setComposeStatus(savedMessage ? "" : t("no_template"));
+    $("dialog-send").disabled = !editor.value;
+    return;
+  }
+
+  editor.disabled = true;
+  editor.value = "";
+  $("dialog-send").disabled = true;
+  setComposeStatus(t("writing_with", { name: sourceName(source) }));
+  let message = "";
+  let error = "";
   try {
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, provider: llmProvider }),
+      body: JSON.stringify({ url: listing.url, provider: source }),
     });
     const data = await res.json();
-    if (data.error) {
-      openDialog(t("draft_failed"), data.error);
-    } else {
-      openDialog(t("application_message"), data.message, {
-        draftFor: url,
-      });
-    }
+    if (data.error) error = data.error;
+    else message = data.message;
   } catch (e) {
-    openDialog(t("draft_failed"), e.message);
-  } finally {
-    button.disabled = false;
-    button.textContent = t(draftLabelKey());
+    error = e.message;
   }
+  if (request !== composeRequest) return;
+  editor.disabled = false;
+  if (error) {
+    setComposeStatus(`${t("draft_failed")}: ${error}`, true);
+  } else {
+    editor.value = message;
+    setComposeStatus("");
+  }
+  $("dialog-send").disabled = !editor.value;
 }
 
 // Sending to many listings
@@ -1618,25 +1719,6 @@ function providerName(provider) {
   return API_SERVICE_NAMES[apiSettings?.service] || "API";
 }
 
-function llmPicker() {
-  if (savedMessage || llmProviders.length < 2) return "";
-  const options = llmProviders
-    .map(
-      (p) =>
-        `<option value="${p}"${p === llmProvider ? " selected" : ""}>${esc(providerName(p))}</option>`,
-    )
-    .join("");
-  return `<select class="llm-picker" data-role="llm" aria-label="${t("llm")}" title="${t("llm")}">${options}</select>`;
-}
-
-document.addEventListener("change", (e) => {
-  if (e.target.dataset?.role !== "llm") return;
-  llmProvider = e.target.value;
-  localStorage.setItem(LLM_KEY, llmProvider);
-  document.querySelectorAll("select[data-role='llm']").forEach((select) => {
-    select.value = llmProvider;
-  });
-});
 
 let apiSettings = null;
 
@@ -1861,7 +1943,8 @@ $("listings-body").addEventListener("click", (e) => {
     const row = button.closest("tr");
     const url = row.dataset.url;
     const action = button.dataset.action;
-    if (action === "draft") draftMessage(url, button);
+    if (action === "compose") composeMessage(url);
+    else if (action === "expand-section") expandSection(button);
     else if (action === "fetch-details") fetchDetails(row, button);
     else if (action === "save-note") saveNote(row, button);
     else if (action === "exclude") toggleExcludeForm(row, true);
@@ -1902,6 +1985,12 @@ $("dialog-copy").addEventListener("click", () => {
 });
 $("dialog-save").addEventListener("click", saveDraft);
 $("dialog-send").addEventListener("click", handOverDraft);
+$("dialog-source").addEventListener("change", (e) => writeWith(e.target.value));
+$("dialog-editor").addEventListener("input", () => {
+  if (!$("dialog-sources").hidden) {
+    $("dialog-send").disabled = !$("dialog-editor").value.trim();
+  }
+});
 $("dialog-applied").addEventListener("click", markDraftApplied);
 $("profile-form").addEventListener("submit", saveProfile);
 $("flatfox-login").addEventListener("click", connectFlatfox);

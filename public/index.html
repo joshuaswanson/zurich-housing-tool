@@ -425,9 +425,9 @@
           <form class="profile-form" id="profile-form">
             <div id="profile-fields"></div>
             <label class="profile-field">
-              <span data-i18n="pf_message">Your message</span>
+              <span data-i18n="pf_message">Template</span>
               <textarea class="text-input message-input" name="message" rows="7"></textarea>
-              <small class="secondary" data-i18n="pf_message_hint">When you write one, it is used for every listing in place of a generated message. {address} is replaced with each listing&#39;s address.</small>
+              <small class="secondary" data-i18n="pf_message_hint">Pick Template when you send a message to use it for that listing. It is also what goes out when you send to many Flatfox listings at once. {address} is replaced with each listing&#39;s address.</small>
             </label>
             <div class="row-actions">
               <button class="button button-primary" data-i18n="save_profile">
@@ -442,6 +442,11 @@
 
     <dialog id="message-dialog">
       <h2 id="dialog-title"></h2>
+      <div class="dialog-sources" id="dialog-sources" hidden>
+        <span class="secondary" data-i18n="write_with">Write with</span>
+        <span class="segmented" id="dialog-source" role="radiogroup" aria-label="Write with" data-i18n-aria-label="write_with"></span>
+        <span class="secondary dialog-source-status" id="dialog-source-status" role="status" hidden></span>
+      </div>
       <pre id="dialog-body"></pre>
       <textarea id="dialog-editor" aria-labelledby="dialog-title" hidden></textarea>
       <p class="secondary dialog-hint" id="dialog-hint" hidden></p>

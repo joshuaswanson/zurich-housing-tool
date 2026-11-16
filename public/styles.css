@@ -705,23 +705,71 @@ select {
 
 .detail {
   display: grid;
-  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.detail-body {
+  padding: 16px 18px 4px;
+}
+
+.detail-body:empty {
+  display: none;
 }
 
 .detail-sections {
   display: grid;
-  gap: 8px;
-  max-width: 75ch;
-  font-size: 13px;
+  gap: 16px;
+  max-width: 72ch;
+  font-size: 13.5px;
+  line-height: 1.55;
 }
 
 .detail-sections dt {
-  color: var(--muted);
-  font-size: 12.5px;
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .detail-sections dd {
   white-space: pre-line;
+}
+
+.detail-sections dd.is-clamped {
+  display: -webkit-box;
+  -webkit-line-clamp: 8;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link-button {
+  margin-top: 4px;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.detail-footer {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px 18px 14px;
+  background: var(--bg);
+  border-top: 1px solid var(--line-soft);
 }
 
 .detail-note {
@@ -979,7 +1027,7 @@ tbody tr.detail-row {
 }
 
 tbody tr.detail-row td {
-  padding: 4px 8px 14px;
+  padding: 2px 8px 14px;
 }
 
 .group-head {
@@ -1111,12 +1159,29 @@ dialog textarea {
 .profile-form {
   display: grid;
   gap: 14px;
-  max-width: 60ch;
+  max-width: 72ch;
 }
 
 #profile-fields {
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+#profile-fields .text-input {
+  width: 100%;
+  min-width: 0;
+}
+
+#profile-fields textarea {
+  font: inherit;
+  resize: vertical;
+}
+
+@media (max-width: 700px) {
+  #profile-fields .profile-field {
+    grid-column: span 12 !important;
+  }
 }
 
 .profile-field {
@@ -1132,7 +1197,7 @@ dialog textarea {
 .account-connection {
   display: grid;
   gap: 14px;
-  max-width: 60ch;
+  max-width: 72ch;
   margin-bottom: 20px;
   padding: 14px;
   border: 1px solid var(--line);
@@ -1302,11 +1367,6 @@ dialog textarea {
   font-size: 13px;
 }
 
-.llm-picker {
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
 .api-heading {
   font-weight: 600;
 }
@@ -1325,4 +1385,24 @@ dialog textarea {
 .batch-item:hover,
 .batch-item[aria-pressed="true"] {
   background: var(--line-soft);
+}
+
+.dialog-sources {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 12px;
+}
+
+.dialog-source-status {
+  flex-basis: 100%;
+}
+
+.dialog-source-status.is-error {
+  color: var(--danger);
+}
+
+dialog textarea:disabled {
+  opacity: 0.6;
 }

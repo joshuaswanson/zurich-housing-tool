@@ -76,6 +76,12 @@ done
 iconutil -c icns "$ICONSET" -o "$RESOURCES/AppIcon.icns"
 
 sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"
+# Local builds are re-signed on every build, so macOS does not recognise
+# them and blocks the updater's background check from touching the app.
+# Only release builds check for updates on their own.
+if [ "${RELEASE:-}" != 1 ]; then
+  /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$CONTENTS/Info.plist"
+fi
 codesign --force --deep --sign - "$APP"
 DMG="build/Zurich-Housing-Tool.dmg"
 STAGING="$CACHE/dmg"

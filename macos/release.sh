@@ -11,7 +11,7 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-macos/build.sh
+RELEASE=1 macos/build.sh
 
 VERSION="$(node -p 'require("./package.json").version')"
 TAG="v$VERSION"

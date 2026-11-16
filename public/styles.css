@@ -1415,6 +1415,11 @@ dialog textarea {
   flex-basis: 100%;
 }
 
+#dialog-api-model {
+  width: 22ch;
+  padding: 5px 8px;
+}
+
 .dialog-source-status.is-error {
   color: var(--danger);
 }

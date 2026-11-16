@@ -1107,6 +1107,21 @@ async function loadOllamaModels() {
 function showOllamaModels() {
   $("dialog-ollama-model").hidden =
     llmProvider !== "ollama" || ollamaModels.length < 2;
+  $("dialog-api-model").hidden = llmProvider !== "api";
+  $("dialog-api-model").value = apiSettings?.model || "";
+}
+
+async function saveApiModel() {
+  const model = $("dialog-api-model").value.trim();
+  if (model === apiSettings?.model) return;
+  try {
+    const res = await fetch("/api/llm-api", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model }),
+    });
+    if (res.ok) showApiSettings(await res.json());
+  } catch {}
 }
 
 function renderModelChoice() {
@@ -1155,6 +1170,7 @@ function useTemplate() {
 
 async function generateMessage() {
   const provider = llmProvider;
+  if (provider === "api") await saveApiModel();
   const request = ++composeRequest;
   const editor = $("dialog-editor");
   editor.disabled = true;
@@ -2025,6 +2041,7 @@ $("dialog-model").addEventListener("change", (e) => {
   localStorage.setItem(LLM_KEY, llmProvider);
   showOllamaModels();
 });
+$("dialog-api-model").addEventListener("change", saveApiModel);
 $("dialog-ollama-model").addEventListener("change", (e) => {
   localStorage.setItem(OLLAMA_MODEL_KEY, e.target.value);
 });

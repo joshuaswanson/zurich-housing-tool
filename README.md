@@ -12,9 +12,9 @@ A macOS app that scrapes the major Swiss housing platforms, filters and maps the
 - **Listings from four sites**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), and [students.ch](https://www.students.ch/wohnen), in one list
 - **Rooms or apartments**: Look for a room in a shared flat on all four sites, or for a whole apartment or house on Flatfox and ronorp
 - **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenAI or OpenRouter
-- **Your own message**: Write one message in your profile and use it for every listing, with the address filled in
+- **Templates**: Write one message in your profile and pick it for any listing, with the address filled in
 - **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
-- **Send to many at once**: Send your message to up to 20 new Flatfox listings that match your filters in one go
+- **Send to many at once**: Send your template to up to 20 new Flatfox listings that match your filters in one go
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
 - **Distances**: Each listing shows its distance from a location you choose
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice

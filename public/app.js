@@ -2,11 +2,11 @@ const ROWS_PER_PAGE = 200;
 let rowLimit = ROWS_PER_PAGE;
 let filteredListings = [];
 const SOURCE_SITES = [
-  "wgzimmer.ch",
-  "flatfox.ch",
-  "ronorp.net",
-  "students.ch",
-  "the ETH Housing Office",
+  "WG-Zimmer",
+  "Flatfox",
+  "Ron Orp",
+  "Students.ch",
+  "ETH Housing",
 ];
 
 let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
@@ -187,7 +187,7 @@ const SORT_COMPARATORS = {
   available: (a, b) =>
     availableTime(a) - availableTime(b) || a.price - b.price,
   source: (a, b) =>
-    a.source.localeCompare(b.source) || a.price - b.price,
+    sourceLabel(a.source).localeCompare(sourceLabel(b.source)) || a.price - b.price,
 };
 
 function matchesKeywords(l, keywords) {
@@ -427,8 +427,16 @@ function findListing(id) {
   );
 }
 
+const SOURCE_NAMES = {
+  flatfox: "Flatfox",
+  wgzimmer: "WG-Zimmer",
+  ronorp: "Ron Orp",
+  students: "Students.ch",
+  ethz: "ETH Housing",
+};
+
 function sourceLabel(source) {
-  return source === "ethz" ? t("source_ethz") : source;
+  return SOURCE_NAMES[source] || source;
 }
 
 function renderShowMore(total) {
@@ -904,14 +912,14 @@ function renderScanStatus(scanStatus, newCount = 0) {
   status.textContent =
     t("last_scan", { when: timeAgo(scanStatus.finishedAt) }) +
     (failedSources.length > 0
-      ? ` ${t("sources_failed", { sources: joinList(failedSources) })}`
+      ? ` ${t("sources_failed", { sources: joinList(failedSources.map(sourceLabel)) })}`
       : "") +
     (newCount > 0 ? ` ${counted("new_listings", newCount)}.` : "") +
     (scanStatus.fetchingDetails ? ` ${t("fetching_addresses")}` : "");
   watchDetailFetch(scanStatus.fetchingDetails);
   status.title =
     failedSources.length > 0
-      ? t("sources_failed_detail", { sources: joinList(failedSources) })
+      ? t("sources_failed_detail", { sources: joinList(failedSources.map(sourceLabel)) })
       : "";
 }
 
@@ -1135,7 +1143,7 @@ async function loadFlatfoxSession() {
   renderFlatfoxSession();
 }
 
-// ETH Housing Office
+// ETH Housing
 
 let ethzSession = { connected: false };
 

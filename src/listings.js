@@ -42,10 +42,10 @@ function wgzimmerAddress(details) {
   return `${address}, ${city}`;
 }
 
-export function loadAllListings() {
+export function loadAllListings(search = currentSearch()) {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
-  const { sources, flatfoxCache, ronorpCache, ethzTypes } = currentSearch();
+  const { sources, flatfoxCache, ronorpCache, ethzTypes } = search;
   const sourceCache = (source, file) =>
     sources.includes(source) ? readJson(file, []) : [];
 

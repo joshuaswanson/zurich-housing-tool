@@ -780,3 +780,22 @@ test("a ride follows its line's track between the stops it passes", async () => 
   app.locals.fetchLegShape = async ({ stops }) => stops;
   assert.equal((await post("/api/route-shape", { type: "walk", stops: [{ lat: 47.1, lng: 8.1 }, { lat: 47.2, lng: 8.2 }] })).body.path.length, 2);
 });
+
+test("a scan drops excluded listings that were taken down from sites it scanned", async () => {
+  const { pruneExcluded } = await import("../src/server.js");
+  const trackerFile = path.join(dataDir, "tracker.json");
+  const tracker = JSON.parse(fs.readFileSync(trackerFile, "utf8"));
+  const gone = "https://www.wgzimmer.ch/wglink/en/99999999-2222-4333-8444-555555555555/zurich-stadt/x.html";
+  const unscanned = "https://flatfox.ch/en/flat/8004-zurich/99999999/";
+  tracker.excluded = [
+    { url: WG_URL, reason: "still listed" },
+    { url: gone, reason: "taken down" },
+    { url: unscanned, reason: "site failed" },
+  ];
+  fs.writeFileSync(trackerFile, JSON.stringify(tracker));
+
+  const removed = pruneExcluded({ sources: { wgzimmer: { ok: true }, flatfox: { ok: false } } });
+  assert.equal(removed, 1);
+  const urls = JSON.parse(fs.readFileSync(trackerFile, "utf8")).excluded.map((e) => e.url);
+  assert.deepEqual(urls, [WG_URL, unscanned]);
+});

@@ -130,7 +130,8 @@ app.post("/api/scan", async (req, res) => {
   }
   scanInProgress = true;
   try {
-    await scanSources();
+    const status = await scanSources();
+    pruneExcluded(status);
     fetchWgzimmerDetailsInBackground();
     res.json({ ok: true, status: scanStatus() });
   } catch (e) {
@@ -139,6 +140,49 @@ app.post("/api/scan", async (req, res) => {
     scanInProgress = false;
   }
 });
+
+/**
+ * Drop excluded listings that the scan no longer found in either search, for
+ * sites that scanned without errors. Those listings were taken down.
+ */
+export function pruneExcluded(status) {
+  const tracker = readJson(TRACKER_FILE, null);
+  if (!tracker?.excluded?.length) return 0;
+  const found = new Set(
+    Object.values(SEARCHES).flatMap((search) =>
+      loadAllListings(search).map((l) => listingKey(l.url)),
+    ),
+  );
+  const scanned = Object.entries(status?.sources || {})
+    .filter(([, result]) => result.ok)
+    .map(([source]) => source);
+  const kept = tracker.excluded.filter((entry) => {
+    const source = scanned.find((name) => sourceOfUrl(entry.url) === name);
+    return !source || found.has(listingKey(entry.url));
+  });
+  const removed = tracker.excluded.length - kept.length;
+  if (removed) {
+    tracker.excluded = kept;
+    fs.writeFileSync(TRACKER_FILE, JSON.stringify(tracker, null, 2));
+  }
+  return removed;
+}
+
+const SOURCE_DOMAINS = {
+  wgzimmer: "wgzimmer.ch",
+  flatfox: "flatfox.ch",
+  ronorp: "ronorp.net",
+  students: "students.ch",
+  ethz: "ethz.ch",
+};
+
+function sourceOfUrl(url) {
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {}
+  return Object.keys(SOURCE_DOMAINS).find((name) => host.endsWith(SOURCE_DOMAINS[name])) || null;
+}
 
 function scanStatus() {
   const status = readJson(SCAN_STATUS_FILE, null);

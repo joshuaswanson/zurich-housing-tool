@@ -2546,7 +2546,6 @@ function onListingTableClick(e) {
   const row = e.target.closest("tr.listing-row");
   if (!row || e.target.closest("a")) return;
   if (selecting && row.closest("#listings-body")) {
-    e.preventDefault();
     toggleSelected(row.dataset.id, e.shiftKey);
   } else {
     toggleListing(row);

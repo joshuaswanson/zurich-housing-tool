@@ -16,7 +16,7 @@ A macOS app that scrapes the major Swiss housing platforms, filters and maps the
 - **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
 - **Send to many at once**: Send your message to up to 20 new Flatfox listings that match your filters in one go
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
-- **Distances**: Each listing shows its distance and walking time from a location you choose
+- **Distances**: Each listing shows its distance from a location you choose
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
 - **macOS app**: A map, a listings table, and application tracking in one window
 

@@ -41,6 +41,7 @@ if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {
   fs.renameSync(ROOT_TRACKER_FILE, TRACKER_FILE);
 }
 export const PROFILE_FILE = path.join(HOME_DIR, "profile.json");
+export const TEMPLATE_FILE = path.join(HOME_DIR, "template.json");
 export const SCAN_STATUS_FILE = path.join(DATA_DIR, "scan_status.json");
 export const SEARCH_FILE = path.join(DATA_DIR, "search.json");
 

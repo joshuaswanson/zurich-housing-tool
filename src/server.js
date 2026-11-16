@@ -14,6 +14,7 @@ import {
   WGZIMMER_LISTINGS_FILE,
   TRACKER_FILE,
   PROFILE_FILE,
+  TEMPLATE_FILE,
   SEARCHES,
   SEARCH_FILE,
   currentSearch,
@@ -350,7 +351,7 @@ app.get("/api/profile", (req, res) => {
 
 app.post("/api/profile", (req, res) => {
   const profile = {};
-  for (const field of [...PROFILE_FIELDS, "message"]) {
+  for (const field of PROFILE_FIELDS) {
     if (req.body[field] !== undefined && req.body[field] !== "") {
       profile[field] = req.body[field];
     }
@@ -371,6 +372,26 @@ function saveApplication(url, message) {
   const name = listingKey(url).replace(/[^a-zA-Z0-9-]/g, "_").slice(-80);
   fs.writeFileSync(path.join(appDir, `${name}.md`), `${url}\n\n${message}\n`);
 }
+
+// ── API: Template ────────────────────────────────────────────────────────
+
+function readTemplate() {
+  return String(readJson(TEMPLATE_FILE, {})?.template || "").trim();
+}
+
+app.get("/api/template", (req, res) => {
+  res.json({ template: readTemplate() });
+});
+
+app.post("/api/template", (req, res) => {
+  const template = String(req.body.template ?? "").trim();
+  try {
+    fs.writeFileSync(TEMPLATE_FILE, JSON.stringify({ template }, null, 2));
+    res.json({ template });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 app.post("/api/application", (req, res) => {
   const { url, message } = req.body;
@@ -583,7 +604,7 @@ function trackedKeys() {
   );
 }
 
-async function runFlatfoxBatch(batch, listings, profile) {
+async function runFlatfoxBatch(batch, listings, profile, template) {
   let failuresInRow = 0;
   for (const [index, listing] of listings.entries()) {
     if (batch.stopping) break;
@@ -591,7 +612,7 @@ async function runFlatfoxBatch(batch, listings, profile) {
     while (flatfoxBrowserBusy && !batch.stopping) await wait(1000);
     if (batch.stopping) break;
 
-    const message = fillMessage(profile.message, listing);
+    const message = fillMessage(template, listing);
     batch.current = listing.address || listing.url;
     flatfoxBrowserBusy = true;
     try {
@@ -631,9 +652,10 @@ app.post("/api/send-flatfox-batch", (req, res) => {
     return res.status(409).json({ error: "Messages are already being sent." });
   }
   const profile = readJson(PROFILE_FILE, {}) || {};
-  if (!profile.message?.trim()) {
+  const template = readTemplate();
+  if (!template) {
     return res.status(400).json({
-      error: "Write your message in the Profile tab first.",
+      error: "Write your template in the Template tab first.",
     });
   }
   const urls = Array.isArray(req.body.urls) ? req.body.urls : [];
@@ -651,7 +673,7 @@ app.post("/api/send-flatfox-batch", (req, res) => {
     validateFlatfoxApplication({
       ...profile,
       url: listings[0].url,
-      message: fillMessage(profile.message, listings[0]),
+      message: fillMessage(template, listings[0]),
     });
   } catch (e) {
     return res.status(400).json({ error: e.message });
@@ -665,7 +687,7 @@ app.post("/api/send-flatfox-batch", (req, res) => {
     current: null,
     stopping: false,
   };
-  runFlatfoxBatch(flatfoxBatch, listings, profile);
+  runFlatfoxBatch(flatfoxBatch, listings, profile, template);
   res.json(batchStatus());
 });
 
@@ -789,7 +811,7 @@ app.post("/api/generate", async (req, res) => {
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
   // Contact details are for the contact form and stay out of the prompt.
-  const { email, phone, message, ...promptProfile } = profile;
+  const { email, phone, ...promptProfile } = profile;
 
   const listing = loadCachedListing(url);
   if (!listing) {

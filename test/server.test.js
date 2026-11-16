@@ -469,15 +469,19 @@ test("only a fluent German entry counts as speaking German", async () => {
   assert.equal(germanLevel(undefined), "none");
 });
 
-test("the template is saved with the profile and filled in per listing", async () => {
+test("the template is saved on its own and filled in per listing", async () => {
   const { fillMessage } = await import("../src/server.js");
   assert.equal(
     fillMessage("Is the room at {address} free? {address}", { address: "8004 Zürich" }),
     "Is the room at 8004 Zürich free? 8004 Zürich",
   );
 
-  await post("/api/profile", { name: "Jane Doe", message: "Hi, is {address} still free?" });
-  assert.equal((await get("/api/profile")).body.profile.message, "Hi, is {address} still free?");
+  assert.deepEqual((await get("/api/template")).body, { template: "" });
+  await post("/api/template", { template: " Hi, is {address} still free? " });
+  assert.deepEqual((await get("/api/template")).body, { template: "Hi, is {address} still free?" });
+  await post("/api/profile", { name: "Jane Doe", message: "ignored" });
+  assert.equal((await get("/api/profile")).body.profile.message, undefined);
+  assert.equal((await get("/api/template")).body.template, "Hi, is {address} still free?");
 });
 
 test("the saved message goes to new Flatfox listings in one paced batch", async () => {
@@ -493,12 +497,13 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
     .map((l) => l.url);
   assert.equal(urls.length, 3);
 
-  await post("/api/profile", { name: "Jane Doe" });
-  const noMessage = await post("/api/send-flatfox-batch", { urls });
-  assert.equal(noMessage.status, 400);
-  assert.match(noMessage.body.error, /message/i);
+  await post("/api/profile", { name: "Jane Doe", email: "jane@example.com", phone: "+41 79 000 00 00" });
+  await post("/api/template", { template: "" });
+  const noTemplate = await post("/api/send-flatfox-batch", { urls });
+  assert.equal(noTemplate.status, 400);
+  assert.match(noTemplate.body.error, /template/i);
 
-  await post("/api/profile", { name: "Jane Doe", email: "jane@example.com", phone: "+41 79 000 00 00", message: "Hi about {address}" });
+  await post("/api/template", { template: "Hi about {address}" });
   await post("/api/track", { url: urls[2], action: "shortlist" });
 
   const sent = [];

@@ -139,6 +139,8 @@ test("the API key is stored privately and never sent back", async () => {
 
   await post("/api/llm-api", { model: "gpt-test" });
   assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).apiKey, "sk-or-test-1234");
+  await post("/api/llm-api", { apiKey: "sk-or-test-1234" });
+  assert.equal(JSON.parse(fs.readFileSync(file, "utf8")).model, "gpt-test");
 });
 
 test("a key saved for another service is not sent to OpenRouter", async () => {

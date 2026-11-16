@@ -202,7 +202,7 @@ app.get("/api/llm-api", (req, res) => {
 app.post("/api/llm-api", (req, res) => {
   const { apiKey, model } = req.body;
   const settings = { ...loadApiSettings(), service: "openrouter" };
-  settings.model = String(model || "").trim();
+  if (typeof model === "string") settings.model = model.trim();
   if (typeof apiKey === "string") settings.apiKey = apiKey.trim();
   ensureDataDir();
   fs.writeFileSync(API_SETTINGS_FILE, JSON.stringify(settings, null, 2), {

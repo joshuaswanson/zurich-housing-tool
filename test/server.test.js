@@ -688,3 +688,42 @@ test("signing in to the ETH Housing Office imports offers and fills empty profil
   assert.equal(secrets.has("jdoe"), false);
   assert.ok(!(await get("/api/listings")).body.some((l) => l.source === "ethz"));
 });
+
+test("routes use a weekday morning and keep the quickest connection", async () => {
+  const { commuteStart } = await import("../src/server.js");
+  assert.deepEqual(commuteStart(new Date(2026, 10, 20)), { date: "11/23/2026", time: "08:00" });
+  assert.deepEqual(commuteStart(new Date(2026, 10, 16)), { date: "11/17/2026", time: "08:00" });
+
+  let params;
+  app.locals.fetchTimetable = async (p) => {
+    params = p;
+    return {
+      connections: [
+        { duration: 1500, legs: [] },
+        {
+          duration: 1200,
+          legs: [
+            { type: "walk", name: "Ankerstr. 115", runningtime: 420, exit: { name: "Stauffacher", lat: 47.373, lon: 8.529 } },
+            {
+              type: "tram", line: "14", bgcolor: "008dc5", fgcolor: "fff", name: "Stauffacher", lat: 47.373, lon: 8.529,
+              runningtime: 660, stops: [{ name: "Kantonsschule", lat: 47.372, lon: 8.55 }],
+              exit: { name: "ETH/Universitätsspital", lat: 47.377, lon: 8.548 },
+            },
+            { name: "Rämistr. 101" },
+          ],
+        },
+      ],
+    };
+  };
+  const { status, body } = await get("/api/route?from=47.3765,8.528&to=47.3764,8.5483");
+  assert.equal(status, 200);
+  assert.equal(params.get("from"), "47.37650,8.52800");
+  assert.equal(params.get("time"), "08:00");
+  assert.equal(body.minutes, 20);
+  assert.equal(body.legs.length, 2);
+  assert.deepEqual(
+    { line: body.legs[1].line, color: body.legs[1].color, minutes: body.legs[1].minutes, stops: body.legs[1].path.length },
+    { line: "14", color: "#008dc5", minutes: 11, stops: 3 },
+  );
+  assert.equal((await get("/api/route?from=bad&to=1,2")).status, 400);
+});

@@ -363,6 +363,73 @@ const FLATFOX_BROWSER_PROFILE_DIR = path.join(
   "flatfox-browser-profile",
 );
 
+// ── API: Public transport route to the chosen ETH or UZH location ───────
+
+const TIMETABLE_URL = "https://search.ch/timetable/api/route.json";
+const routeCache = new Map();
+
+/** The next weekday at 08:00, so routes reflect a usual morning commute. */
+export function commuteStart(now) {
+  const day = new Date(now);
+  day.setDate(day.getDate() + 1);
+  while (day.getDay() === 0 || day.getDay() === 6) day.setDate(day.getDate() + 1);
+  const pad = (n) => String(n).padStart(2, "0");
+  return { date: `${pad(day.getMonth() + 1)}/${pad(day.getDate())}/${day.getFullYear()}`, time: "08:00" };
+}
+
+const point = (place) =>
+  place && place.lat != null ? { lat: place.lat, lng: place.lon, name: place.name } : null;
+
+/** The quickest connection reduced to what the listing panel and map show. */
+export function simplifyRoute(body) {
+  const connection = (body.connections || [])
+    .slice()
+    .sort((a, b) => a.duration - b.duration)[0];
+  if (!connection) return null;
+  const legs = (connection.legs || [])
+    .filter((leg) => leg.type && leg.exit)
+    .map((leg) => ({
+      type: leg.type,
+      line: leg.line || null,
+      color: leg.bgcolor ? `#${leg.bgcolor}` : null,
+      textColor: leg.fgcolor ? `#${leg.fgcolor}` : null,
+      from: leg.name,
+      to: leg.exit.name,
+      minutes: Math.round((leg.runningtime || 0) / 60),
+      path: [point(leg), ...(leg.stops || []).map(point), point(leg.exit)].filter(Boolean),
+    }));
+  return { minutes: Math.round(connection.duration / 60), legs };
+}
+
+app.locals.fetchTimetable = async (params) => {
+  const resp = await fetch(`${TIMETABLE_URL}?${params}`, {
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!resp.ok) throw new Error(`The timetable returned HTTP ${resp.status}.`);
+  return resp.json();
+};
+
+app.get("/api/route", async (req, res) => {
+  const coords = (value) => {
+    const [lat, lng] = String(value || "").split(",").map(Number);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? `${lat.toFixed(5)},${lng.toFixed(5)}` : null;
+  };
+  const from = coords(req.query.from);
+  const to = coords(req.query.to);
+  if (!from || !to) return res.status(400).json({ error: "from and to coordinates required" });
+  const { date, time } = commuteStart(new Date());
+  const key = `${from}|${to}|${date}`;
+  try {
+    if (!routeCache.has(key)) {
+      const params = new URLSearchParams({ from, to, date, time, num: "4", show_delays: "0" });
+      routeCache.set(key, simplifyRoute(await app.locals.fetchTimetable(params)));
+    }
+    res.json(routeCache.get(key));
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 200) });
+  }
+});
+
 // ── API: ETH Housing Office sign-in ──────────────────────────────────────
 
 app.locals.ethzPortal = (credentials, fn) =>

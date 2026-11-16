@@ -106,6 +106,7 @@ function setLanguage(next) {
   renderProfile(readProfileForm());
   renderFlatfoxSession();
   renderEthzSession();
+  $("f-gender-label").textContent = t(profileGender ? "f_gender_other" : "f_gender");
   loadScanStatus();
   if (apiSettings) showApiSettings(apiSettings);
 }
@@ -224,6 +225,20 @@ async function load() {
   renderApplications();
 }
 
+// With the user's gender in the profile, the gender filter hides only
+// listings that ask for someone else.
+let profileGender = "";
+
+function setProfileGender(gender) {
+  profileGender = gender || "";
+  $("f-gender-label").textContent = t(profileGender ? "f_gender_other" : "f_gender");
+  if (allListings.length) applyFilters();
+}
+
+function fitsGender(filterId, l) {
+  return filterId === "f-gender" && Boolean(profileGender) && l.wantedGender === profileGender;
+}
+
 function applyFilters() {
   const maxPrice = parseInt($("f-price").value);
   const maxDist = parseFloat($("f-dist").value);
@@ -264,7 +279,7 @@ function applyFilters() {
     if (checked["f-permanent"] && l.hasEndDate) return false;
     if (!matchesKeywords(l, keywords)) return false;
     for (const [id, flag] of Object.entries(SHOW_FILTERS)) {
-      if (!checked[id] && l[flag]) return false;
+      if (!checked[id] && l[flag] && !fitsGender(id, l)) return false;
     }
     return true;
   });
@@ -1348,7 +1363,7 @@ function cancelFlatfox() {
 const PROFILE_LAYOUT = {
   name: { span: 6, autocomplete: "name" },
   dateOfBirth: { span: 3, autocomplete: "bday" },
-  nationality: { span: 3 },
+  gender: { span: 3, options: ["", "female", "male", "nonbinary"] },
   email: { span: 7, type: "email", autocomplete: "email" },
   phone: { span: 5, type: "tel", autocomplete: "tel" },
   affiliation: { span: 4, options: ["", "Student", "PhD student", "Staff"] },
@@ -1356,8 +1371,9 @@ const PROFILE_LAYOUT = {
   street: { span: 7, autocomplete: "street-address" },
   postalCode: { span: 2, autocomplete: "postal-code" },
   city: { span: 3, autocomplete: "address-level2" },
-  country: { span: 4, autocomplete: "country-name" },
-  languages: { span: 8 },
+  country: { span: 6, autocomplete: "country-name" },
+  nationality: { span: 6 },
+  languages: { span: 12 },
   hobbies: { span: 12 },
   situation: { span: 12, rows: 2 },
   futurePlans: { span: 12, rows: 2 },
@@ -1365,11 +1381,19 @@ const PROFILE_LAYOUT = {
   wgExperience: { span: 12, rows: 2 },
   extras: { span: 12, rows: 3 },
 };
-const AFFILIATION_KEYS = {
-  "": "pf_affiliation_none",
-  Student: "pf_affiliation_student",
-  "PhD student": "pf_affiliation_phd",
-  Staff: "pf_affiliation_staff",
+const OPTION_KEYS = {
+  affiliation: {
+    "": "pf_affiliation_none",
+    Student: "pf_affiliation_student",
+    "PhD student": "pf_affiliation_phd",
+    Staff: "pf_affiliation_staff",
+  },
+  gender: {
+    "": "pf_gender_none",
+    female: "pf_gender_female",
+    male: "pf_gender_male",
+    nonbinary: "pf_gender_nonbinary",
+  },
 };
 
 function placeholder(field) {
@@ -1381,7 +1405,7 @@ function profileInput(field, text) {
   const { type = "text", rows, autocomplete, options } = PROFILE_LAYOUT[field] || {};
   if (options) {
     return `<select name="${field}">${options
-      .map((o) => `<option value="${esc(o)}"${o === text ? " selected" : ""}>${esc(t(AFFILIATION_KEYS[o]))}</option>`)
+      .map((o) => `<option value="${esc(o)}"${o === text ? " selected" : ""}>${esc(t(OPTION_KEYS[field][o]))}</option>`)
       .join("")}</select>`;
   }
   if (rows) {
@@ -1413,6 +1437,7 @@ async function loadProfile() {
   try {
     const data = await (await fetch("/api/profile")).json();
     profileFields = data.fields;
+    setProfileGender(data.profile?.gender);
     renderProfile(data.profile);
   } catch {}
 }
@@ -1447,8 +1472,10 @@ function readProfileForm() {
 
 async function saveProfile(e) {
   e.preventDefault();
-  const saved = await postJson("/api/profile", readProfileForm());
+  const profile = readProfileForm();
+  const saved = await postJson("/api/profile", profile);
   $("profile-status").textContent = saved ? t("profile_saved") : "";
+  if (saved) setProfileGender(profile.gender);
 }
 
 async function loadMessages() {
@@ -2525,6 +2552,13 @@ function initMap() {
     new maplibregl.AttributionControl({ compact: true }),
     "bottom-right",
   );
+  // MapLibre opens the compact credits on load, where they would run under
+  // the connection panel. They stay one click away behind the (i) button.
+  map.once("load", () => {
+    const credits = document.querySelector(".maplibregl-ctrl-attrib");
+    credits?.classList.remove("maplibregl-compact-show");
+    credits?.removeAttribute("open");
+  });
 
   const pin = document.createElement("div");
   pin.className = "target-pin";

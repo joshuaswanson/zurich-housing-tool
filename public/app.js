@@ -2440,8 +2440,8 @@ function setTarget(next) {
   map.getSource("rings")?.setData(ringFeatures());
   targetMarker.setLngLat([next.lng, next.lat]);
   targetMarker.getPopup().setText(next.label);
-  map.flyTo({ center: [next.lng, next.lat], speed: 1.2 });
   const openId = document.querySelector("#listings-body .detail-row")?.dataset.id;
+  if (!openId) map.flyTo({ center: [next.lng, next.lat], speed: 1.2 });
   applyFilters();
   showRouteOnMap(null);
   if (openId) reopenListing(openId);

@@ -22,7 +22,6 @@ const TARGET_PRESETS = [
   { label: "UZH Zentrum", lat: 47.3744, lng: 8.5508 },
   { label: "UZH Irchel", lat: 47.3975, lng: 8.5495 },
 ];
-const WALKING_MINUTES_PER_KM = 12;
 const DETAIL_SECTIONS = [
   "room",
   "weAre",
@@ -339,7 +338,7 @@ function renderTable(listings) {
             ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
           </td>
           <td class="nowrap">
-            ${l.dist !== null ? `<div>${l.approximate ? t("about", { value: `${l.dist.toFixed(1)} km` }) : `${l.dist.toFixed(1)} km`}</div><div class="secondary">${t("min_walk", { n: Math.round(l.dist * WALKING_MINUTES_PER_KM) })}</div>` : ""}
+            ${l.dist !== null ? `<div>${l.approximate ? t("about", { value: `${l.dist.toFixed(1)} km` }) : `${l.dist.toFixed(1)} km`}</div>` : ""}
           </td>
           <td>
             <div>
@@ -347,7 +346,6 @@ function renderTable(listings) {
               ${statusOf(l.url) ? `<span class="status">${t(`status_${statusOf(l.url)}`)}</span>` : ""}
               ${l.wholeFlat ? `<span class="status">${t("status_flat")}</span>` : ""}
             </div>
-            ${summary(l) ? `<div class="description">${esc(summary(l))}</div>` : ""}
           </td>
           <td class="available">
             <div>${esc(availability(l))}</div>

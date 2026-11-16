@@ -15,7 +15,7 @@ async function fetchHtml(url) {
   const resp = await fetch(url, {
     headers: { "User-Agent": "zurich-housing-tool/2.0" },
   });
-  if (!resp.ok) throw new Error(`students.ch ${resp.status}`);
+  if (!resp.ok) throw new Error(`Students.ch returned HTTP ${resp.status}`);
   return resp.text();
 }
 

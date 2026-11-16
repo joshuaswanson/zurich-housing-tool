@@ -20,7 +20,7 @@ test("WGZimmer applications are validated before a browser is opened", () => {
   assert.equal(validateWgzimmerApplication(APPLICATION).uuid, "11111111-2222-4333-8444-555555555555");
   assert.throws(
     () => validateWgzimmerApplication({ ...APPLICATION, url: "https://example.com/x" }),
-    /WGZimmer listing URL/,
+    /WG-Zimmer listing URL/,
   );
   assert.throws(
     () => validateWgzimmerApplication({ ...APPLICATION, email: "not-an-email" }),

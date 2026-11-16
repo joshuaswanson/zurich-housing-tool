@@ -24,7 +24,7 @@ const PAGE_TIMEOUT_MS = 30000;
 const LOGIN_TIMEOUT_MS = 30000;
 const PAGE_SIZE = 100;
 
-export const NOT_CONNECTED = "Sign in to the ETH Housing Office in the settings first.";
+export const NOT_CONNECTED = "Sign in to ETH Housing in the settings first.";
 
 const onPortal = (page) => page.url().startsWith(PORTAL_URL);
 
@@ -36,7 +36,7 @@ async function openPortal(page, credentials) {
   });
   if (onPortal(page)) return;
   if (!new URL(page.url()).hostname.endsWith(LOGIN_HOST)) {
-    throw new Error("The ETH Housing Office did not open its login page.");
+    throw new Error("ETH Housing did not open its login page.");
   }
   if (!credentials?.username || !credentials?.password) {
     throw new Error(NOT_CONNECTED);
@@ -70,7 +70,7 @@ async function api(page, path) {
     return { status: res.status, body: res.ok ? await res.json() : null };
   }, `${API}${path}`);
   if (result.status !== 200) {
-    throw new Error(`The ETH Housing Office returned HTTP ${result.status}.`);
+    throw new Error(`ETH Housing returned HTTP ${result.status}.`);
   }
   return result.body;
 }
@@ -105,7 +105,7 @@ export async function withEthzPortal(
     context = await launcher({ userDataDir, headless: true });
   } catch (e) {
     if (/executable|chrome.*not found|distribution/i.test(e.message)) {
-      throw new Error("The ETH Housing Office needs Google Chrome installed.");
+      throw new Error("ETH Housing needs Google Chrome installed.");
     }
     throw e;
   }

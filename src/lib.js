@@ -38,7 +38,7 @@ export const ROUTE_SHAPES_FILE = path.join(DATA_DIR, "route_shapes.json");
 export const ETHZ_CACHE_FILE = path.join(DATA_DIR, "ethz_cache.json");
 export const ETHZ_SESSION_FILE = path.join(DATA_DIR, "ethz-session.json");
 export const ETHZ_BROWSER_PROFILE_DIR = path.join(DATA_DIR, "ethz-browser-profile");
-export const ETHZ_KEYCHAIN_SERVICE = "Zurich Housing Tool: ETH Housing Office";
+export const ETHZ_KEYCHAIN_SERVICE = "Zurich Housing Tool: ETH Housing";
 export const TRACKER_FILE = path.join(DATA_DIR, "tracker.json");
 const ROOT_TRACKER_FILE = path.join(HOME_DIR, "tracker.json");
 if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {

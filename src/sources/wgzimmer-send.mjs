@@ -28,7 +28,7 @@ export function validateWgzimmerApplication(application) {
   try {
     parsed = new URL(application?.url);
   } catch {
-    throw new Error("A valid WGZimmer listing URL is required.");
+    throw new Error("A valid WG-Zimmer listing URL is required.");
   }
   const uuid = parsed.pathname.match(UUID_PATTERN)?.[1];
   if (
@@ -40,7 +40,7 @@ export function validateWgzimmerApplication(application) {
     (parsed.port && parsed.port !== "443") ||
     !uuid
   ) {
-    throw new Error("A valid WGZimmer listing URL is required.");
+    throw new Error("A valid WG-Zimmer listing URL is required.");
   }
   parsed.hash = "";
 
@@ -101,7 +101,7 @@ export function classifyWgzimmerSendResponse(html) {
 
   return {
     ok: false,
-    error: "WGZimmer did not confirm that the message was sent.",
+    error: "WG-Zimmer did not confirm that the message was sent.",
   };
 }
 
@@ -128,7 +128,7 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
       timeout: PAGE_TIMEOUT_MS,
     });
     if (response && !response.ok()) {
-      throw new Error(`WGZimmer returned HTTP ${response.status()}.`);
+      throw new Error(`WG-Zimmer returned HTTP ${response.status()}.`);
     }
     await dismissCookieBanner(page);
     try {
@@ -137,7 +137,7 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
         timeout: FORM_TIMEOUT_MS,
       });
     } catch {
-      throw new Error("This listing no longer has a WGZimmer contact form.");
+      throw new Error("This listing no longer has a WG-Zimmer contact form.");
     }
     await page.fill("#kontakt-name", data.name);
     await page.fill("#kontakt-email", data.email);

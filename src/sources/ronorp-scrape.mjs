@@ -117,7 +117,7 @@ async function loadPosts(subcategories) {
   } finally {
     await browser.close();
   }
-  if (posts.size === 0) throw new Error("ronorp showed no listings");
+  if (posts.size === 0) throw new Error("Ron Orp showed no listings");
   return [...posts.values()];
 }
 

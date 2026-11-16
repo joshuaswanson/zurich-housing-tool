@@ -301,7 +301,7 @@ test("sending to WGZimmer validates the profile and target before launching", as
     message: "Hallo zusammen",
   });
   assert.equal(wrongTarget.status, 400);
-  assert.match(wrongTarget.body.error, /WGZimmer listing URL/i);
+  assert.match(wrongTarget.body.error, /WG-Zimmer listing URL/i);
 });
 
 test("sending to Flatfox validates the profile and target before launching", async () => {

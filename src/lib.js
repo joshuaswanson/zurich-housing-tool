@@ -289,29 +289,49 @@ export function saveCachedListing(url, data) {
 
 export const STUDENT_HOUSING_PATTERN = /WOKO|under 28|unter 28|JUWO/i;
 
+const INCLUSIVE_GENDER = [
+  /mitbewohner(?:in)?\s+(?:oder|or|\/)\s*mitbewohnerin/i,
+  /mitbewohnerin\s+(?:oder|or|\/)\s*mitbewohner(?!in)/i,
+  /(?:m|w|d)\s*\/\s*(?:m|w|d)\s*\/\s*(?:m|w|d)/i,
+  /(?:weiblich|männlich|female|male)\s*(?:oder|or|\/|und|and)\s*(?:weiblich|männlich|female|male)/i,
+  /(?:women|men|frauen|männer)\s*(?:oder|or|\/|und|and)\s*(?:women|men|frauen|männer)/i,
+];
+const FEMALE_ONLY = [
+  /\bmitbewohnerin\b/i,
+  /\bweiblich\b/i,
+  /\bfemale only\b/i,
+  /\bgirls[- ]?wg\b/i,
+  /\bnur frauen\b/i,
+  /\bfrauen[- ]?wg\b/i,
+  /\bonly.{0,10}(?:women|female|girls?)\b/i,
+  /\b(?:women|female|girls?).{0,10}only\b/i,
+  /\breine.{0,5}frauen/i,
+  /\b(?:looking for|seeking) an? (?:woman|girl|female)\b/i,
+  /\bsuchen eine frau\b/i,
+];
+const MALE_ONLY = [
+  /\bmännlich\b/i,
+  /\bmale only\b/i,
+  /\bnur m(?:ä|ae)nner\b/i,
+  /\bm(?:ä|ae)nner[- ]?wg\b/i,
+  /\bjungs[- ]?wg\b/i,
+  /\bonly.{0,10}(?:\bmen|\bmale|guys?)\b/i,
+  /\b(?:men|male|guys?).{0,10}only\b/i,
+  /\breine.{0,5}m(?:ä|ae)nner/i,
+  /\b(?:looking for|seeking) an? (?:man|guy|male)\b/i,
+  /\bsuchen einen mann\b/i,
+];
+
+/** "female" or "male" when a listing asks only for that gender, else null. */
+export function wantedGender(text) {
+  if (!text || INCLUSIVE_GENDER.some((p) => p.test(text))) return null;
+  if (FEMALE_ONLY.some((p) => p.test(text))) return "female";
+  if (MALE_ONLY.some((p) => p.test(text))) return "male";
+  return null;
+}
+
 export function isGenderRestricted(text) {
-  if (!text) return false;
-
-  // Negative patterns: inclusive phrasing (not restricted)
-  if (/mitbewohner(?:in)?\s+(?:oder|or|\/)\s*mitbewohnerin/i.test(text))
-    return false;
-  if (/mitbewohnerin\s+(?:oder|or|\/)\s*mitbewohner(?!in)/i.test(text))
-    return false;
-  if (/(?:m|w|d)\s*\/\s*(?:m|w|d)\s*\/\s*(?:m|w|d)/i.test(text)) return false;
-
-  // Positive patterns: female-only
-  if (/\bmitbewohnerin\b/i.test(text)) return true;
-  if (/\bweiblich\b/i.test(text)) return true;
-  if (/\bfemale only\b/i.test(text)) return true;
-  if (/\bgirls[- ]?wg\b/i.test(text)) return true;
-  if (/\bnur frauen\b/i.test(text)) return true;
-  if (/\bfrauen[- ]?wg\b/i.test(text)) return true;
-  if (/\bonly.{0,10}(?:women|female|girl)/i.test(text)) return true;
-  if (/\b(?:women|female|girl).{0,10}only\b/i.test(text)) return true;
-  if (/\breine.{0,5}frauen/i.test(text)) return true;
-  if (/\bsuchen.{0,20}mitbewohnerin\b/i.test(text)) return true;
-
-  return false;
+  return wantedGender(text) !== null;
 }
 
 export function isShortSublet(listing, minDurationDays) {

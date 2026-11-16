@@ -345,6 +345,7 @@ const PROFILE_FIELDS = [
   "email",
   "phone",
   "dateOfBirth",
+  "gender",
   "affiliation",
   "street",
   "postalCode",

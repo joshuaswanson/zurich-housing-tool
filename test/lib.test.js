@@ -7,6 +7,7 @@ import {
   hasEndDate,
   htmlToText,
   isGenderRestricted,
+  wantedGender,
   isPostcodeOnly,
   isShortSublet,
   listingKey,
@@ -153,4 +154,14 @@ test("htmlToText keeps line breaks and decodes entities", () => {
 test("toFlatfoxDetails keeps the whole description", () => {
   const description = "x".repeat(3000);
   assert.equal(toFlatfoxDetails({ description }).description.length, 3000);
+});
+
+test("wantedGender tells which gender a listing asks for", () => {
+  assert.equal(wantedGender("Wir suchen eine Mitbewohnerin"), "female");
+  assert.equal(wantedGender("Nur Männer, wir sind eine Männer-WG"), "male");
+  assert.equal(wantedGender("To keep the flat balanced we are looking for a guy"), "male");
+  assert.equal(wantedGender("male only please"), "male");
+  assert.equal(wantedGender("women only"), "female");
+  assert.equal(wantedGender("weiblich oder männlich, egal"), null);
+  assert.equal(wantedGender("Helles Zimmer nahe ETH"), null);
 });

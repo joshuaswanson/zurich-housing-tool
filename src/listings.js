@@ -14,7 +14,7 @@ import {
   currentSearch,
   distKm,
   hasEndDate,
-  isGenderRestricted,
+  wantedGender,
   isPostcodeOnly,
   isShortSublet,
   loadCachedListing,
@@ -24,7 +24,8 @@ import { ethzListing } from "./sources/ethz-housing.mjs";
 
 function listingFlags(text, dates) {
   return {
-    genderRestricted: isGenderRestricted(text),
+    wantedGender: wantedGender(text),
+    genderRestricted: wantedGender(text) !== null,
     studentHousing: STUDENT_HOUSING_PATTERN.test(text),
     bulkPoster: SPAM_PATTERNS.some((p) => p.test(text)),
     shortSublet: isShortSublet(dates, MIN_DURATION_DAYS),
@@ -168,7 +169,8 @@ export function loadAllListings() {
       firstSeen: seen[l.id]?.firstSeen || null,
       hasEndDate: Boolean(l.until),
       ...listingFlags(`${l.description} ${l.details.lookingFor}`, l),
-      genderRestricted: l.genderRestricted,
+      genderRestricted: Boolean(l.wantedGender),
+      wantedGender: l.wantedGender,
     });
   }
 

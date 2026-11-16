@@ -233,7 +233,9 @@ export function ethzListing(ad) {
     contactEmail: ad["contact-e-mail"] || null,
     contactName: contact || null,
     contactPhone: ad["contact-phone"] || null,
-    genderRestricted: Boolean(ad["searched-person-sex-code"]) && ad["searched-person-sex-code"] !== 3,
+    wantedGender: { female: "female", male: "male" }[
+      String(ad["searched-person-sex-desc"] || "").toLowerCase()
+    ] || null,
     wholeFlat: [3, 4].includes(ad["accommodation-type-code"]),
     details: ethzDetails(ad),
   };

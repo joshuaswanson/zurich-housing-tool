@@ -1871,7 +1871,7 @@ tbody tr.listing-row.is-selected {
 .route-panel {
   position: absolute;
   left: 12px;
-  bottom: 40px;
+  bottom: 12px;
   z-index: 2;
   width: min(340px, calc(100% - 24px));
   max-height: 55%;

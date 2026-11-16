@@ -337,6 +337,7 @@ function renderTable(listings) {
     .slice(0, rowLimit)
     .map((l) => listingRow(l))
     .join("");
+  syncRoutePanel();
 }
 
 function listingRow(l, { reason = "" } = {}) {
@@ -418,6 +419,7 @@ function renderExcluded() {
   $("excluded-body").innerHTML = excludedListings
     .map(({ listing, reason }) => listingRow(listing, { reason: reason || t("status_excluded") }))
     .join("");
+  syncRoutePanel();
 }
 
 function findListing(id) {
@@ -607,25 +609,54 @@ function showRouteOnMap(route, { fit = true } = {}) {
       (b, c) => b.extend(c),
       new maplibregl.LngLatBounds(coords[0], coords[0]),
     );
-    map.fitBounds(bounds, { padding: 60, maxZoom: 15.5, duration: 800 });
+    const panel = $("route-panel");
+    const bottom = panel.hidden ? 60 : panel.offsetHeight + 70;
+    map.fitBounds(bounds, {
+      padding: { top: 60, right: 60, bottom, left: 60 },
+      maxZoom: 15.5,
+      duration: 800,
+    });
   }
 }
 
-function toggleRouteOnMap(row, button) {
-  const showing = button.dataset.showing === "true";
-  showRouteOnMap(showing ? null : row.route);
-  button.dataset.showing = String(!showing);
-  button.textContent = t(showing ? "route_show" : "route_hide");
-  if (!showing) followTracks(row, button);
+// The connection for the open listing, shown in a panel on the map.
+let routeState = null;
+
+async function toggleRouteOnMap(button) {
+  const state = routeState;
+  if (!state?.route) return;
+  const note = $("route-panel").querySelector("[data-role='route-error']");
+  if (state.showing) {
+    showRouteOnMap(null);
+    state.showing = false;
+    button.textContent = t("route_show");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = t("route_drawing");
+  const failed = await traceRoute(state.route);
+  if (routeState !== state) return;
+  button.disabled = false;
+  state.showing = true;
+  button.textContent = t("route_hide");
+  showRouteOnMap({ ...state.route, legs: state.route.legs.filter((leg) => leg.traced) });
+  note.textContent = failed.length
+    ? t("route_partial", { parts: joinList(failed.map(legName)) })
+    : "";
+  note.hidden = !failed.length;
 }
 
-// The timetable only gives the stops, so each ride is drawn straight first
-// and then along its line's track once that arrives.
-async function followTracks(row, button) {
-  const route = row.route;
+function legName(leg) {
+  return leg.type === "walk" ? t("route_walk").toLowerCase() : leg.line || leg.type;
+}
+
+// The timetable gives only the stops, so every part is looked up along the
+// real tracks, roads and footpaths before anything is drawn. Returns the
+// parts that could not be traced.
+async function traceRoute(route) {
   await Promise.all(
     route.legs
-      .filter((leg) => leg.type !== "walk" && leg.line && !leg.tracked)
+      .filter((leg) => !leg.traced && leg.path.length > 1)
       .map(async (leg) => {
         try {
           const res = await fetch("/api/route-shape", {
@@ -636,13 +667,11 @@ async function followTracks(row, button) {
           const { path } = await res.json();
           if (!res.ok || !path) return;
           leg.path = path.map(([lng, lat]) => ({ lat, lng }));
-          leg.tracked = true;
-          if (row.route === route && button.dataset.showing === "true") {
-            showRouteOnMap(route, { fit: false });
-          }
+          leg.traced = true;
         } catch {}
       }),
   );
+  return route.legs.filter((leg) => !leg.traced && leg.path.length > 1);
 }
 
 function stopName(name) {
@@ -659,34 +688,53 @@ function routeLeg(leg) {
   return `<li class="route-leg">${badge}<span>${esc(stopName(leg.from))} → ${esc(stopName(leg.to))}</span><span class="secondary">${t("route_minutes", { n: leg.minutes })}</span></li>`;
 }
 
-async function loadRoute(row, l) {
-  const box = row.querySelector("[data-role='route']");
-  if (!box || !l.lat || !l.lng) return;
-  box.innerHTML = `<p class="secondary">${t("route_loading", { place: target.label })}</p>`;
+async function loadRoute(l) {
+  const panel = $("route-panel");
+  showRouteOnMap(null);
+  if (!l.lat || !l.lng) {
+    routeState = null;
+    panel.hidden = true;
+    return;
+  }
+  const state = { listingId: l.id, route: null, showing: false };
+  routeState = state;
+  panel.hidden = false;
+  panel.innerHTML = `<p class="secondary">${t("route_loading", { place: esc(target.label) })}</p>`;
   try {
     const res = await fetch(
       `/api/route?from=${l.lat},${l.lng}&to=${target.lat},${target.lng}`,
     );
     const route = await res.json();
     if (!res.ok) throw new Error(route.error);
-    if (!row.isConnected) return;
+    if (routeState !== state) return;
     if (!route) {
-      box.innerHTML = "";
+      panel.innerHTML = `<p class="secondary">${t("route_none", { place: esc(target.label) })}</p>`;
       return;
     }
-    box.innerHTML = `
-      <div class="detail-section">
-        <dt>${t("route_title", { place: esc(target.label), n: route.minutes })}</dt>
-        <dd><ol class="route-legs">${route.legs.map(routeLeg).join("")}</ol>
-        <div class="route-actions">
-          <button class="button" type="button" data-action="show-route">${t("route_show")}</button>
-          <span class="secondary route-note">${t("route_note")}</span>
-        </div></dd>
-      </div>`;
-    row.route = withEnds(route, l, target);
-  } catch (e) {
-    if (row.isConnected) box.innerHTML = `<p class="secondary">${t("route_failed")}</p>`;
+    state.route = withEnds(route, l, target);
+    panel.innerHTML = `
+      <strong class="route-title">${t("route_title", { place: esc(target.label), n: route.minutes })}</strong>
+      <ol class="route-legs">${route.legs.map(routeLeg).join("")}</ol>
+      <div class="route-actions">
+        <button class="button" type="button" data-action="show-route">${t("route_show")}</button>
+      </div>
+      <p class="secondary route-note">${t("route_note")}</p>
+      <p class="route-error" data-role="route-error" hidden></p>`;
+  } catch {
+    if (routeState === state) panel.innerHTML = `<p class="secondary">${t("route_failed")}</p>`;
   }
+}
+
+/** Hide the connection panel once its listing is no longer open. */
+function syncRoutePanel() {
+  if (!routeState) return;
+  const open = [...document.querySelectorAll("tr.detail-row")].some(
+    (row) => row.dataset.id === routeState.listingId,
+  );
+  if (open) return;
+  routeState = null;
+  $("route-panel").hidden = true;
+  showRouteOnMap(null);
 }
 
 function detailSections(details) {
@@ -721,10 +769,7 @@ function detailRow(l) {
   row.innerHTML = `
     <td colspan="6">
       <div class="detail">
-        <div class="detail-body">
-          <div data-role="sections"></div>
-          <dl class="detail-sections detail-route" data-role="route"></dl>
-        </div>
+        <div class="detail-body" data-role="sections"></div>
         <div class="detail-footer">
           <div class="row-actions" data-role="actions">
             ${l.missing ? "" : `<button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>`}
@@ -743,7 +788,7 @@ function detailRow(l) {
     </td>`;
   showNote(row);
   loadDetails(row, l);
-  loadRoute(row, l);
+  loadRoute(l);
   return row;
 }
 
@@ -851,7 +896,7 @@ function toggleListing(row) {
   if (row.nextElementSibling?.classList.contains("detail-row")) {
     row.nextElementSibling.remove();
     row.classList.remove("is-active");
-    showRouteOnMap(null);
+    syncRoutePanel();
   } else if (row.closest("#excluded-body")) {
     const body = $("excluded-body");
     body.querySelector(".detail-row")?.previousElementSibling?.classList.remove("is-active");
@@ -1642,6 +1687,7 @@ function setSelecting(on) {
       row.remove();
     });
   }
+  syncRoutePanel();
   renderSelection();
 }
 
@@ -2603,7 +2649,6 @@ function onListingTableClick(e) {
     const action = button.dataset.action;
     if (action === "compose") composeMessage(url);
     else if (action === "expand-section") expandSection(button);
-    else if (action === "show-route") toggleRouteOnMap(row, button);
     else if (action === "fetch-details") fetchDetails(row, button);
     else if (action === "note") openNote(row);
     else if (action === "exclude") toggleExcludeForm(row, true);
@@ -2654,6 +2699,10 @@ $("dialog-copy").addEventListener("click", () => {
 $("dialog-save").addEventListener("click", saveDraft);
 $("dialog-send").addEventListener("click", handOverDraft);
 $("note-form").addEventListener("submit", saveNote);
+$("route-panel").addEventListener("click", (e) => {
+  const button = e.target.closest("[data-action='show-route']");
+  if (button) toggleRouteOnMap(button);
+});
 $("note-cancel").addEventListener("click", () => $("note-dialog").close());
 $("dialog-template").addEventListener("click", useTemplate);
 $("dialog-generate").addEventListener("click", generateMessage);

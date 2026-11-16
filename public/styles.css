@@ -124,6 +124,7 @@ a:hover {
 #scan-button:disabled,
 #dialog-generate:disabled,
 #dialog-ollama-start:disabled,
+[data-action="show-route"]:disabled,
 #batch-send:disabled,
 #flatfox-continue:disabled,
 [data-action="fetch-details"]:disabled {
@@ -1796,13 +1797,6 @@ tbody tr.listing-row.is-selected {
   gap: 8px;
 }
 
-.detail-route:empty {
-  display: none;
-}
-
-.detail-route {
-  margin-top: 16px;
-}
 
 .route-legs {
   display: grid;
@@ -1866,4 +1860,42 @@ tbody tr.listing-row.is-selected {
   background: currentColor;
   -webkit-mask: var(--icon) center / contain no-repeat;
   mask: var(--icon) center / contain no-repeat;
+}
+
+.route-error {
+  margin-top: 8px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.route-panel {
+  position: absolute;
+  left: 12px;
+  bottom: 40px;
+  z-index: 2;
+  width: min(340px, calc(100% - 24px));
+  max-height: 55%;
+  overflow-y: auto;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  font-size: 13px;
+}
+
+.route-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.route-panel .route-actions {
+  margin-top: 10px;
+}
+
+.route-panel .route-note {
+  margin-top: 8px;
 }

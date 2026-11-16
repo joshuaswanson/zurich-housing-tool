@@ -1357,22 +1357,25 @@ async function generateMessage() {
 
 // Sending to many listings
 
-const BATCH_LIMIT = 20;
+// Flatfox gets at most this many automatic messages per round, so the
+// account is not flagged as a spammer.
+const FLATFOX_ROUND = 20;
 const BATCH_POLL_MS = 2000;
 let batchListings = [];
+let manualListings = [];
 
-// Selecting listings to send the template to. Only new Flatfox listings can
-// be sent from the app.
+// Selecting listings to send the template to. Flatfox listings are sent by
+// the app, the others are opened one by one from the send window.
 let selecting = false;
 const selected = new Set();
 let lastSelectedId = null;
 
 function selectable(l) {
-  return l.source === "flatfox" && !statusOf(l.url);
+  return statusOf(l.url) !== "applied";
 }
 
 function selectBox(l) {
-  const reason = l.source !== "flatfox" ? t("select_only_flatfox") : statusOf(l.url) ? t("select_tracked") : "";
+  const reason = selectable(l) ? "" : t("select_applied");
   return `<input type="checkbox" data-role="select" aria-label="${esc(t("select_listing"))}"${selected.has(l.id) ? " checked" : ""}${reason ? ` disabled title="${esc(reason)}"` : ""} />`;
 }
 
@@ -1388,11 +1391,11 @@ function renderSelection() {
   $("selection-send").hidden = !selecting;
   $("selection-count").hidden = !selecting;
   $("selection-count").textContent =
-    n >= BATCH_LIMIT ? t("select_limit", { n: BATCH_LIMIT }) : counted("selected_count", n);
+    counted("selected_count", n);
   $("selection-send").textContent = t("selection_send", { n });
   $("selection-send").disabled = n === 0;
   const eligible = visibleListings().filter(selectable);
-  $("select-all").checked = eligible.length > 0 && eligible.slice(0, BATCH_LIMIT).every((l) => selected.has(l.id));
+  $("select-all").checked = eligible.length > 0 && eligible.every((l) => selected.has(l.id));
   $("select-all").indeterminate = n > 0 && !$("select-all").checked;
   for (const row of $("listings-body").querySelectorAll("tr.listing-row")) {
     const on = selected.has(row.dataset.id);
@@ -1418,7 +1421,6 @@ function setSelecting(on) {
 
 function setSelected(l, on) {
   if (!selectable(l)) return;
-  if (on && !selected.has(l.id) && selected.size >= BATCH_LIMIT) return;
   if (on) selected.add(l.id);
   else selected.delete(l.id);
 }
@@ -1444,7 +1446,7 @@ function toggleSelected(id, extendRange) {
 }
 
 function toggleSelectAll() {
-  const eligible = visibleListings().filter(selectable).slice(0, BATCH_LIMIT);
+  const eligible = visibleListings().filter(selectable);
   const all = eligible.every((l) => selected.has(l.id));
   selected.clear();
   if (!all) for (const l of eligible) selected.add(l.id);
@@ -1492,19 +1494,95 @@ async function openBatch(listings) {
     return;
   }
 
-  batchListings = listings;
-  const n = batchListings.length;
-  $("batch-title").textContent = t("batch_title", { n });
-  $("batch-intro").textContent = t("batch_intro");
+  batchListings = listings.filter((l) => l.source === "flatfox");
+  manualListings = listings.filter((l) => l.source !== "flatfox");
+  const n = Math.min(batchListings.length, FLATFOX_ROUND);
+  $("batch-title").textContent = t("batch_title", { n: listings.length });
+  $("batch-intro").textContent = !n
+    ? ""
+    : batchListings.length > FLATFOX_ROUND
+      ? `${t("batch_intro")} ${t("batch_round", { n: FLATFOX_ROUND, rest: batchListings.length - FLATFOX_ROUND })}`
+      : t("batch_intro");
+  $("batch-intro").hidden = !n;
   $("batch-list").innerHTML = batchListings
+    .map((l, i) => `<li>${batchItem(l, "auto", i)}</li>`)
+    .join("");
+  $("batch-manual-intro").hidden = manualListings.length === 0;
+  $("batch-manual-intro").textContent = t("batch_manual_intro");
+  $("batch-manual").innerHTML = manualListings
     .map(
-      (l, i) =>
-        `<li><button type="button" class="batch-item" data-index="${i}" aria-pressed="${i === 0}"><span>${esc(l.address || t("address_missing"))}</span><span class="secondary">CHF ${esc(l.price)}</span></button></li>`,
+      (l, i) => `
+        <li>
+          ${batchItem(l, "manual", i)}
+          <button class="button" type="button" data-manual="${i}">${t(manualActionKey(l))}</button>
+        </li>`,
     )
     .join("");
-  $("batch-preview").textContent = fillMessage(savedMessage, batchListings[0]);
+  const first = $("batch-dialog").querySelector(".batch-item");
+  first?.setAttribute("aria-pressed", "true");
+  $("batch-preview").textContent = fillMessage(
+    savedMessage,
+    batchListings[0] || manualListings[0],
+  );
   $("batch-send").textContent = t("batch_send", { n });
-  showBatchControls({ send: true });
+  showBatchControls({ send: n > 0 });
+}
+
+function batchItem(l, list, index) {
+  return `<button type="button" class="batch-item" data-list="${list}" data-index="${index}" aria-pressed="false"><i class="dot dot-${esc(l.source)}"></i><span>${esc(l.address || t("address_missing"))}</span><span class="secondary">CHF ${esc(l.price)}</span></button>`;
+}
+
+function manualActionKey(l) {
+  if (l.source === "wgzimmer") return "manual_open_form";
+  if (l.contactEmail) return "manual_open_email";
+  return "manual_open_listing";
+}
+
+// Opens the way to send one listing that the app cannot send by itself, then
+// lets the user mark it as applied once they have sent it.
+async function openManual(button) {
+  const l = manualListings[button.dataset.manual];
+  const message = fillMessage(savedMessage, l);
+  button.disabled = true;
+  try {
+    if (l.source === "wgzimmer") {
+      const res = await fetch("/api/send-wgzimmer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: l.url, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    } else {
+      navigator.clipboard.writeText(message);
+      if (l.contactEmail) {
+        const subject = l.description.split("\n")[0].slice(0, 80);
+        window.location.href =
+          `mailto:${l.contactEmail}` +
+          `?subject=${encodeURIComponent(subject)}` +
+          `&body=${encodeURIComponent(message)}`;
+      } else {
+        window.open(l.url, "_blank", "noopener");
+      }
+    }
+    await postJson("/api/application", { url: l.url, message });
+    button.dataset.applied = button.dataset.manual;
+    delete button.dataset.manual;
+    button.textContent = t("act_apply");
+  } catch (e) {
+    $("batch-status").textContent = `${t("manual_failed")}: ${e.message}`;
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function markManualApplied(button) {
+  const l = manualListings[button.dataset.applied];
+  await track(l.url, "apply");
+  button.replaceWith(Object.assign(document.createElement("span"), {
+    className: "secondary",
+    textContent: t("status_applied"),
+  }));
 }
 
 async function startBatch() {
@@ -1513,7 +1591,9 @@ async function startBatch() {
     const res = await fetch("/api/send-flatfox-batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: batchListings.map((l) => l.url) }),
+      body: JSON.stringify({
+        urls: batchListings.slice(0, FLATFOX_ROUND).map((l) => l.url),
+      }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
@@ -1544,8 +1624,8 @@ async function watchBatch() {
   } while (status.running);
   batchWatching = false;
   showBatchControls({});
-  setSelecting(false);
   await Promise.all([load(), loadMessages()]);
+  if (selected.size === 0) setSelecting(false);
 }
 
 function renderBatchStatus(status) {
@@ -1576,16 +1656,18 @@ function openProfileFromBatch() {
   $("template-editor").focus();
 }
 
-$("batch-list").addEventListener("click", (e) => {
+$("batch-dialog").addEventListener("click", (e) => {
+  const manual = e.target.closest("[data-manual]");
+  if (manual) return openManual(manual);
+  const applied = e.target.closest("[data-applied]");
+  if (applied) return markManualApplied(applied);
   const item = e.target.closest(".batch-item");
   if (!item) return;
-  $("batch-list").querySelectorAll(".batch-item").forEach((other) => {
+  $("batch-dialog").querySelectorAll(".batch-item").forEach((other) => {
     other.setAttribute("aria-pressed", other === item);
   });
-  $("batch-preview").textContent = fillMessage(
-    savedMessage,
-    batchListings[item.dataset.index],
-  );
+  const list = item.dataset.list === "auto" ? batchListings : manualListings;
+  $("batch-preview").textContent = fillMessage(savedMessage, list[item.dataset.index]);
 });
 $("select-toggle").addEventListener("click", () => setSelecting(true));
 $("selection-cancel").addEventListener("click", () => setSelecting(false));

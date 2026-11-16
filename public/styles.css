@@ -833,23 +833,35 @@ dialog textarea.note-editor {
   transform: rotate(-135deg);
 }
 
+/* One grid for both groups, so the toggles line up in columns across them. */
 .more-filters {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto repeat(3, max-content);
+  justify-content: start;
+  align-items: center;
   gap: 12px 28px;
   flex-basis: 100%;
 }
 
+.more-filters[hidden] {
+  display: none;
+}
+
 .filter-group {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 18px;
-  flex-basis: 100%;
+  display: contents;
 }
 
 .filter-group-label {
+  grid-column: 1;
   color: var(--muted);
+}
+
+.filter-group > .filter:nth-of-type(3n + 1) {
+  grid-column: 2;
+}
+
+.filter-group > .filter:has(select) {
+  grid-column: span 2;
 }
 
 .filter-group .filter {

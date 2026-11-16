@@ -116,11 +116,15 @@ a:hover {
 
 .button:disabled {
   color: var(--muted);
-  cursor: progress;
+  cursor: default;
 }
 
-.button.is-done:disabled {
-  cursor: default;
+#scan-button:disabled,
+#dialog-generate:disabled,
+#batch-send:disabled,
+#flatfox-continue:disabled,
+[data-action="fetch-details"]:disabled {
+  cursor: progress;
 }
 
 .button-primary {

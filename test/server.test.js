@@ -727,3 +727,13 @@ test("routes use a weekday morning and keep the quickest connection", async () =
   );
   assert.equal((await get("/api/route?from=bad&to=1,2")).status, 400);
 });
+
+test("signing out of Flatfox removes its saved browser session", async () => {
+  const profileDir = path.join(dataDir, "flatfox-browser-profile");
+  fs.mkdirSync(profileDir, { recursive: true });
+  fs.writeFileSync(path.join(profileDir, "Cookies"), "session");
+  const { status, body } = await post("/api/flatfox-session/logout", {});
+  assert.equal(status, 200);
+  assert.deepEqual(body, { connected: false });
+  assert.ok(!fs.existsSync(profileDir));
+});

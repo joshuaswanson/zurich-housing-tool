@@ -676,6 +676,18 @@ app.post("/api/flatfox-session/cancel", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.post("/api/flatfox-session/logout", async (req, res) => {
+  await endFlatfoxLogin();
+  if (flatfoxBrowserBusy) {
+    return res.status(409).json({
+      error: "Flatfox is busy sending a message. Try again in a moment.",
+    });
+  }
+  fs.rmSync(FLATFOX_BROWSER_PROFILE_DIR, { recursive: true, force: true });
+  flatfoxConnected = false;
+  res.json({ connected: false });
+});
+
 app.post("/api/send-flatfox", async (req, res) => {
   const profile = readJson(PROFILE_FILE, null);
   const application = {

@@ -9,14 +9,14 @@ A macOS app that scrapes the major Swiss housing platforms, filters and maps the
 
 ## Features
 
-- **Listings from five sources**: [wgzimmer.ch](https://wgzimmer.ch), [flatfox.ch](https://flatfox.ch), [ronorp.net](https://ronorp.net), [students.ch](https://www.students.ch/wohnen), and the [Housing Office UZH/ETH](https://idapps.ethz.ch/accommodation-web/) for university members, in one list
+- **Listings from five sources**: [WG-Zimmer](https://wgzimmer.ch), [Flatfox](https://flatfox.ch), [Ron Orp](https://ronorp.net), [Students.ch](https://www.students.ch/wohnen), and [ETH Housing](https://idapps.ethz.ch/accommodation-web/) for ETH and UZH members, in one list
 - **Rooms or apartments**: Look for a room in a shared flat, or for a whole apartment or house
 - **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenRouter
 - **Templates**: Write one message and pick it for any listing, with the address filled in
-- **Direct applications**: Review the draft and open a prefilled WGZimmer form to verify your email and send, or send directly to Flatfox from the app
-- **Send to many at once**: Select up to 20 new Flatfox listings and send your template to all of them
+- **Direct applications**: Review the draft and open a prefilled WG-Zimmer form to verify your email and send, or send directly to Flatfox from the app
+- **Send to many at once**: Select any number of listings and send your template to all of them. Flatfox goes out automatically, 20 at a time, and the others open one by one
 - **Filters**: Hide student-only housing, gender-restricted listings, short sublets, and bulk corporate posters
-- **Distances**: Each listing shows its distance from a location you choose
+- **Distances and directions**: Each listing shows its distance from an ETH or UZH location you choose, and the tram and bus connection there, drawn on the map
 - **Application tracking**: A record of where you applied, so you do not apply to the same listing twice
 - **macOS app**: A map, a listings table, and application tracking in one window
 
@@ -36,7 +36,7 @@ Message writing uses Apple Intelligence on macOS 26 or later. You can also insta
 
 To send Flatfox messages from your own account, sign in to Flatfox in the settings. Your password goes only to Flatfox and is not saved.
 
-To include the Housing Office UZH/ETH, sign in with your ETH account in the settings. The app fills in your profile from your Housing Office account. Your password is kept in the macOS Keychain so scans can sign in again, and the Housing Office needs Google Chrome installed.
+To include ETH Housing, sign in with your ETH account in the settings. The app fills in your profile from your ETH Housing account. Your password is kept in the macOS Keychain so scans can sign in again, and ETH Housing needs Google Chrome installed.
 
 ## Support
 

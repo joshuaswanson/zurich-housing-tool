@@ -335,34 +335,96 @@ function renderTable(listings) {
 
   $("listings-body").innerHTML = listings
     .slice(0, rowLimit)
-    .map(
-      (l) => `
-        <tr class="listing-row${selected.has(l.id) ? " is-selected" : ""}" data-id="${esc(l.id)}" tabindex="0">
-          <td class="select-col">${selectBox(l)}</td>
-          <td class="rent">
-            <div>${esc(l.price)}</div>
-            ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
-          </td>
-          <td class="nowrap">
-            ${l.dist !== null ? `<div>${l.approximate ? t("about", { value: `${l.dist.toFixed(1)} km` }) : `${l.dist.toFixed(1)} km`}</div>` : ""}
-          </td>
-          <td>
-            <div>
-              ${esc(l.address || t("address_missing"))}
-              ${statusOf(l.url) ? `<span class="status">${t(`status_${statusOf(l.url)}`)}</span>` : ""}
-              ${l.wholeFlat ? `<span class="status">${t("status_flat")}</span>` : ""}
-            </div>
-          </td>
-          <td class="available">
-            <div>${esc(availability(l))}</div>
-            ${endDate(l) ? `<div class="secondary">${esc(t("until", { date: endDate(l) }))}</div>` : ""}
-          </td>
-          <td>
-            <a class="source source-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(t("open_on", { source: sourceLabel(l.source) }))}"><i class="dot dot-${esc(l.source)}"></i>${esc(sourceLabel(l.source))}<span class="external" aria-hidden="true">↗</span></a>
-          </td>
-        </tr>`,
-    )
+    .map((l) => listingRow(l))
     .join("");
+}
+
+function listingRow(l, { reason = "" } = {}) {
+  return `
+    <tr class="listing-row${selected.has(l.id) ? " is-selected" : ""}" data-id="${esc(l.id)}" tabindex="0">
+      <td class="select-col">${selectBox(l)}</td>
+      <td class="rent">
+        <div>${esc(l.price ?? "")}</div>
+        ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
+      </td>
+      <td class="nowrap">
+        ${l.dist != null ? `<div>${l.approximate ? t("about", { value: `${l.dist.toFixed(1)} km` }) : `${l.dist.toFixed(1)} km`}</div>` : ""}
+      </td>
+      <td>
+        <div>
+          ${esc(l.address || t("address_missing"))}
+          ${statusOf(l.url) && !reason ? `<span class="status">${t(`status_${statusOf(l.url)}`)}</span>` : ""}
+          ${l.wholeFlat ? `<span class="status">${t("status_flat")}</span>` : ""}
+        </div>
+        ${reason ? `<div class="secondary">${esc(reason)}</div>` : ""}
+      </td>
+      <td class="available">
+        <div>${esc(availability(l))}</div>
+        ${endDate(l) ? `<div class="secondary">${esc(t("until", { date: endDate(l) }))}</div>` : ""}
+      </td>
+      <td>
+        ${l.source ? `<a class="source source-link" href="${esc(l.url)}" target="_blank" rel="noopener" title="${esc(t("open_on", { source: sourceLabel(l.source) }))}"><i class="dot dot-${esc(l.source)}"></i>${esc(sourceLabel(l.source))}<span class="external" aria-hidden="true">↗</span></a>` : ""}
+      </td>
+    </tr>`;
+}
+
+// Excluded listings in the same table as the listings. An entry whose
+// listing is no longer in the scan results keeps what the tracker saved.
+let excludedListings = [];
+
+const SOURCE_HOSTS = {
+  "wgzimmer.ch": "wgzimmer",
+  "flatfox.ch": "flatfox",
+  "ronorp.net": "ronorp",
+  "students.ch": "students",
+  "ethz.ch": "ethz",
+};
+
+function sourceOf(url) {
+  const host = (() => {
+    try {
+      return new URL(url).hostname;
+    } catch {
+      return "";
+    }
+  })();
+  return Object.entries(SOURCE_HOSTS).find(([domain]) => host.endsWith(domain))?.[1] || "";
+}
+
+function renderExcluded() {
+  const entries = tracker.excluded || [];
+  excludedListings = entries.map((e) => {
+    const listing = allListings.find((l) => listingKey(l.url) === listingKey(e.url));
+    return {
+      reason: e.reason || "",
+      listing: listing || {
+        id: `excluded-${listingKey(e.url)}`,
+        url: e.url,
+        address: e.address,
+        price: e.price,
+        source: sourceOf(e.url),
+        dist: null,
+        description: "",
+        missing: true,
+      },
+    };
+  });
+  excludedListings.sort(
+    (a, b) => (a.listing.price || Infinity) - (b.listing.price || Infinity),
+  );
+  $("excluded-table-wrap").hidden = entries.length === 0;
+  $("excluded-empty").hidden = entries.length > 0;
+  $("excluded-empty").textContent = t("nothing_excluded");
+  $("excluded-body").innerHTML = excludedListings
+    .map(({ listing, reason }) => listingRow(listing, { reason: reason || t("status_excluded") }))
+    .join("");
+}
+
+function findListing(id) {
+  return (
+    allListings.find((l) => l.id === id) ||
+    excludedListings.find((e) => e.listing.id === id)?.listing
+  );
 }
 
 function sourceLabel(source) {
@@ -462,9 +524,7 @@ function renderApplications() {
   $("tab-applications-count").textContent = (tracker.applied || []).length;
   $("tab-excluded-count").textContent = (tracker.excluded || []).length;
 
-  $("excluded-list").innerHTML =
-    trackedEntries("excluded") ||
-    `<p class="empty">${t("nothing_excluded")}</p>`;
+  renderExcluded();
 
   const groups = APPLICATION_GROUPS.filter(
     (category) => (tracker[category] || []).length > 0,
@@ -501,11 +561,15 @@ function detailSections(details) {
 function detailRow(l) {
   const status = statusOf(l.url);
   const actions = [];
-  if (status !== "applied") actions.push(["apply", "act_apply"]);
-  if (!status) {
-    actions.push(["shortlist", "act_shortlist"], ["exclude", "act_exclude"]);
+  if (status === "excluded") {
+    actions.push(["untrack", "act_restore"]);
   } else {
-    actions.push(["untrack", "act_untrack"]);
+    if (status !== "applied") actions.push(["apply", "act_apply"]);
+    if (!status) {
+      actions.push(["shortlist", "act_shortlist"], ["exclude", "act_exclude"]);
+    } else {
+      actions.push(["untrack", "act_untrack"]);
+    }
   }
   const row = document.createElement("tr");
   row.className = "detail-row";
@@ -517,7 +581,7 @@ function detailRow(l) {
         <div class="detail-body" data-role="sections"></div>
         <div class="detail-footer">
           <div class="row-actions" data-role="actions">
-            <button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>
+            ${l.missing ? "" : `<button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>`}
             ${actionButtons(actions)}
             <button class="button" type="button" data-action="note"></button>
             <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
@@ -625,7 +689,7 @@ function toggleExcludeForm(row, open) {
 }
 
 function selectListing(id, { fromMap = false } = {}) {
-  const listing = allListings.find((l) => l.id === id);
+  const listing = findListing(id);
   if (fromMap) revealRow(id);
   const row = focusRow(id);
   document.querySelector("#listings-body .detail-row")?.remove();
@@ -639,6 +703,13 @@ function toggleListing(row) {
   if (row.nextElementSibling?.classList.contains("detail-row")) {
     row.nextElementSibling.remove();
     row.classList.remove("is-active");
+  } else if (row.closest("#excluded-body")) {
+    const body = $("excluded-body");
+    body.querySelector(".detail-row")?.previousElementSibling?.classList.remove("is-active");
+    body.querySelector(".detail-row")?.remove();
+    row.classList.add("is-active");
+    row.after(detailRow(findListing(row.dataset.id)));
+    flyToListing(row.dataset.id);
   } else {
     selectListing(row.dataset.id);
   }
@@ -2305,7 +2376,7 @@ function restoreFilters() {
   );
 }
 
-$("listings-body").addEventListener("click", (e) => {
+function onListingTableClick(e) {
   const button = e.target.closest("[data-action]");
   if (button) {
     const row = button.closest("tr");
@@ -2324,26 +2395,30 @@ $("listings-body").addEventListener("click", (e) => {
   }
   const row = e.target.closest("tr.listing-row");
   if (!row || e.target.closest("a")) return;
-  if (selecting) {
+  if (selecting && row.closest("#listings-body")) {
     e.preventDefault();
     toggleSelected(row.dataset.id, e.shiftKey);
   } else {
     toggleListing(row);
   }
-});
-$("listings-body").addEventListener("keydown", (e) => {
-  if (e.key !== "Enter" && e.key !== " ") return;
-  if (!e.target.matches("tr.listing-row")) return;
-  e.preventDefault();
-  toggleListing(e.target);
-});
+}
+$("listings-body").addEventListener("click", onListingTableClick);
+$("excluded-body").addEventListener("click", onListingTableClick);
+for (const body of [$("listings-body"), $("excluded-body")]) {
+  body.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (!e.target.matches("tr.listing-row")) return;
+    e.preventDefault();
+    toggleListing(e.target);
+  });
+}
 $("listings-body").addEventListener("mouseover", (e) => {
   const row = e.target.closest("tr.listing-row");
   if (row && row.dataset.id !== hoveredId) setHovered(row.dataset.id);
 });
 $("listings-body").addEventListener("mouseleave", () => setHovered(null));
 
-for (const list of [$("applied-list"), $("excluded-list")]) {
+for (const list of [$("applied-list")]) {
   list.addEventListener("click", (e) => {
     const button = e.target.closest("[data-action]");
     if (!button) return;

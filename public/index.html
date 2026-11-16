@@ -444,7 +444,22 @@
           aria-labelledby="tab-excluded"
           hidden
         >
-          <div id="excluded-list"></div>
+          <div class="table-scroll" id="excluded-table-wrap">
+            <table class="listings-table" id="excluded-table">
+              <thead>
+                <tr>
+                  <th class="select-col"></th>
+                  <th><span data-i18n="col_rent">Rent (CHF)</span></th>
+                  <th><span data-i18n="col_distance">Distance</span></th>
+                  <th><span data-i18n="col_address">Address</span></th>
+                  <th><span data-i18n="col_available">Available</span></th>
+                  <th><span data-i18n="col_source">Source</span></th>
+                </tr>
+              </thead>
+              <tbody id="excluded-body"></tbody>
+            </table>
+          </div>
+          <p class="empty" id="excluded-empty" hidden></p>
         </section>
 
         <section

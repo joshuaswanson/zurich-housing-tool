@@ -212,7 +212,7 @@ const STRINGS = {
     tab_template: "Template",
     template_placeholder: "e.g.\n\nHi,\n\nI saw your listing at {address} and would love to come by for a viewing. I'm 27, doing a master's at ETH, tidy and easygoing, and I'm looking for a place from February.\n\nYou can reach me by email or on +41 79 123 45 67.\n\nBest,\nJane",
     save_template: "Save template",
-    template_intro: "Write the message you want to send most often. Click \u201cUse template\u201d in the message window to start from it, and it is what goes out when you send to several selected listings at once. {address} becomes each listing\u2019s address.",
+    template_intro: "Write the message you want to send most often. Click \u201cUse template\u201d in the message window to start from it. It is also what goes out when you send to several selected listings at once. {address} becomes each listing\u2019s address.",
     select: "Select",
     select_all: "Select all",
     select_listing: "Select listing",

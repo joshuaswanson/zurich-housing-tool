@@ -891,7 +891,6 @@ function renderFlatfoxSession() {
   button.hidden = flatfoxStep !== null;
   button.disabled =
     flatfoxSession.checking || flatfoxSession.busy || flatfoxSession.connected;
-  button.classList.toggle("is-done", Boolean(flatfoxSession.connected));
   button.textContent = t(
     flatfoxSession.connected
       ? "flatfox_connected_button"
@@ -1087,6 +1086,28 @@ function showMessage(url) {
 }
 
 let composeRequest = 0;
+const OLLAMA_MODEL_KEY = "zurich-housing-ollama-model";
+let ollamaModels = [];
+
+async function loadOllamaModels() {
+  try {
+    const data = await (await fetch("/api/ollama-models")).json();
+    ollamaModels = data.models;
+    const remembered = localStorage.getItem(OLLAMA_MODEL_KEY);
+    const selected = ollamaModels.includes(remembered) ? remembered : data.default;
+    $("dialog-ollama-model").innerHTML = ollamaModels
+      .map((m) => `<option${m === selected ? " selected" : ""}>${esc(m)}</option>`)
+      .join("");
+  } catch {
+    ollamaModels = [];
+  }
+  showOllamaModels();
+}
+
+function showOllamaModels() {
+  $("dialog-ollama-model").hidden =
+    llmProvider !== "ollama" || ollamaModels.length < 2;
+}
 
 function renderModelChoice() {
   $("dialog-model").innerHTML = llmProviders
@@ -1118,6 +1139,7 @@ function composeMessage(url) {
   $("dialog-template").disabled = !savedMessage;
   $("dialog-template").title = savedMessage ? "" : t("no_template");
   renderModelChoice();
+  loadOllamaModels();
   $("dialog-sources").hidden = false;
   updateSendEnabled();
   $("dialog-editor").focus();
@@ -1145,7 +1167,11 @@ async function generateMessage() {
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: dialogListingUrl, provider }),
+      body: JSON.stringify({
+        url: dialogListingUrl,
+        provider,
+        model: provider === "ollama" ? $("dialog-ollama-model").value : undefined,
+      }),
     });
     const data = await res.json();
     if (data.error) error = data.error;
@@ -1997,6 +2023,10 @@ $("dialog-generate").addEventListener("click", generateMessage);
 $("dialog-model").addEventListener("change", (e) => {
   llmProvider = e.target.value;
   localStorage.setItem(LLM_KEY, llmProvider);
+  showOllamaModels();
+});
+$("dialog-ollama-model").addEventListener("change", (e) => {
+  localStorage.setItem(OLLAMA_MODEL_KEY, e.target.value);
 });
 $("dialog-editor").addEventListener("input", () => {
   if (!$("dialog-sources").hidden) updateSendEnabled();

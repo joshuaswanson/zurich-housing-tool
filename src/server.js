@@ -692,13 +692,17 @@ app.post("/api/send-flatfox-batch/stop", (req, res) => {
 const OLLAMA_URL = "http://localhost:11434";
 const DEFAULT_OLLAMA_MODEL = "llama3.2";
 
-/**
- * The default model when it is installed, otherwise the smallest installed
- * model. Returns null when none is installed.
- */
-async function chooseOllamaModel() {
+async function installedOllamaModels() {
   const resp = await fetch(`${OLLAMA_URL}/api/tags`);
-  const { models } = await resp.json();
+  return (await resp.json()).models;
+}
+
+/**
+ * The requested model when it is installed, then the default model, then the
+ * smallest installed model. Returns null when none is installed.
+ */
+function pickOllamaModel(models, requested) {
+  if (models.some((m) => m.name === requested)) return requested;
   const match = models.find(
     (m) =>
       m.name === DEFAULT_OLLAMA_MODEL ||
@@ -707,6 +711,10 @@ async function chooseOllamaModel() {
   if (match) return match.name;
   const bySize = [...models].sort((a, b) => a.size - b.size);
   return bySize[0]?.name || null;
+}
+
+async function chooseOllamaModel(requested) {
+  return pickOllamaModel(await installedOllamaModels(), requested);
 }
 
 const FLUENT_PATTERN =
@@ -728,6 +736,18 @@ export function germanLevel(languages) {
 export function fillMessage(template, listing) {
   return template.replaceAll("{address}", listing?.address || "").trim();
 }
+
+app.get("/api/ollama-models", async (req, res) => {
+  try {
+    const models = await installedOllamaModels();
+    res.json({
+      models: models.map((m) => m.name),
+      default: pickOllamaModel(models),
+    });
+  } catch {
+    res.json({ models: [], default: null, unreachable: true });
+  }
+});
 
 app.post("/api/generate", async (req, res) => {
   const { url } = req.body;
@@ -795,16 +815,16 @@ Write the application message now. Do not include a subject line. Start with a g
     { apple: generateWithApple, api: generateWithApi }[provider] ||
     generateWithOllama;
   try {
-    res.json(await generate(prompt));
+    res.json(await generate(prompt, req.body.model));
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
 });
 
-async function generateWithOllama(prompt) {
+async function generateWithOllama(prompt, requested) {
   let model;
   try {
-    model = await chooseOllamaModel();
+    model = await chooseOllamaModel(requested);
   } catch {
     throw new Error("Could not connect to Ollama. Start it with: ollama serve");
   }

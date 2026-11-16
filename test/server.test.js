@@ -529,3 +529,31 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
   const again = await post("/api/send-flatfox-batch", { urls: [urls[0], urls[2]] });
   assert.equal(again.status, 400);
 });
+
+test("Ollama lists installed models and writes with the chosen one", async () => {
+  const realFetch = globalThis.fetch;
+  let used;
+  globalThis.fetch = async (url, options) => {
+    const target = String(url);
+    if (target === "http://localhost:11434/api/tags") {
+      return Response.json({ models: [{ name: "qwen3:8b", size: 5 }, { name: "llama3.2:latest", size: 2 }] });
+    }
+    if (target === "http://localhost:11434/api/generate") {
+      used = JSON.parse(options.body).model;
+      return Response.json({ response: "Hallo" });
+    }
+    return realFetch(url, options);
+  };
+  try {
+    assert.deepEqual((await get("/api/ollama-models")).body, {
+      models: ["qwen3:8b", "llama3.2:latest"],
+      default: "llama3.2:latest",
+    });
+    await post("/api/generate", { url: WG_URL, provider: "ollama", model: "qwen3:8b" });
+    assert.equal(used, "qwen3:8b");
+    await post("/api/generate", { url: WG_URL, provider: "ollama", model: "not-installed" });
+    assert.equal(used, "llama3.2:latest");
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});

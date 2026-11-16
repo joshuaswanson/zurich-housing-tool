@@ -28,7 +28,7 @@ import {
   ETHZ_CACHE_FILE,
   ROUTE_SHAPES_FILE,
 } from "./lib.js";
-import { fetchRideShape } from "./route-shapes.mjs";
+import { fetchLegShape } from "./route-shapes.mjs";
 import {
   fetchEthzAccount,
   fetchEthzAdvertisements,
@@ -432,24 +432,27 @@ app.get("/api/route", async (req, res) => {
   }
 });
 
-// Ride shapes are cached on disk, so each stretch of a line is fetched once.
-app.locals.fetchRideShape = fetchRideShape;
+// Paths are cached on disk, so each stretch is looked up once. Misses are
+// not cached, so a later try can still find one.
+app.locals.fetchLegShape = fetchLegShape;
 
 app.post("/api/route-shape", async (req, res) => {
   const { type, line } = req.body;
   const stops = (Array.isArray(req.body.stops) ? req.body.stops : [])
     .map((p) => [Number(p.lng), Number(p.lat)])
     .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-  if (!type || !line || stops.length < 2) {
-    return res.status(400).json({ error: "type, line and stops required" });
+  if (!type || stops.length < 2) {
+    return res.status(400).json({ error: "type and stops required" });
   }
-  const key = [type, line, ...stops.map((p) => p.map((n) => n.toFixed(4)).join(","))].join("|");
+  const key = [type, line || "", ...stops.map((p) => p.map((n) => n.toFixed(4)).join(","))].join("|");
   const cache = readJson(ROUTE_SHAPES_FILE, {});
   if (key in cache) return res.json({ path: cache[key] });
   try {
-    const path = await app.locals.fetchRideShape({ type, line: String(line), stops });
-    ensureDataDir();
-    fs.writeFileSync(ROUTE_SHAPES_FILE, JSON.stringify({ ...readJson(ROUTE_SHAPES_FILE, {}), [key]: path }));
+    const path = await app.locals.fetchLegShape({ type, line: line ? String(line) : null, stops });
+    if (path) {
+      ensureDataDir();
+      fs.writeFileSync(ROUTE_SHAPES_FILE, JSON.stringify({ ...readJson(ROUTE_SHAPES_FILE, {}), [key]: path }));
+    }
     res.json({ path });
   } catch (e) {
     res.status(502).json({ error: e.message.substring(0, 200) });

@@ -1,6 +1,7 @@
 /**
- * The track a tram, bus or train takes between two stops, cut out of the
- * line's OpenStreetMap route. Points are [lng, lat].
+ * The path each part of a trip takes on the map, from OpenStreetMap: trams
+ * along the tram tracks, buses and trains along their line's route or the
+ * roads, and walks along footpaths. Points are [lng, lat].
  */
 
 // OpenStreetMap Switzerland's server holds only Swiss data and is rarely
@@ -114,11 +115,8 @@ async function overpass(query, fetcher) {
   throw lastError;
 }
 
-/**
- * The shape of one ride between its stops, or null when OpenStreetMap has no
- * route for the line that passes them. Throws when Overpass cannot be reached.
- */
-export async function fetchRideShape({ type, line, stops }, fetcher = fetch) {
+/** The ride cut out of the line's OpenStreetMap route, or null. */
+async function relationShape({ type, line, stops }, fetcher) {
   const routes = ROUTE_TYPES[type];
   if (!routes || !line || stops.length < 2) return null;
   const ref = String(line).replace(/["\\]/g, "");
@@ -136,4 +134,163 @@ export async function fetchRideShape({ type, line, stops }, fetcher = fetch) {
     if (slice && (!best || slice.score < best.score)) best = slice;
   }
   return best?.path || null;
+}
+
+// Stops lie within this distance of the tracks they are served from.
+const MAX_SNAP_M = 120;
+
+class Heap {
+  constructor() {
+    this.items = [];
+  }
+  push(item) {
+    const a = this.items;
+    a.push(item);
+    for (let i = a.length - 1; i > 0; ) {
+      const parent = (i - 1) >> 1;
+      if (a[parent][0] <= a[i][0]) break;
+      [a[parent], a[i]] = [a[i], a[parent]];
+      i = parent;
+    }
+  }
+  pop() {
+    const a = this.items;
+    const top = a[0];
+    const last = a.pop();
+    if (a.length) {
+      a[0] = last;
+      for (let i = 0; ; ) {
+        const l = 2 * i + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < a.length && a[l][0] < a[m][0]) m = l;
+        if (r < a.length && a[r][0] < a[m][0]) m = r;
+        if (m === i) break;
+        [a[m], a[i]] = [a[i], a[m]];
+        i = m;
+      }
+    }
+    return top;
+  }
+  get size() {
+    return this.items.length;
+  }
+}
+
+/** A graph of the track network, joined where ways share a point. */
+export function trackGraph(ways) {
+  const points = [];
+  const index = new Map();
+  const edges = [];
+  const id = (p) => {
+    const key = `${p[0].toFixed(7)},${p[1].toFixed(7)}`;
+    if (!index.has(key)) {
+      index.set(key, points.length);
+      points.push(p);
+      edges.push([]);
+    }
+    return index.get(key);
+  };
+  for (const way of ways) {
+    for (let i = 0; i < way.length - 1; i++) {
+      const a = id(way[i]);
+      const b = id(way[i + 1]);
+      const length = metres(way[i], way[i + 1]);
+      edges[a].push([b, length]);
+      edges[b].push([a, length]);
+    }
+  }
+  return { points, edges };
+}
+
+function shortestPath(graph, from, to) {
+  const distance = new Map([[from, 0]]);
+  const previous = new Map();
+  const heap = new Heap();
+  heap.push([0, from]);
+  while (heap.size) {
+    const [d, node] = heap.pop();
+    if (node === to) break;
+    if (d > distance.get(node)) continue;
+    for (const [next, length] of graph.edges[node]) {
+      const candidate = d + length;
+      if (candidate < (distance.get(next) ?? Infinity)) {
+        distance.set(next, candidate);
+        previous.set(next, node);
+        heap.push([candidate, next]);
+      }
+    }
+  }
+  if (!distance.has(to)) return null;
+  const path = [to];
+  while (path[0] !== from) path.unshift(previous.get(path[0]));
+  return path.map((i) => graph.points[i]);
+}
+
+function snap(graph, stop) {
+  let best = -1;
+  let bestDistance = Infinity;
+  graph.points.forEach((p, i) => {
+    const d = metres(p, stop);
+    if (d < bestDistance) [best, bestDistance] = [i, d];
+  });
+  return bestDistance <= MAX_SNAP_M ? best : -1;
+}
+
+/** The path along the tracks from stop to stop, or null when a stop is off the tracks. */
+export function pathAlongTracks(ways, stops) {
+  const graph = trackGraph(ways);
+  const nodes = stops.map((stop) => snap(graph, stop));
+  if (nodes.includes(-1)) return null;
+  const path = [];
+  for (let i = 0; i < nodes.length - 1; i++) {
+    const part = shortestPath(graph, nodes[i], nodes[i + 1]);
+    if (!part) return null;
+    path.push(...(path.length ? part.slice(1) : part));
+  }
+  return path.length > 1 ? path : null;
+}
+
+async function trackShape(stops, railway, fetcher) {
+  const [s, w, n, e] = boundingBox(stops, 0.005);
+  const body = await overpass(
+    `[out:json][timeout:25];way["railway"~"^(${railway})$"](${s},${w},${n},${e});out geom;`,
+    fetcher,
+  );
+  const ways = (body.elements || [])
+    .filter((el) => el.geometry)
+    .map((el) => el.geometry.map((g) => [g.lon, g.lat]));
+  return pathAlongTracks(ways, stops);
+}
+
+async function streetShape(profile, points, fetcher) {
+  const coords = points.map((p) => `${p[0].toFixed(6)},${p[1].toFixed(6)}`).join(";");
+  const resp = await fetcher(
+    `https://routing.openstreetmap.de/routed-${profile}/route/v1/driving/${coords}?overview=full&geometries=geojson`,
+    { headers: { "User-Agent": "ZurichHousingTool" }, signal: AbortSignal.timeout(20000) },
+  );
+  if (!resp.ok) throw new Error(`The street router returned HTTP ${resp.status}.`);
+  const body = await resp.json();
+  return body.routes?.[0]?.geometry?.coordinates || null;
+}
+
+const TRAIN_TYPES = new Set(["train", "strain", "express_train"]);
+
+/**
+ * The path one part of a trip takes, or null when OpenStreetMap has nothing
+ * that fits. Throws when a server cannot be reached.
+ */
+export async function fetchLegShape({ type, line, stops }, fetcher = fetch) {
+  if (stops.length < 2) return null;
+  if (type === "walk") return streetShape("foot", stops, fetcher);
+  if (type === "tram") {
+    return (await trackShape(stops, "tram", fetcher)) || relationShape({ type, line, stops }, fetcher);
+  }
+  if (type === "bus") {
+    return (await relationShape({ type, line, stops }, fetcher)) || streetShape("car", stops, fetcher);
+  }
+  if (TRAIN_TYPES.has(type)) {
+    return (await relationShape({ type, line, stops }, fetcher)) || trackShape(stops, "rail|light_rail", fetcher);
+  }
+  return relationShape({ type, line, stops }, fetcher);
 }

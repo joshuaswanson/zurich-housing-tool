@@ -752,7 +752,7 @@ test("a ride follows its line's track between the stops it passes", async () => 
   assert.equal(sliceThroughStops(line, [[8.5, 47.37], [8.6, 47.4]]), null);
 
   let calls = 0;
-  app.locals.fetchRideShape = async ({ stops }) => {
+  app.locals.fetchLegShape = async ({ stops }) => {
     calls += 1;
     return [stops[0], [8.501, 47.37], stops[1]];
   };
@@ -763,4 +763,20 @@ test("a ride follows its line's track between the stops it passes", async () => 
   await post("/api/route-shape", request);
   assert.equal(calls, 1);
   assert.equal((await post("/api/route-shape", { type: "tram", stops: [] })).status, 400);
+
+  const { pathAlongTracks } = await import("../src/route-shapes.mjs");
+  const tracks = [
+    [[8.5, 47.37], [8.51, 47.37]],
+    [[8.51, 47.37], [8.51, 47.38]],
+    [[8.51, 47.37], [8.52, 47.37]],
+  ];
+  const along = pathAlongTracks(tracks, [[8.5, 47.37], [8.51, 47.3795]]);
+  assert.deepEqual(along, [[8.5, 47.37], [8.51, 47.37], [8.51, 47.38]]);
+  assert.equal(pathAlongTracks(tracks, [[8.5, 47.37], [8.6, 47.4]]), null);
+
+  app.locals.fetchLegShape = async () => null;
+  const missing = await post("/api/route-shape", { type: "walk", stops: [{ lat: 47.1, lng: 8.1 }, { lat: 47.2, lng: 8.2 }] });
+  assert.deepEqual(missing.body, { path: null });
+  app.locals.fetchLegShape = async ({ stops }) => stops;
+  assert.equal((await post("/api/route-shape", { type: "walk", stops: [{ lat: 47.1, lng: 8.1 }, { lat: 47.2, lng: 8.2 }] })).body.path.length, 2);
 });

@@ -363,12 +363,20 @@
 
         <div class="listings-bar">
           <p class="section-note" id="listings-note"></p>
-          <button class="button" type="button" id="batch-open" hidden></button>
+          <div class="selection-bar">
+            <span class="secondary" id="selection-count" role="status" hidden></span>
+            <button class="button button-primary" type="button" id="selection-send" hidden></button>
+            <button class="button" type="button" id="selection-cancel" data-i18n="cancel" hidden>Cancel</button>
+            <button class="button" type="button" id="select-toggle" data-i18n="select">Select</button>
+          </div>
         </div>
         <div class="table-scroll">
           <table id="listings-table">
             <thead>
               <tr>
+                <th class="select-col">
+                  <input type="checkbox" id="select-all" aria-label="Select all" data-i18n-aria-label="select_all" />
+                </th>
                 <th data-sort="price" aria-sort="ascending">
                   <button class="sort-button" type="button"><span data-i18n="col_rent">Rent (CHF)</span></button>
                 </th>

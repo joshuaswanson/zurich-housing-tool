@@ -1545,7 +1545,6 @@ dialog textarea:disabled {
 /* Button icons are masks, so a button's text can change without losing them. */
 .button[data-action="compose"]::before,
 .button#dialog-send::before,
-.button#batch-open::before,
 .button#batch-send::before,
 .button[data-action="apply"]::before,
 .button#dialog-applied::before,
@@ -1576,7 +1575,6 @@ dialog textarea:disabled {
 
 .button[data-action="compose"],
 .button#dialog-send,
-.button#batch-open,
 .button#batch-send,
 .button[data-action="apply"],
 .button#dialog-applied,
@@ -1603,7 +1601,6 @@ dialog textarea:disabled {
 
 .button[data-action="compose"],
 .button#dialog-send,
-.button#batch-open,
 .button#batch-send {
   --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="M22 2 11 13"/%3E%3Cpath d="M22 2 15 22l-4-9-9-4z"/%3E%3C/svg%3E');
 }
@@ -1677,4 +1674,70 @@ dialog textarea:disabled {
 .settings-section #flatfox-login {
   grid-column: 2;
   grid-row: 1;
+}
+
+.selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.select-col {
+  display: none;
+}
+
+#listings-table.is-selecting .select-col {
+  display: table-cell;
+  width: 32px;
+  padding-right: 0;
+}
+
+.select-col input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.select-col input:disabled {
+  cursor: default;
+}
+
+#listings-table.is-selecting tbody tr.listing-row {
+  user-select: none;
+}
+
+tbody tr.listing-row.is-selected {
+  background: var(--row-hover);
+}
+
+.button#select-toggle::before,
+.button#selection-send::before {
+  content: "";
+  flex: none;
+  width: 14px;
+  height: 14px;
+  background: currentColor;
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.button#select-toggle,
+.button#selection-send {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.button#selection-send {
+  --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Cpath d="M22 2 11 13"/%3E%3Cpath d="M22 2 15 22l-4-9-9-4z"/%3E%3C/svg%3E');
+  padding: 5px 10px;
+}
+
+.button#select-toggle {
+  --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect x="3" y="3" width="18" height="18" rx="2"/%3E%3Cpath d="m9 12 2 2 4-4"/%3E%3C/svg%3E');
+}
+
+#selection-count {
+  white-space: nowrap;
 }

@@ -275,8 +275,11 @@ function applyFilters() {
   $("tab-listings-count").textContent = filtered.length;
   filteredListings = filtered;
   rowLimit = ROWS_PER_PAGE;
+  for (const id of selected) {
+    if (!filtered.some((l) => l.id === id && selectable(l))) selected.delete(id);
+  }
   renderTable(filtered);
-  renderBatchButton();
+  renderSelection();
   setMapListings(filtered);
 }
 
@@ -332,7 +335,8 @@ function renderTable(listings) {
     .slice(0, rowLimit)
     .map(
       (l) => `
-        <tr class="listing-row" data-id="${esc(l.id)}" tabindex="0">
+        <tr class="listing-row${selected.has(l.id) ? " is-selected" : ""}" data-id="${esc(l.id)}" tabindex="0">
+          <td class="select-col">${selectBox(l)}</td>
           <td class="rent">
             <div>${esc(l.price)}</div>
             ${l.pricePeriod ? `<div class="secondary">${t(`per_${l.pricePeriod}`)}</div>` : ""}
@@ -501,7 +505,7 @@ function detailRow(l) {
   row.dataset.url = l.url;
   row.dataset.id = l.id;
   row.innerHTML = `
-    <td colspan="5">
+    <td colspan="6">
       <div class="detail">
         <div class="detail-body" data-role="sections"></div>
         <div class="detail-footer">
@@ -1252,16 +1256,96 @@ const BATCH_LIMIT = 20;
 const BATCH_POLL_MS = 2000;
 let batchListings = [];
 
-function batchCandidates() {
-  return filteredListings
-    .filter((l) => l.source === "flatfox" && !statusOf(l.url))
-    .slice(0, BATCH_LIMIT);
+// Selecting listings to send the template to. Only new Flatfox listings can
+// be sent from the app.
+let selecting = false;
+const selected = new Set();
+let lastSelectedId = null;
+
+function selectable(l) {
+  return l.source === "flatfox" && !statusOf(l.url);
 }
 
-function renderBatchButton() {
-  const n = batchCandidates().length;
-  $("batch-open").hidden = n === 0;
-  $("batch-open").textContent = t("batch_open", { n });
+function selectBox(l) {
+  const reason = l.source !== "flatfox" ? t("select_only_flatfox") : statusOf(l.url) ? t("select_tracked") : "";
+  return `<input type="checkbox" data-role="select" aria-label="${esc(t("select_listing"))}"${selected.has(l.id) ? " checked" : ""}${reason ? ` disabled title="${esc(reason)}"` : ""} />`;
+}
+
+function visibleListings() {
+  return filteredListings.slice(0, rowLimit);
+}
+
+function renderSelection() {
+  const n = selected.size;
+  $("listings-table").classList.toggle("is-selecting", selecting);
+  $("select-toggle").hidden = selecting;
+  $("selection-cancel").hidden = !selecting;
+  $("selection-send").hidden = !selecting;
+  $("selection-count").hidden = !selecting;
+  $("selection-count").textContent =
+    n >= BATCH_LIMIT ? t("select_limit", { n: BATCH_LIMIT }) : counted("selected_count", n);
+  $("selection-send").textContent = t("selection_send", { n });
+  $("selection-send").disabled = n === 0;
+  const eligible = visibleListings().filter(selectable);
+  $("select-all").checked = eligible.length > 0 && eligible.slice(0, BATCH_LIMIT).every((l) => selected.has(l.id));
+  $("select-all").indeterminate = n > 0 && !$("select-all").checked;
+  for (const row of $("listings-body").querySelectorAll("tr.listing-row")) {
+    const on = selected.has(row.dataset.id);
+    row.classList.toggle("is-selected", on);
+    const box = row.querySelector("[data-role='select']");
+    if (box) box.checked = on;
+  }
+}
+
+function setSelecting(on) {
+  selecting = on;
+  if (!on) {
+    selected.clear();
+    lastSelectedId = null;
+  } else {
+    document.querySelectorAll("#listings-body tr.detail-row").forEach((row) => {
+      row.previousElementSibling?.classList.remove("is-active");
+      row.remove();
+    });
+  }
+  renderSelection();
+}
+
+function setSelected(l, on) {
+  if (!selectable(l)) return;
+  if (on && !selected.has(l.id) && selected.size >= BATCH_LIMIT) return;
+  if (on) selected.add(l.id);
+  else selected.delete(l.id);
+}
+
+function toggleSelected(id, extendRange) {
+  const listings = visibleListings();
+  const index = listings.findIndex((l) => l.id === id);
+  const target = listings[index];
+  if (!target || !selectable(target)) return;
+  const on = !selected.has(id);
+  const anchor = listings.findIndex((l) => l.id === lastSelectedId);
+  if (extendRange && anchor > -1) {
+    const [from, to] = anchor < index ? [anchor, index] : [index, anchor];
+    for (const l of listings.slice(from, to + 1)) setSelected(l, on);
+  } else {
+    setSelected(target, on);
+  }
+  lastSelectedId = id;
+  renderSelection();
+}
+
+function toggleSelectAll() {
+  const eligible = visibleListings().filter(selectable).slice(0, BATCH_LIMIT);
+  const all = eligible.every((l) => selected.has(l.id));
+  selected.clear();
+  if (!all) for (const l of eligible) selected.add(l.id);
+  renderSelection();
+}
+
+function sendToSelected() {
+  const chosen = filteredListings.filter((l) => selected.has(l.id));
+  if (chosen.length) openBatch(chosen);
 }
 
 function fillMessage(template, listing) {
@@ -1276,7 +1360,7 @@ function showBatchControls({ send = false, stop = false, profile = false }) {
   $("batch-profile").hidden = !profile;
 }
 
-async function openBatch() {
+async function openBatch(listings) {
   $("batch-status").textContent = "";
   $("batch-failed").innerHTML = "";
   $("batch-list").innerHTML = "";
@@ -1300,7 +1384,7 @@ async function openBatch() {
     return;
   }
 
-  batchListings = batchCandidates();
+  batchListings = listings;
   const n = batchListings.length;
   $("batch-title").textContent = t("batch_title", { n });
   $("batch-intro").textContent = t("batch_intro");
@@ -1352,6 +1436,7 @@ async function watchBatch() {
   } while (status.running);
   batchWatching = false;
   showBatchControls({});
+  setSelecting(false);
   await Promise.all([load(), loadMessages()]);
 }
 
@@ -1394,7 +1479,10 @@ $("batch-list").addEventListener("click", (e) => {
     batchListings[item.dataset.index],
   );
 });
-$("batch-open").addEventListener("click", openBatch);
+$("select-toggle").addEventListener("click", () => setSelecting(true));
+$("selection-cancel").addEventListener("click", () => setSelecting(false));
+$("selection-send").addEventListener("click", sendToSelected);
+$("select-all").addEventListener("click", toggleSelectAll);
 $("batch-send").addEventListener("click", startBatch);
 $("batch-stop").addEventListener("click", stopBatch);
 $("batch-profile").addEventListener("click", openProfileFromBatch);
@@ -1975,6 +2063,9 @@ document.addEventListener("click", (e) => {
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") $("settings").open = false;
+  if (e.key === "Escape" && selecting && !document.querySelector("dialog[open]")) {
+    setSelecting(false);
+  }
 });
 document.querySelectorAll("input[name='language']").forEach((radio) => {
   radio.addEventListener("change", () => setLanguage(radio.value));
@@ -2040,7 +2131,13 @@ $("listings-body").addEventListener("click", (e) => {
     return;
   }
   const row = e.target.closest("tr.listing-row");
-  if (row && !e.target.closest("a")) toggleListing(row);
+  if (!row || e.target.closest("a")) return;
+  if (selecting) {
+    e.preventDefault();
+    toggleSelected(row.dataset.id, e.shiftKey);
+  } else {
+    toggleListing(row);
+  }
 });
 $("listings-body").addEventListener("keydown", (e) => {
   if (e.key !== "Enter" && e.key !== " ") return;

@@ -772,15 +772,20 @@ select {
   border-top: 1px solid var(--line-soft);
 }
 
-.detail-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.detail-note-text {
+  max-width: 72ch;
+  font-size: 13px;
+  white-space: pre-line;
 }
 
-.detail-note .text-input {
-  flex: 1;
-  max-width: 48ch;
+.detail-footer .button-primary,
+.dialog-actions .button-primary,
+.dialog-sources .button-primary {
+  padding: 5px 10px;
+}
+
+dialog textarea.note-editor {
+  height: auto;
 }
 
 .application-note {
@@ -1393,6 +1398,13 @@ dialog textarea {
   align-items: center;
   gap: 8px 12px;
   margin-bottom: 12px;
+}
+
+.dialog-generate {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
 }
 
 .dialog-source-status {

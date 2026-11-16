@@ -508,6 +508,7 @@ function detailRow(l) {
           <div class="row-actions" data-role="actions">
             <button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>
             ${actionButtons(actions)}
+            <button class="button" type="button" data-action="note"></button>
             <button class="button" type="button" data-action="fetch-details" hidden>${t("act_fetch")}</button>
           </div>
           <div class="row-actions" data-role="exclude-form" hidden>
@@ -515,13 +516,11 @@ function detailRow(l) {
             <button class="button" type="button" data-action="confirm-exclude">${t("act_exclude")}</button>
             <button class="button" type="button" data-action="cancel-exclude">${t("cancel")}</button>
           </div>
-          <div class="detail-note">
-            <input class="text-input" type="text" data-role="note" aria-label="${t("note_label")}" placeholder="${t("note_placeholder")}" value="${esc(noteFor(l.url))}" />
-            <button class="button" type="button" data-action="save-note">${t("save_note")}</button>
-          </div>
+          <p class="detail-note-text" data-role="note-text"></p>
         </div>
       </div>
     </td>`;
+  showNote(row);
   loadDetails(row, l);
   return row;
 }
@@ -576,15 +575,36 @@ async function postJson(path, payload) {
   }
 }
 
-async function saveNote(row, button) {
-  const url = row.dataset.url;
-  const text = row.querySelector("[data-role='note']").value;
+function showNote(row) {
+  const note = noteFor(row.dataset.url);
+  const text = row.querySelector("[data-role='note-text']");
+  text.textContent = note ? t("note_prefix", { text: note }) : "";
+  text.hidden = !note;
+  row.querySelector("[data-action='note']").textContent = t(
+    note ? "act_edit_note" : "act_add_note",
+  );
+}
+
+let noteRow = null;
+
+function openNote(row) {
+  noteRow = row;
+  $("note-editor").value = noteFor(row.dataset.url);
+  $("note-dialog").showModal();
+  $("note-editor").focus();
+}
+
+async function saveNote(e) {
+  e.preventDefault();
+  const url = noteRow.dataset.url;
+  const text = $("note-editor").value.trim();
   if (!(await postJson("/api/note", { url, text }))) return;
   tracker.notes = tracker.notes || {};
-  if (text.trim()) tracker.notes[noteKey(url)] = text.trim();
+  if (text) tracker.notes[noteKey(url)] = text;
   else delete tracker.notes[noteKey(url)];
   renderApplications();
-  button.textContent = t("saved");
+  showNote(noteRow);
+  $("note-dialog").close();
 }
 
 function toggleExcludeForm(row, open) {
@@ -753,6 +773,9 @@ function openDialog(title, body, { draftFor = null } = {}) {
   $("dialog-hint").hidden = true;
   $("dialog-sources").hidden = true;
   $("dialog-editor").disabled = false;
+  $("dialog-editor").placeholder = "";
+  $("dialog-generate").disabled = false;
+  composeRequest++;
   setComposeStatus("");
   $("message-dialog").showModal();
 }
@@ -1063,24 +1086,15 @@ function showMessage(url) {
   );
 }
 
-const MESSAGE_SOURCE_KEY = "zurich-housing-message-source";
 let composeRequest = 0;
 
-function messageSources() {
-  return ["template", ...llmProviders];
-}
-
-function sourceName(source) {
-  return source === "template" ? t("source_template") : providerName(source);
-}
-
-function renderMessageSources(selected) {
-  $("dialog-source").innerHTML = messageSources()
+function renderModelChoice() {
+  $("dialog-model").innerHTML = llmProviders
     .map(
-      (source) => `
+      (provider) => `
         <label>
-          <input type="radio" name="message-source" value="${source}"${source === selected ? " checked" : ""} />
-          <span>${esc(sourceName(source))}</span>
+          <input type="radio" name="message-model" value="${provider}"${provider === llmProvider ? " checked" : ""} />
+          <span>${esc(providerName(provider))}</span>
         </label>`,
     )
     .join("");
@@ -1093,44 +1107,45 @@ function setComposeStatus(text, isError = false) {
   status.classList.toggle("is-error", isError);
 }
 
-function composeMessage(url) {
-  openDialog(t("application_message"), "", { draftFor: url });
-  const remembered = localStorage.getItem(MESSAGE_SOURCE_KEY);
-  const source = messageSources().includes(remembered)
-    ? remembered
-    : savedMessage
-      ? "template"
-      : llmProvider;
-  renderMessageSources(source);
-  $("dialog-sources").hidden = false;
-  writeWith(source);
+function updateSendEnabled() {
+  $("dialog-send").disabled =
+    $("dialog-editor").disabled || !$("dialog-editor").value.trim();
 }
 
-async function writeWith(source) {
-  localStorage.setItem(MESSAGE_SOURCE_KEY, source);
+function composeMessage(url) {
+  openDialog(t("application_message"), "", { draftFor: url });
+  $("dialog-editor").placeholder = t("compose_placeholder");
+  $("dialog-template").disabled = !savedMessage;
+  $("dialog-template").title = savedMessage ? "" : t("no_template");
+  renderModelChoice();
+  $("dialog-sources").hidden = false;
+  updateSendEnabled();
+  $("dialog-editor").focus();
+}
+
+function useTemplate() {
+  composeRequest++;
+  $("dialog-editor").disabled = false;
+  $("dialog-editor").value = fillMessage(savedMessage, draftListing());
+  setComposeStatus("");
+  updateSendEnabled();
+}
+
+async function generateMessage() {
+  const provider = llmProvider;
   const request = ++composeRequest;
   const editor = $("dialog-editor");
-  const listing = draftListing();
-  $("dialog-save").textContent = t("save_message");
-  if (source === "template") {
-    editor.disabled = false;
-    editor.value = savedMessage ? fillMessage(savedMessage, listing) : "";
-    setComposeStatus(savedMessage ? "" : t("no_template"));
-    $("dialog-send").disabled = !editor.value;
-    return;
-  }
-
   editor.disabled = true;
-  editor.value = "";
-  $("dialog-send").disabled = true;
-  setComposeStatus(t("writing_with", { name: sourceName(source) }));
+  $("dialog-generate").disabled = true;
+  updateSendEnabled();
+  setComposeStatus(t("writing_with", { name: providerName(provider) }));
   let message = "";
   let error = "";
   try {
     const res = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: listing.url, provider: source }),
+      body: JSON.stringify({ url: dialogListingUrl, provider }),
     });
     const data = await res.json();
     if (data.error) error = data.error;
@@ -1140,13 +1155,14 @@ async function writeWith(source) {
   }
   if (request !== composeRequest) return;
   editor.disabled = false;
+  $("dialog-generate").disabled = false;
   if (error) {
     setComposeStatus(`${t("draft_failed")}: ${error}`, true);
   } else {
     editor.value = message;
     setComposeStatus("");
   }
-  $("dialog-send").disabled = !editor.value;
+  updateSendEnabled();
 }
 
 // Sending to many listings
@@ -1705,7 +1721,6 @@ const LLM_KEY = "zurich-housing-llm";
 let llmProvider = localStorage.getItem(LLM_KEY);
 
 let llmProviders = [];
-const API_SERVICE_NAMES = { openai: "OpenAI", openrouter: "OpenRouter" };
 
 function showLlmChoice(providers) {
   llmProviders = providers;
@@ -1716,7 +1731,7 @@ function showLlmChoice(providers) {
 function providerName(provider) {
   if (provider === "apple") return "Apple";
   if (provider === "ollama") return "Ollama";
-  return API_SERVICE_NAMES[apiSettings?.service] || "API";
+  return "OpenRouter";
 }
 
 
@@ -1724,7 +1739,6 @@ let apiSettings = null;
 
 function showApiSettings(settings) {
   apiSettings = settings;
-  $("api-service").value = settings.service;
   $("api-model").value = settings.model;
   $("api-key").value = "";
   $("api-key").placeholder = settings.keyEnding
@@ -1740,10 +1754,7 @@ async function loadApiSettings() {
 
 async function saveApiSettings(e) {
   e.preventDefault();
-  const payload = {
-    service: $("api-service").value,
-    model: $("api-model").value,
-  };
+  const payload = { model: $("api-model").value };
   if ($("api-key").value.trim()) payload.apiKey = $("api-key").value;
   try {
     const res = await fetch("/api/llm-api", {
@@ -1761,12 +1772,6 @@ async function saveApiSettings(e) {
 }
 
 $("api-settings").addEventListener("submit", saveApiSettings);
-$("api-service").addEventListener("change", (e) => {
-  const defaults = Object.values(apiSettings?.defaultModels || {});
-  if (!$("api-model").value || defaults.includes($("api-model").value)) {
-    $("api-model").value = apiSettings?.defaultModels[e.target.value] || "";
-  }
-});
 
 const THEME_KEY = "zurich-housing-theme";
 const systemDark = matchMedia("(prefers-color-scheme: dark)");
@@ -1946,7 +1951,7 @@ $("listings-body").addEventListener("click", (e) => {
     if (action === "compose") composeMessage(url);
     else if (action === "expand-section") expandSection(button);
     else if (action === "fetch-details") fetchDetails(row, button);
-    else if (action === "save-note") saveNote(row, button);
+    else if (action === "note") openNote(row);
     else if (action === "exclude") toggleExcludeForm(row, true);
     else if (action === "cancel-exclude") toggleExcludeForm(row, false);
     else if (action === "confirm-exclude") {
@@ -1985,11 +1990,16 @@ $("dialog-copy").addEventListener("click", () => {
 });
 $("dialog-save").addEventListener("click", saveDraft);
 $("dialog-send").addEventListener("click", handOverDraft);
-$("dialog-source").addEventListener("change", (e) => writeWith(e.target.value));
+$("note-form").addEventListener("submit", saveNote);
+$("note-cancel").addEventListener("click", () => $("note-dialog").close());
+$("dialog-template").addEventListener("click", useTemplate);
+$("dialog-generate").addEventListener("click", generateMessage);
+$("dialog-model").addEventListener("change", (e) => {
+  llmProvider = e.target.value;
+  localStorage.setItem(LLM_KEY, llmProvider);
+});
 $("dialog-editor").addEventListener("input", () => {
-  if (!$("dialog-sources").hidden) {
-    $("dialog-send").disabled = !$("dialog-editor").value.trim();
-  }
+  if (!$("dialog-sources").hidden) updateSendEnabled();
 });
 $("dialog-applied").addEventListener("click", markDraftApplied);
 $("profile-form").addEventListener("submit", saveProfile);

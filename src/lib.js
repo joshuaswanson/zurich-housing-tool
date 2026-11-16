@@ -34,6 +34,10 @@ export const STUDENTS_CACHE_FILE = path.join(
   DATA_DIR,
   "students_cache.json",
 );
+export const ETHZ_CACHE_FILE = path.join(DATA_DIR, "ethz_cache.json");
+export const ETHZ_SESSION_FILE = path.join(DATA_DIR, "ethz-session.json");
+export const ETHZ_BROWSER_PROFILE_DIR = path.join(DATA_DIR, "ethz-browser-profile");
+export const ETHZ_KEYCHAIN_SERVICE = "Zurich Housing Tool: ETH Housing Office";
 export const TRACKER_FILE = path.join(DATA_DIR, "tracker.json");
 const ROOT_TRACKER_FILE = path.join(HOME_DIR, "tracker.json");
 if (fs.existsSync(ROOT_TRACKER_FILE) && !fs.existsSync(TRACKER_FILE)) {
@@ -47,21 +51,24 @@ export const SEARCH_FILE = path.join(DATA_DIR, "search.json");
 
 // wgzimmer and students.ch list rooms in shared flats only. The ronorp ids are
 // its Wohnen subcategories: 144 WG, 142 Wohnung, 141 furnished apartment,
-// 143 house.
+// 143 house. The ETH Housing Office types are 1 room, 2 shared flat,
+// 3 apartment, 4 house.
 export const SEARCHES = {
   room: {
     maxPrice: 3000,
-    sources: ["flatfox", "wgzimmer", "ronorp", "students"],
+    sources: ["flatfox", "wgzimmer", "ronorp", "students", "ethz"],
     flatfoxCategories: ["SHARED"],
     ronorpSubcategories: ["144"],
+    ethzTypes: [1, 2],
     flatfoxCache: FLATFOX_CACHE_FILE,
     ronorpCache: RONORP_CACHE_FILE,
   },
   apartment: {
     maxPrice: 6000,
-    sources: ["flatfox", "ronorp"],
+    sources: ["flatfox", "ronorp", "ethz"],
     flatfoxCategories: ["APARTMENT", "HOUSE"],
     ronorpSubcategories: ["142", "141", "143"],
+    ethzTypes: [3, 4],
     flatfoxCache: FLATFOX_APARTMENT_CACHE_FILE,
     ronorpCache: RONORP_APARTMENT_CACHE_FILE,
   },

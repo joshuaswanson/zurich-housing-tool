@@ -262,16 +262,20 @@ test("the profile is saved with known fields only", async () => {
 
   await post("/api/profile", {
     name: "Test Person",
-    age: 25,
+    dateOfBirth: "16.05.1998",
     hobbies: ["climbing"],
     occupation: "",
     notAField: "ignored",
   });
   assert.deepEqual((await get("/api/profile")).body.profile, {
     name: "Test Person",
-    age: 25,
+    dateOfBirth: "16.05.1998",
     hobbies: ["climbing"],
   });
+  const { ageOn } = await import("../src/server.js");
+  assert.equal(ageOn("16.05.1998", new Date(2026, 4, 15)), 27);
+  assert.equal(ageOn("16.05.1998", new Date(2026, 4, 16)), 28);
+  assert.equal(ageOn("", new Date()), null);
 });
 
 test("a saved message can be read back", async () => {
@@ -593,4 +597,94 @@ test("Ollama reports whether it is installed when it is not running", async () =
     globalThis.fetch = realFetch;
     app.locals.ollamaInstalls = realInstalls;
   }
+});
+
+test("signing in to the ETH Housing Office imports offers and fills empty profile fields", async () => {
+  const { keychain } = await import("../src/ethz-session.mjs");
+  const secrets = new Map();
+  Object.assign(keychain, {
+    saveSecret: async (service, account, secret) => secrets.set(account, secret),
+    readSecret: async (service, account) => secrets.get(account) ?? null,
+    deleteSecret: async (service, account) => secrets.delete(account),
+  });
+  const ad = {
+    "advertisement-id": 5386,
+    "accommodation-type-code": 2,
+    "accommodation-type-desc": "Shared flat",
+    "net-rent": 960,
+    "additional-expenses": 40,
+    "street-no": "Stadtturmstrasse 20",
+    "postal-code": "8004",
+    town: "Zürich",
+    latitude: 47.378,
+    longitude: 8.52,
+    "available-from": "2027-01-01",
+    "available-till": "2027-06-30",
+    "available-by-arrangement": false,
+    "description-en": "Room in a large 2-person flat",
+    "description-de": "Zimmer in grosser 2er-WG",
+    "contact-e-mail": "advertiser@example.com",
+    "contact-person-given-name": "Parker",
+    "searched-person-sex-code": 3,
+    "time-centre": 12,
+    "common-rooms-array": [{ code: 2, desc: "Living room" }],
+  };
+  const apartment = { ...ad, "advertisement-id": 5385, "accommodation-type-code": 3, "accommodation-type-desc": "Apartment" };
+  const account = {
+    "given-name": "Jane",
+    surname: "Doe",
+    "date-of-birth": "1998-05-16",
+    "street-no": "Teststrasse 1",
+    "postal-code": "8000",
+    town: "Zürich",
+    "country-name": "Switzerland",
+    phone: "+41 79 000 00 00",
+    applicant: { "applicant-type-desc": "Student" },
+    "communication-languages": [{ "communication-language-desc": "English" }],
+  };
+  let usedCredentials;
+  app.locals.ethzPortal = async (credentials, fn) => {
+    usedCredentials = credentials;
+    return fn({
+      evaluate: async (_, url) => ({
+        status: 200,
+        body: url.includes("/accounts")
+          ? account
+          : { "search-results": { advertisements: [ad, apartment], "total-count": 2 } },
+      }),
+    });
+  };
+
+  await post("/api/search", { housing: "room" });
+  await post("/api/profile", { name: "Kept Name", phone: "" });
+  assert.equal((await post("/api/ethz-session/login", { username: "jdoe" })).status, 400);
+  const login = await post("/api/ethz-session/login", { username: "jdoe", password: "secret" });
+  assert.equal(login.status, 200);
+  assert.equal(login.body.count, 2);
+  assert.deepEqual(usedCredentials, { username: "jdoe", password: "secret" });
+  assert.equal(secrets.get("jdoe"), "secret");
+  assert.deepEqual((await get("/api/ethz-session")).body, { connected: true, username: "jdoe" });
+
+  const profile = (await get("/api/profile")).body.profile;
+  assert.equal(profile.name, "Kept Name");
+  assert.equal(profile.dateOfBirth, "16.05.1998");
+  assert.equal(profile.affiliation, "Student");
+  assert.equal(profile.city, "Zürich");
+  assert.equal(profile.phone, "+41 79 000 00 00");
+
+  const room = (await get("/api/listings")).body.find((l) => l.source === "ethz");
+  assert.equal(room.id, "ethz-5386");
+  assert.equal(room.price, 1000);
+  assert.equal(room.address, "Stadtturmstrasse 20, 8004 Zürich");
+  assert.equal(room.availableFrom, "01.01.2027");
+  assert.equal(room.until, "30.06.2027");
+  assert.equal(room.contactEmail, "advertiser@example.com");
+  assert.match(room.details.nearby, /ETH Zentrum: 12 min/);
+  assert.match(room.details.facilities, /Living room/);
+  assert.equal((await get("/api/listings")).body.filter((l) => l.source === "ethz").length, 1);
+
+  await post("/api/ethz-session/logout", {});
+  assert.deepEqual((await get("/api/ethz-session")).body, { connected: false, username: null });
+  assert.equal(secrets.has("jdoe"), false);
+  assert.ok(!(await get("/api/listings")).body.some((l) => l.source === "ethz"));
 });

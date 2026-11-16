@@ -9,6 +9,8 @@ import {
   FLATFOX_BOUNDS,
   WGZIMMER_LISTINGS_FILE,
   STUDENTS_CACHE_FILE,
+  ETHZ_CACHE_FILE,
+  ETHZ_BROWSER_PROFILE_DIR,
   SCAN_STATUS_FILE,
   SEARCHES,
   fetchFlatfoxDetails,
@@ -19,6 +21,12 @@ import {
 import { scrapeWgzimmer } from "./sources/wgzimmer-scrape.mjs";
 import { scrapeRonorp } from "./sources/ronorp-scrape.mjs";
 import { scrapeStudents } from "./sources/students-scrape.mjs";
+import {
+  ethzListing,
+  fetchEthzAdvertisements,
+  withEthzPortal,
+} from "./sources/ethz-housing.mjs";
+import { ethzCredentials } from "./ethz-session.mjs";
 
 const FLATFOX_PIN_LIMIT = 1000;
 const FLATFOX_MAX_SPLIT_DEPTH = 4;
@@ -110,11 +118,33 @@ async function scanStudents(search) {
     }));
 }
 
+// One fetch covers both searches, and the ETH Housing Office is left out
+// until the user signs in to it.
+const NOT_SIGNED_IN = Symbol("not signed in");
+let ethzScan = null;
+
+async function scanEthz(search) {
+  ethzScan ||= (async () => {
+    const credentials = await ethzCredentials();
+    if (!credentials) return NOT_SIGNED_IN;
+    const ads = await withEthzPortal(ETHZ_BROWSER_PROFILE_DIR, credentials, fetchEthzAdvertisements);
+    fs.writeFileSync(ETHZ_CACHE_FILE, JSON.stringify(ads, null, 2));
+    return ads;
+  })();
+  const ads = await ethzScan;
+  if (ads === NOT_SIGNED_IN) return NOT_SIGNED_IN;
+  return ads
+    .map(ethzListing)
+    .filter((l) => search.ethzTypes.includes(l.type) && l.price && l.price <= search.maxPrice)
+    .map((l) => ({ id: l.id, price: l.price }));
+}
+
 const SOURCES = {
   flatfox: scanFlatfox,
   wgzimmer: scanWgzimmer,
   ronorp: scanRonorp,
   students: scanStudents,
+  ethz: scanEthz,
 };
 
 /**
@@ -123,12 +153,14 @@ const SOURCES = {
  */
 export async function scan() {
   ensureDataDir();
+  ethzScan = null;
   const sources = {};
   const found = [];
   for (const [type, search] of Object.entries(SEARCHES)) {
     for (const name of search.sources) {
       try {
         const listings = await SOURCES[name](search);
+        if (listings === NOT_SIGNED_IN) continue;
         console.log(`${name} (${type}): ${listings.length} listings`);
         found.push(...listings);
         if (sources[name]?.ok !== false) {

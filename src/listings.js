@@ -4,6 +4,7 @@
 import {
   WGZIMMER_LISTINGS_FILE,
   STUDENTS_CACHE_FILE,
+  ETHZ_CACHE_FILE,
   ZURICH_CENTER,
   FLATFOX_SLUG,
   SEEN_FILE,
@@ -19,6 +20,7 @@ import {
   loadCachedListing,
   readJson,
 } from "./lib.js";
+import { ethzListing } from "./sources/ethz-housing.mjs";
 
 function listingFlags(text, dates) {
   return {
@@ -42,7 +44,7 @@ function wgzimmerAddress(details) {
 export function loadAllListings() {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
-  const { sources, flatfoxCache, ronorpCache } = currentSearch();
+  const { sources, flatfoxCache, ronorpCache, ethzTypes } = currentSearch();
   const sourceCache = (source, file) =>
     sources.includes(source) ? readJson(file, []) : [];
 
@@ -151,6 +153,22 @@ export function loadAllListings() {
       hasEndDate: Boolean(l.until),
       wholeFlat: Boolean(l.isWholeFlat),
       ...listingFlags(l.description || "", l),
+    });
+  }
+
+  // ETH Housing Office
+  for (const ad of sourceCache("ethz", ETHZ_CACHE_FILE)) {
+    const { type, ...l } = ethzListing(ad);
+    if (!ethzTypes.includes(type) || !l.price) continue;
+    const hasCoords = l.lat && l.lng;
+    listings.push({
+      ...l,
+      source: "ethz",
+      dist: hasCoords ? Math.round(distKm(ZURICH_CENTER, l) * 100) / 100 : null,
+      firstSeen: seen[l.id]?.firstSeen || null,
+      hasEndDate: Boolean(l.until),
+      ...listingFlags(`${l.description} ${l.details.lookingFor}`, l),
+      genderRestricted: l.genderRestricted,
     });
   }
 

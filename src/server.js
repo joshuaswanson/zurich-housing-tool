@@ -24,7 +24,20 @@ import {
   noteKey,
   ensureDataDir,
   readJson,
+  ETHZ_BROWSER_PROFILE_DIR,
+  ETHZ_CACHE_FILE,
 } from "./lib.js";
+import {
+  fetchEthzAccount,
+  fetchEthzAdvertisements,
+  profileFromAccount,
+  withEthzPortal,
+} from "./sources/ethz-housing.mjs";
+import {
+  ethzUsername,
+  forgetEthzCredentials,
+  saveEthzCredentials,
+} from "./ethz-session.mjs";
 import { loadAllListings } from "./listings.js";
 import { scan as scanSources } from "./scan.js";
 import { fetchListings } from "./details.mjs";
@@ -329,7 +342,12 @@ const PROFILE_FIELDS = [
   "name",
   "email",
   "phone",
-  "age",
+  "dateOfBirth",
+  "affiliation",
+  "street",
+  "postalCode",
+  "city",
+  "country",
   "occupation",
   "situation",
   "futurePlans",
@@ -344,6 +362,70 @@ const FLATFOX_BROWSER_PROFILE_DIR = path.join(
   DATA_DIR,
   "flatfox-browser-profile",
 );
+
+// ── API: ETH Housing Office sign-in ──────────────────────────────────────
+
+app.locals.ethzPortal = (credentials, fn) =>
+  withEthzPortal(ETHZ_BROWSER_PROFILE_DIR, credentials, fn);
+let ethzBusy = false;
+
+app.get("/api/ethz-session", (req, res) => {
+  const username = ethzUsername();
+  res.json({ connected: Boolean(username), username });
+});
+
+/** Fill profile fields that are still empty from the portal account. */
+function importProfile(account) {
+  const profile = readJson(PROFILE_FILE, null) || {};
+  const imported = [];
+  for (const [field, value] of Object.entries(profileFromAccount(account))) {
+    if (!profile[field]) {
+      profile[field] = value;
+      imported.push(field);
+    }
+  }
+  fs.writeFileSync(PROFILE_FILE, JSON.stringify(profile, null, 2));
+  return imported;
+}
+
+app.post("/api/ethz-session/login", async (req, res) => {
+  const username = String(req.body.username || "").trim();
+  const password = String(req.body.password || "");
+  if (!username || !password) {
+    return res.status(400).json({ error: "Enter your ETH user name and password." });
+  }
+  if (ethzBusy) {
+    return res.status(409).json({ error: "Already signing in. Try again in a moment." });
+  }
+  ethzBusy = true;
+  try {
+    ensureDataDir();
+    const { account, ads } = await app.locals.ethzPortal(
+      { username, password },
+      async (page) => ({
+        account: await fetchEthzAccount(page),
+        ads: await fetchEthzAdvertisements(page),
+      }),
+    );
+    await saveEthzCredentials({ username, password });
+    fs.writeFileSync(ETHZ_CACHE_FILE, JSON.stringify(ads, null, 2));
+    res.json({ connected: true, username, imported: importProfile(account), count: ads.length });
+  } catch (e) {
+    const message = /login exception/i.test(e.message)
+      ? "ETH did not accept the user name or password."
+      : e.message.split("\n")[0].substring(0, 300);
+    res.status(400).json({ error: message });
+  } finally {
+    ethzBusy = false;
+  }
+});
+
+app.post("/api/ethz-session/logout", async (req, res) => {
+  await forgetEthzCredentials();
+  fs.rmSync(ETHZ_BROWSER_PROFILE_DIR, { recursive: true, force: true });
+  fs.rmSync(ETHZ_CACHE_FILE, { force: true });
+  res.json({ connected: false });
+});
 
 app.get("/api/profile", (req, res) => {
   res.json({ fields: PROFILE_FIELDS, profile: readJson(PROFILE_FILE, null) });
@@ -798,6 +880,22 @@ app.post("/api/ollama/start", async (req, res) => {
   res.json(status);
 });
 
+/** Whole years since a dd.mm.yyyy birth date, or null. */
+export function ageOn(dateOfBirth, today) {
+  const m = String(dateOfBirth || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!m) return null;
+  const [day, month, year] = m.slice(1).map(Number);
+  const hadBirthday =
+    today.getMonth() + 1 > month || (today.getMonth() + 1 === month && today.getDate() >= day);
+  return today.getFullYear() - year - (hadBirthday ? 0 : 1);
+}
+
+/** Details that come with the listing itself, as for the ETH Housing Office. */
+function listingDetails(url) {
+  const key = listingKey(url);
+  return loadAllListings().find((l) => listingKey(l.url) === key)?.details || null;
+}
+
 app.post("/api/generate", async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: "url required" });
@@ -811,9 +909,12 @@ app.post("/api/generate", async (req, res) => {
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
   // Contact details are for the contact form and stay out of the prompt.
-  const { email, phone, ...promptProfile } = profile;
+  const { email, phone, dateOfBirth, street, postalCode, city, country, ...promptProfile } =
+    profile;
+  const age = ageOn(dateOfBirth, new Date());
+  if (age) promptProfile.age = age;
 
-  const listing = loadCachedListing(url);
+  const listing = loadCachedListing(url) || listingDetails(url);
   if (!listing) {
     return res
       .status(400)

@@ -737,3 +737,30 @@ test("signing out of Flatfox removes its saved browser session", async () => {
   assert.deepEqual(body, { connected: false });
   assert.ok(!fs.existsSync(profileDir));
 });
+
+test("a ride follows its line's track between the stops it passes", async () => {
+  const { chainWays, sliceThroughStops } = await import("../src/route-shapes.mjs");
+  const line = chainWays([
+    [[8.5, 47.37], [8.51, 47.37]],
+    [[8.53, 47.38], [8.52, 47.37], [8.51, 47.37]],
+  ]);
+  assert.deepEqual(line, [[8.5, 47.37], [8.51, 47.37], [8.52, 47.37], [8.53, 47.38]]);
+  const slice = sliceThroughStops(line, [[8.505, 47.37], [8.525, 47.375]]);
+  assert.deepEqual(slice.path[0], [8.505, 47.37]);
+  assert.equal(slice.path.length, 4);
+  assert.equal(sliceThroughStops(line, [[8.525, 47.375], [8.505, 47.37]]), null);
+  assert.equal(sliceThroughStops(line, [[8.5, 47.37], [8.6, 47.4]]), null);
+
+  let calls = 0;
+  app.locals.fetchRideShape = async ({ stops }) => {
+    calls += 1;
+    return [stops[0], [8.501, 47.37], stops[1]];
+  };
+  const request = { type: "tram", line: "10", stops: [{ lat: 47.37, lng: 8.5 }, { lat: 47.37, lng: 8.502 }] };
+  const first = await post("/api/route-shape", request);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.path.length, 3);
+  await post("/api/route-shape", request);
+  assert.equal(calls, 1);
+  assert.equal((await post("/api/route-shape", { type: "tram", stops: [] })).status, 400);
+});

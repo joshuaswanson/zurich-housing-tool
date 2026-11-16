@@ -26,7 +26,9 @@ import {
   readJson,
   ETHZ_BROWSER_PROFILE_DIR,
   ETHZ_CACHE_FILE,
+  ROUTE_SHAPES_FILE,
 } from "./lib.js";
+import { fetchRideShape } from "./route-shapes.mjs";
 import {
   fetchEthzAccount,
   fetchEthzAdvertisements,
@@ -425,6 +427,30 @@ app.get("/api/route", async (req, res) => {
       routeCache.set(key, simplifyRoute(await app.locals.fetchTimetable(params)));
     }
     res.json(routeCache.get(key));
+  } catch (e) {
+    res.status(502).json({ error: e.message.substring(0, 200) });
+  }
+});
+
+// Ride shapes are cached on disk, so each stretch of a line is fetched once.
+app.locals.fetchRideShape = fetchRideShape;
+
+app.post("/api/route-shape", async (req, res) => {
+  const { type, line } = req.body;
+  const stops = (Array.isArray(req.body.stops) ? req.body.stops : [])
+    .map((p) => [Number(p.lng), Number(p.lat)])
+    .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+  if (!type || !line || stops.length < 2) {
+    return res.status(400).json({ error: "type, line and stops required" });
+  }
+  const key = [type, line, ...stops.map((p) => p.map((n) => n.toFixed(4)).join(","))].join("|");
+  const cache = readJson(ROUTE_SHAPES_FILE, {});
+  if (key in cache) return res.json({ path: cache[key] });
+  try {
+    const path = await app.locals.fetchRideShape({ type, line: String(line), stops });
+    ensureDataDir();
+    fs.writeFileSync(ROUTE_SHAPES_FILE, JSON.stringify({ ...readJson(ROUTE_SHAPES_FILE, {}), [key]: path }));
+    res.json({ path });
   } catch (e) {
     res.status(502).json({ error: e.message.substring(0, 200) });
   }

@@ -34,6 +34,7 @@ export const STUDENTS_CACHE_FILE = path.join(
   DATA_DIR,
   "students_cache.json",
 );
+export const ROUTE_SHAPES_FILE = path.join(DATA_DIR, "route_shapes.json");
 export const ETHZ_CACHE_FILE = path.join(DATA_DIR, "ethz_cache.json");
 export const ETHZ_SESSION_FILE = path.join(DATA_DIR, "ethz-session.json");
 export const ETHZ_BROWSER_PROFILE_DIR = path.join(DATA_DIR, "ethz-browser-profile");

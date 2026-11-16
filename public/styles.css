@@ -1794,3 +1794,46 @@ tbody tr.listing-row.is-selected {
   align-items: center;
   gap: 8px;
 }
+
+.detail-route:empty {
+  display: none;
+}
+
+.detail-route {
+  margin-top: 16px;
+}
+
+.route-legs {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.route-leg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.route-badge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 30px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--line-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.route-walk .route-badge {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.route-note {
+  margin-top: 8px;
+  font-size: 12px;
+}

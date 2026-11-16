@@ -546,6 +546,72 @@ function expandSection(button) {
   button.remove();
 }
 
+// Public transport from an open listing to the chosen ETH or UZH location.
+let routeGeojson = { type: "FeatureCollection", features: [] };
+
+function showRouteOnMap(route) {
+  routeGeojson = {
+    type: "FeatureCollection",
+    features: (route?.legs || [])
+      .filter((leg) => leg.path.length > 1)
+      .map((leg) => ({
+        type: "Feature",
+        properties: { walk: leg.type === "walk", color: leg.color || cssVar("--accent") },
+        geometry: { type: "LineString", coordinates: leg.path.map((p) => [p.lng, p.lat]) },
+      })),
+  };
+  map?.getSource("route")?.setData(routeGeojson);
+  const coords = routeGeojson.features.flatMap((f) => f.geometry.coordinates);
+  if (map && coords.length > 1) {
+    const bounds = coords.reduce(
+      (b, c) => b.extend(c),
+      new maplibregl.LngLatBounds(coords[0], coords[0]),
+    );
+    map.fitBounds(bounds, { padding: 60, maxZoom: 15.5, duration: 800 });
+  }
+}
+
+function stopName(name) {
+  return String(name || "").replace(/^Zürich,\s*/, "").replace(/\s*@[\d,]+$/, "");
+}
+
+function routeLeg(leg) {
+  if (leg.type === "walk") {
+    return `<li class="route-leg route-walk"><span class="route-badge">${t("route_walk")}</span><span>${t("route_minutes", { n: leg.minutes })}</span></li>`;
+  }
+  const badge = leg.line
+    ? `<span class="route-badge route-line" style="background:${esc(leg.color || "")};color:${esc(leg.textColor || "")}">${esc(leg.line)}</span>`
+    : `<span class="route-badge">${esc(STRINGS[language][`leg_${leg.type}`] || leg.type)}</span>`;
+  return `<li class="route-leg">${badge}<span>${esc(stopName(leg.from))} → ${esc(stopName(leg.to))}</span><span class="secondary">${t("route_minutes", { n: leg.minutes })}</span></li>`;
+}
+
+async function loadRoute(row, l) {
+  const box = row.querySelector("[data-role='route']");
+  if (!box || !l.lat || !l.lng) return;
+  box.innerHTML = `<p class="secondary">${t("route_loading", { place: target.label })}</p>`;
+  try {
+    const res = await fetch(
+      `/api/route?from=${l.lat},${l.lng}&to=${target.lat},${target.lng}`,
+    );
+    const route = await res.json();
+    if (!res.ok) throw new Error(route.error);
+    if (!row.isConnected) return;
+    if (!route) {
+      box.innerHTML = "";
+      return;
+    }
+    box.innerHTML = `
+      <div class="detail-section">
+        <dt>${t("route_title", { place: esc(target.label), n: route.minutes })}</dt>
+        <dd><ol class="route-legs">${route.legs.map(routeLeg).join("")}</ol>
+        <p class="secondary route-note">${t("route_note")}</p></dd>
+      </div>`;
+    showRouteOnMap(route);
+  } catch (e) {
+    if (row.isConnected) box.innerHTML = `<p class="secondary">${t("route_failed")}</p>`;
+  }
+}
+
 function detailSections(details) {
   const order = details?.sectionOrder || DETAIL_SECTIONS;
   const sections = order.filter((key) => details?.[key]);
@@ -578,7 +644,10 @@ function detailRow(l) {
   row.innerHTML = `
     <td colspan="6">
       <div class="detail">
-        <div class="detail-body" data-role="sections"></div>
+        <div class="detail-body">
+          <div data-role="sections"></div>
+          <dl class="detail-sections detail-route" data-role="route"></dl>
+        </div>
         <div class="detail-footer">
           <div class="row-actions" data-role="actions">
             ${l.missing ? "" : `<button class="button button-primary" type="button" data-action="compose">${t("act_compose")}</button>`}
@@ -597,6 +666,7 @@ function detailRow(l) {
     </td>`;
   showNote(row);
   loadDetails(row, l);
+  loadRoute(row, l);
   return row;
 }
 
@@ -693,6 +763,7 @@ function selectListing(id, { fromMap = false } = {}) {
   if (fromMap) revealRow(id);
   const row = focusRow(id);
   document.querySelector("#listings-body .detail-row")?.remove();
+  showRouteOnMap(null);
   if (!listing || !row) return;
   row.after(detailRow(listing));
   if (fromMap) row.scrollIntoView({ block: "start", behavior: "smooth" });
@@ -703,6 +774,7 @@ function toggleListing(row) {
   if (row.nextElementSibling?.classList.contains("detail-row")) {
     row.nextElementSibling.remove();
     row.classList.remove("is-active");
+    showRouteOnMap(null);
   } else if (row.closest("#excluded-body")) {
     const body = $("excluded-body");
     body.querySelector(".detail-row")?.previousElementSibling?.classList.remove("is-active");
@@ -1841,6 +1913,7 @@ function buildMapStyle() {
         url: "https://tiles.openfreemap.org/planet",
       },
       rings: { type: "geojson", data: ringFeatures() },
+      route: { type: "geojson", data: routeGeojson },
       listings: {
         type: "geojson",
         data: listingsGeojson,
@@ -1992,6 +2065,30 @@ function buildMapStyle() {
           "text-color": accent,
           "text-halo-color": land,
           "text-halo-width": 2,
+        },
+      },
+      {
+        id: "route-walk",
+        type: "line",
+        source: "route",
+        filter: ["==", ["get", "walk"], true],
+        layout: { "line-cap": "round" },
+        paint: {
+          "line-color": cssVar("--muted"),
+          "line-width": 3,
+          "line-dasharray": [0.5, 2],
+        },
+      },
+      {
+        id: "route-ride",
+        type: "line",
+        source: "route",
+        filter: ["==", ["get", "walk"], false],
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 5,
+          "line-opacity": 0.9,
         },
       },
       {
@@ -2233,6 +2330,7 @@ function setTarget(next) {
   targetMarker.getPopup().setText(next.label);
   map.flyTo({ center: [next.lng, next.lat], speed: 1.2 });
   applyFilters();
+  showRouteOnMap(null);
 }
 
 function initMap() {

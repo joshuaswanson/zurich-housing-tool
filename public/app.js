@@ -1105,9 +1105,17 @@ async function loadOllamaModels() {
 }
 
 function showOllamaModels() {
-  $("dialog-ollama-model").hidden =
-    llmProvider !== "ollama" || ollamaModels.length < 2;
+  const ollamaSelect = llmProvider === "ollama" && ollamaModels.length > 1;
+  $("dialog-ollama-model").hidden = !ollamaSelect;
   $("dialog-api-model").hidden = llmProvider !== "api";
+  const note =
+    llmProvider === "apple"
+      ? t("model_apple")
+      : llmProvider === "ollama" && !ollamaSelect
+        ? ollamaModels[0] || t("model_ollama_missing")
+        : "";
+  $("dialog-model-note").textContent = note;
+  $("dialog-model-note").hidden = !note;
   $("dialog-api-model").value = apiSettings?.model || "";
 }
 
@@ -1781,7 +1789,6 @@ let apiSettings = null;
 
 function showApiSettings(settings) {
   apiSettings = settings;
-  $("api-model").value = settings.model;
   $("api-key").value = "";
   $("api-key").placeholder = settings.keyEnding
     ? t("api_key_saved", { ending: settings.keyEnding })
@@ -1796,13 +1803,13 @@ async function loadApiSettings() {
 
 async function saveApiSettings(e) {
   e.preventDefault();
-  const payload = { model: $("api-model").value };
-  if ($("api-key").value.trim()) payload.apiKey = $("api-key").value;
+  const apiKey = $("api-key").value.trim();
+  if (!apiKey) return;
   try {
     const res = await fetch("/api/llm-api", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ apiKey }),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.error);

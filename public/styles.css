@@ -1136,6 +1136,43 @@ dialog {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 
+.dialog-close-form {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+
+.dialog-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dialog-close:hover {
+  color: var(--ink);
+  background: var(--line-soft);
+}
+
+.dialog-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+dialog h2 {
+  padding-right: 32px;
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.45);
 }
@@ -1415,9 +1452,23 @@ dialog textarea {
   flex-basis: 100%;
 }
 
+.dialog-model-row {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  height: 32px;
+}
+
+#dialog-api-model,
+#dialog-ollama-model {
+  height: 30px;
+}
+
 #dialog-api-model {
-  width: 22ch;
-  padding: 5px 8px;
+  width: 28ch;
+  padding: 0 8px;
 }
 
 .dialog-source-status.is-error {

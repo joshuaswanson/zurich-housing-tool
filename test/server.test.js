@@ -463,21 +463,15 @@ test("only a fluent German entry counts as speaking German", async () => {
   assert.equal(germanLevel(undefined), "none");
 });
 
-test("a saved message is used for every listing in place of a generated one", async () => {
+test("the template is saved with the profile and filled in per listing", async () => {
   const { fillMessage } = await import("../src/server.js");
   assert.equal(
     fillMessage("Is the room at {address} free? {address}", { address: "8004 Zürich" }),
     "Is the room at 8004 Zürich free? 8004 Zürich",
   );
 
-  writeJson(path.join(dataDir, "flatfox_cache.json"), [
-    { pk: 10000001, latitude: 47.3808, longitude: 8.5173, price_display: 1200, address: "8004 Zürich" },
-  ]);
   await post("/api/profile", { name: "Jane Doe", message: "Hi, is {address} still free?" });
   assert.equal((await get("/api/profile")).body.profile.message, "Hi, is {address} still free?");
-  const { status, body } = await post("/api/generate", { url: FLATFOX_URL, provider: "api" });
-  assert.equal(status, 200);
-  assert.equal(body.message, "Hi, is 8004 Zürich still free?");
 });
 
 test("the saved message goes to new Flatfox listings in one paced batch", async () => {

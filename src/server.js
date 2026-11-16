@@ -737,11 +737,6 @@ export function germanLevel(languages) {
   return entries.some((entry) => FLUENT_PATTERN.test(entry)) ? "fluent" : "learning";
 }
 
-function findListing(url) {
-  const key = listingKey(url);
-  return loadAllListings().find((l) => listingKey(l.url) === key);
-}
-
 /** The saved message with {address} filled in for a listing. */
 export function fillMessage(template, listing) {
   return template.replaceAll("{address}", listing?.address || "").trim();
@@ -759,9 +754,6 @@ app.post("/api/generate", async (req, res) => {
     });
   }
   const profile = JSON.parse(fs.readFileSync(PROFILE_FILE, "utf8"));
-  if (profile.message?.trim()) {
-    return res.json({ message: fillMessage(profile.message, findListing(url)) });
-  }
   // Contact details are for the contact form and stay out of the prompt.
   const { email, phone, message, ...promptProfile } = profile;
 

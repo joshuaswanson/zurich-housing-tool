@@ -35,6 +35,12 @@ function listingFlags(text, dates) {
  * Every listing from the caches of the current search's sources in one shape, with the flags the
  * filters use. Wgzimmer and flatfox entries are merged with fetched details.
  */
+function wgzimmerAddress(details) {
+  const { address, city } = details || {};
+  if (!address || !city || address.includes(city)) return address || city;
+  return `${address}, ${city}`;
+}
+
 export function loadAllListings() {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
@@ -62,7 +68,7 @@ export function loadAllListings() {
       dist: dist ? Math.round(dist * 100) / 100 : null,
       lat: cached?.lat || null,
       lng: cached?.lng || null,
-      address: cached?.address || l.place || null,
+      address: wgzimmerAddress(cached) || l.place || null,
       description: l.description || "",
       availableFrom: l.availableFrom || null,
       until: l.until || null,

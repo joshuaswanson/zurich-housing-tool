@@ -2406,8 +2406,17 @@ function setTarget(next) {
   targetMarker.setLngLat([next.lng, next.lat]);
   targetMarker.getPopup().setText(next.label);
   map.flyTo({ center: [next.lng, next.lat], speed: 1.2 });
+  const openId = document.querySelector("#listings-body .detail-row")?.dataset.id;
   applyFilters();
   showRouteOnMap(null);
+  if (openId) reopenListing(openId);
+}
+
+/** Open a listing's panel again after the table was redrawn, without moving the map. */
+function reopenListing(id) {
+  const listing = findListing(id);
+  const row = focusRow(id);
+  if (listing && row) row.after(detailRow(listing));
 }
 
 function initMap() {

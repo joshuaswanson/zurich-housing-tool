@@ -1741,3 +1741,8 @@ tbody tr.listing-row.is-selected {
 #selection-count {
   white-space: nowrap;
 }
+
+#panel-profile > .section-note,
+#panel-template > .section-note {
+  margin-bottom: 18px;
+}

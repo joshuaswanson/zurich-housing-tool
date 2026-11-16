@@ -987,6 +987,19 @@ app.locals.ollamaInstalls = [
 ];
 const OLLAMA_START_TIMEOUT_MS = 45000;
 
+// An `ollama serve` the app started counts as the app running in the
+// background, so it stops when the app quits. The Ollama app is left alone.
+let startedOllama = null;
+
+export function stopStartedOllama() {
+  if (startedOllama && startedOllama.exitCode === null) {
+    try {
+      process.kill(startedOllama.pid, "SIGTERM");
+    } catch {}
+  }
+  startedOllama = null;
+}
+
 function findOllama() {
   return app.locals.ollamaInstalls.find((install) =>
     fs.existsSync(install.app || install.command),
@@ -1018,6 +1031,7 @@ app.post("/api/ollama/start", async (req, res) => {
     : spawn(install.command, ["serve"], { detached: true, stdio: "ignore" });
   child.on("error", () => {});
   child.unref();
+  if (!install.app) startedOllama = child;
   const deadline = Date.now() + OLLAMA_START_TIMEOUT_MS;
   while (status.unreachable && Date.now() < deadline) {
     await new Promise((resolve) => setTimeout(resolve, 500));
@@ -1216,6 +1230,12 @@ const startedDirectly =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (startedDirectly) {
+  for (const signal of ["SIGTERM", "SIGINT"]) {
+    process.on(signal, () => {
+      stopStartedOllama();
+      process.exit(0);
+    });
+  }
   const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`Dashboard at http://127.0.0.1:${server.address().port}/`);
   });

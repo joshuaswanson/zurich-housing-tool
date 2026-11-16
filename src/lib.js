@@ -22,6 +22,14 @@ export const WGZIMMER_LISTINGS_FILE = path.join(
 );
 export const FLATFOX_CACHE_FILE = path.join(DATA_DIR, "flatfox_cache.json");
 export const RONORP_CACHE_FILE = path.join(DATA_DIR, "ronorp_cache.json");
+export const FLATFOX_APARTMENT_CACHE_FILE = path.join(
+  DATA_DIR,
+  "flatfox_apartment_cache.json",
+);
+export const RONORP_APARTMENT_CACHE_FILE = path.join(
+  DATA_DIR,
+  "ronorp_apartment_cache.json",
+);
 export const STUDENTS_CACHE_FILE = path.join(
   DATA_DIR,
   "students_cache.json",
@@ -45,12 +53,16 @@ export const SEARCHES = {
     sources: ["flatfox", "wgzimmer", "ronorp", "students"],
     flatfoxCategories: ["SHARED"],
     ronorpSubcategories: ["144"],
+    flatfoxCache: FLATFOX_CACHE_FILE,
+    ronorpCache: RONORP_CACHE_FILE,
   },
   apartment: {
     maxPrice: 6000,
     sources: ["flatfox", "ronorp"],
     flatfoxCategories: ["APARTMENT", "HOUSE"],
     ronorpSubcategories: ["142", "141", "143"],
+    flatfoxCache: FLATFOX_APARTMENT_CACHE_FILE,
+    ronorpCache: RONORP_APARTMENT_CACHE_FILE,
   },
 };
 

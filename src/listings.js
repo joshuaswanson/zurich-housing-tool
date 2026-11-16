@@ -3,8 +3,6 @@
  */
 import {
   WGZIMMER_LISTINGS_FILE,
-  FLATFOX_CACHE_FILE,
-  RONORP_CACHE_FILE,
   STUDENTS_CACHE_FILE,
   ZURICH_CENTER,
   FLATFOX_SLUG,
@@ -44,7 +42,7 @@ function wgzimmerAddress(details) {
 export function loadAllListings() {
   const listings = [];
   const seen = readJson(SEEN_FILE, {});
-  const { sources } = currentSearch();
+  const { sources, flatfoxCache, ronorpCache } = currentSearch();
   const sourceCache = (source, file) =>
     sources.includes(source) ? readJson(file, []) : [];
 
@@ -80,7 +78,7 @@ export function loadAllListings() {
   }
 
   // flatfox
-  for (const p of sourceCache("flatfox", FLATFOX_CACHE_FILE)) {
+  for (const p of sourceCache("flatfox", flatfoxCache)) {
     const km = distKm(ZURICH_CENTER, { lat: p.latitude, lng: p.longitude });
     const id = `flatfox-${p.pk}`;
     const url = `https://flatfox.ch/en/flat/${FLATFOX_SLUG}/${p.pk}/`;
@@ -107,7 +105,7 @@ export function loadAllListings() {
   }
 
   // ronorp
-  for (const l of sourceCache("ronorp", RONORP_CACHE_FILE)) {
+  for (const l of sourceCache("ronorp", ronorpCache)) {
     if (!l.price || !l.isOffer) continue;
     const id = `ronorp-${l.url.split("/").pop()}`;
     const hasCoords = l.lat && l.lng;

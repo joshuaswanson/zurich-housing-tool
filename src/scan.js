@@ -1,17 +1,16 @@
 /**
- * Scans the sources of the current search, writes each source's
- * cache to data/, records the scan status and when each listing was first seen.
+ * Scans the sources of both searches, rooms and apartments, writes each
+ * source's cache to data/, records the scan status and when each listing was
+ * first seen.
  */
 
 import fs from "fs";
 import {
   FLATFOX_BOUNDS,
   WGZIMMER_LISTINGS_FILE,
-  FLATFOX_CACHE_FILE,
-  RONORP_CACHE_FILE,
   STUDENTS_CACHE_FILE,
   SCAN_STATUS_FILE,
-  currentSearch,
+  SEARCHES,
   fetchFlatfoxDetails,
   ensureDataDir,
   loadSeen,
@@ -76,7 +75,7 @@ async function scanFlatfox(search) {
   } catch (e) {
     console.log(`flatfox details unavailable (${e.message})`);
   }
-  fs.writeFileSync(FLATFOX_CACHE_FILE, JSON.stringify(pins, null, 2));
+  fs.writeFileSync(search.flatfoxCache, JSON.stringify(pins, null, 2));
   return pins.map((p) => ({ id: `flatfox-${p.pk}`, price: p.price_display }));
 }
 
@@ -94,7 +93,7 @@ async function scanWgzimmer(search) {
 
 async function scanRonorp(search) {
   const listings = await scrapeRonorp(search.ronorpSubcategories);
-  fs.writeFileSync(RONORP_CACHE_FILE, JSON.stringify(listings, null, 2));
+  fs.writeFileSync(search.ronorpCache, JSON.stringify(listings, null, 2));
   return listings
     .filter((l) => l.price && l.price <= search.maxPrice)
     .map((l) => ({ id: `ronorp-${l.url.split("/").pop()}`, price: l.price }));
@@ -118,21 +117,30 @@ const SOURCES = {
   students: scanStudents,
 };
 
-/** Scan the sources of the current search and return the scan status that was written. */
+/**
+ * Scan every source of both searches and return the scan status that was
+ * written. A source that fails for either search counts as failed.
+ */
 export async function scan() {
   ensureDataDir();
-  const search = currentSearch();
   const sources = {};
   const found = [];
-  for (const name of search.sources) {
-    try {
-      const listings = await SOURCES[name](search);
-      console.log(`${name}: ${listings.length} listings`);
-      found.push(...listings);
-      sources[name] = { ok: true, count: listings.length };
-    } catch (e) {
-      console.log(`${name}: ${e.message}`);
-      sources[name] = { ok: false, error: e.message.split("\n")[0] };
+  for (const [type, search] of Object.entries(SEARCHES)) {
+    for (const name of search.sources) {
+      try {
+        const listings = await SOURCES[name](search);
+        console.log(`${name} (${type}): ${listings.length} listings`);
+        found.push(...listings);
+        if (sources[name]?.ok !== false) {
+          sources[name] = {
+            ok: true,
+            count: (sources[name]?.count || 0) + listings.length,
+          };
+        }
+      } catch (e) {
+        console.log(`${name} (${type}): ${e.message}`);
+        sources[name] = { ok: false, error: e.message.split("\n")[0] };
+      }
     }
   }
 

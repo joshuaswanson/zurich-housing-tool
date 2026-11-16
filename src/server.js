@@ -13,8 +13,6 @@ import {
   WGZIMMER_LISTINGS_FILE,
   TRACKER_FILE,
   PROFILE_FILE,
-  FLATFOX_CACHE_FILE,
-  RONORP_CACHE_FILE,
   SEARCHES,
   SEARCH_FILE,
   currentSearch,
@@ -76,9 +74,7 @@ const DETAILS_PER_SCAN = 60;
 let detailFetchInProgress = false;
 
 async function fetchWgzimmerDetailsInBackground() {
-  if (detailFetchInProgress || !currentSearch().sources.includes("wgzimmer")) {
-    return;
-  }
+  if (detailFetchInProgress) return;
   const urls = unfetchedWgzimmerUrls(DETAILS_PER_SCAN);
   if (urls.length === 0) return;
   detailFetchInProgress = true;
@@ -103,7 +99,7 @@ function unfetchedWgzimmerUrls(limit) {
     ),
   );
   const urls = readJson(WGZIMMER_LISTINGS_FILE, [])
-    .filter((l) => l.price && l.price <= currentSearch().maxPrice)
+    .filter((l) => l.price && l.price <= SEARCHES.room.maxPrice)
     .filter((l) => !loadCachedListing(l.url))
     .filter((l) => !trackedKeys.has(listingKey(l.url)))
     .sort((a, b) => a.price - b.price)
@@ -111,19 +107,13 @@ function unfetchedWgzimmerUrls(limit) {
   return [...new Set(urls)].slice(0, limit);
 }
 
-// A switch between rooms and apartments during a scan is picked up by
-// scanning again once the current pass ends.
 app.post("/api/scan", async (req, res) => {
   if (scanInProgress) {
     return res.status(409).json({ error: "A scan is already running." });
   }
   scanInProgress = true;
   try {
-    let scanned;
-    do {
-      scanned = currentSearch().type;
-      await scanSources();
-    } while (scanned !== currentSearch().type);
+    await scanSources();
     fetchWgzimmerDetailsInBackground();
     res.json({ ok: true, status: scanStatus() });
   } catch (e) {
@@ -153,8 +143,6 @@ app.get("/api/search", (req, res) => {
   res.json(publicSearch());
 });
 
-// flatfox and ronorp keep one cache for both searches, so switching clears
-// them until the next scan.
 app.post("/api/search", (req, res) => {
   const { housing } = req.body;
   if (!(housing in SEARCHES)) {
@@ -163,8 +151,6 @@ app.post("/api/search", (req, res) => {
   if (housing !== currentSearch().type) {
     ensureDataDir();
     fs.writeFileSync(SEARCH_FILE, JSON.stringify({ housing }, null, 2));
-    fs.rmSync(FLATFOX_CACHE_FILE, { force: true });
-    fs.rmSync(RONORP_CACHE_FILE, { force: true });
   }
   res.json(publicSearch());
 });

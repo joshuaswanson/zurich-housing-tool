@@ -432,13 +432,15 @@ test("the search covers rooms until apartments are chosen", async () => {
   assert.equal((await post("/api/search", { housing: "castle" })).status, 400);
 });
 
-test("an apartment search drops room-only sites and writes to a landlord", async () => {
+test("an apartment search shows its own caches and writes to a landlord", async () => {
+  writeJson(path.join(dataDir, "flatfox_apartment_cache.json"), [
+    { pk: 30000001, latitude: 47.37, longitude: 8.54, price_display: 2800, address: "8008 Zürich" },
+  ]);
   const { status, body } = await post("/api/search", { housing: "apartment" });
   assert.equal(status, 200);
   assert.deepEqual(body, { housing: "apartment", maxPrice: 6000 });
-  assert.ok(!fs.existsSync(path.join(dataDir, "flatfox_cache.json")));
-  assert.ok(!fs.existsSync(path.join(dataDir, "ronorp_cache.json")));
-  assert.deepEqual((await get("/api/listings")).body, []);
+  assert.ok(fs.existsSync(path.join(dataDir, "flatfox_cache.json")));
+  assert.deepEqual((await get("/api/listings")).body.map((l) => l.id), ["flatfox-30000001"]);
 
   const realFetch = globalThis.fetch;
   let prompt;
@@ -479,6 +481,7 @@ test("the template is saved with the profile and filled in per listing", async (
 });
 
 test("the saved message goes to new Flatfox listings in one paced batch", async () => {
+  await post("/api/search", { housing: "room" });
   const flatfoxUrl = (pk) => `https://flatfox.ch/en/flat/8004-zurich/${pk}/`;
   writeJson(path.join(dataDir, "flatfox_cache.json"), [
     { pk: 20000001, latitude: 47.38, longitude: 8.51, price_display: 1200, address: "A 1, 8004 Zürich", url: flatfoxUrl(20000001) },

@@ -61,62 +61,9 @@
         <button class="button button-primary" id="scan-button" data-i18n="scan">
           Scan for listings
         </button>
-        <details class="settings" id="settings">
-          <summary
-            class="button icon-button"
-            aria-label="Settings"
-            data-i18n-aria-label="settings"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="3" />
-              <path
-                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
-              />
-            </svg>
-          </summary>
-          <div class="settings-menu">
-            <div class="settings-row" role="radiogroup" aria-labelledby="language-label">
-              <span id="language-label" data-i18n="language">Language</span>
-              <span class="segmented">
-                <label>
-                  <input type="radio" name="language" value="en" />
-                  <span>English</span>
-                </label>
-                <label>
-                  <input type="radio" name="language" value="de" />
-                  <span>Deutsch</span>
-                </label>
-              </span>
-            </div>
-            <div class="settings-row" role="radiogroup" aria-labelledby="theme-label">
-              <span id="theme-label" data-i18n="theme">Theme</span>
-              <span class="segmented">
-                <label>
-                  <input type="radio" name="theme" value="system" />
-                  <span data-i18n="theme_system">System</span>
-                </label>
-                <label>
-                  <input type="radio" name="theme" value="light" />
-                  <span data-i18n="theme_light">Light</span>
-                </label>
-                <label>
-                  <input type="radio" name="theme" value="dark" />
-                  <span data-i18n="theme_dark">Dark</span>
-                </label>
-              </span>
-            </div>
-            <form class="api-settings" id="api-settings">
-              <span class="api-heading" data-i18n="api_heading">OpenRouter for messages</span>
-              <label class="api-field">
-                <span data-i18n="api_key">API key</span>
-                <input type="password" id="api-key" class="text-input" autocomplete="off" spellcheck="false" />
-              </label>
-              <p class="api-note" data-i18n="api_note">OpenRouter receives your profile and the listing to write each message.</p>
-              <div class="api-actions">
-                <span class="api-status" id="api-status" role="status"></span>
-                <button type="submit" class="button" data-i18n="api_save">Save</button>
-              </div>
-            </form>
+        <details class="settings" id="accounts">
+          <summary class="button" data-i18n="accounts">Accounts</summary>
+          <div class="settings-menu accounts-menu">
             <div class="account-connection settings-section" id="ethz-section">
               <div class="account-header">
                 <div>
@@ -201,6 +148,64 @@
                 </div>
               </form>
             </div>
+          </div>
+        </details>
+        <details class="settings" id="settings">
+          <summary
+            class="button icon-button"
+            aria-label="Settings"
+            data-i18n-aria-label="settings"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+          </summary>
+          <div class="settings-menu">
+            <div class="settings-row" role="radiogroup" aria-labelledby="language-label">
+              <span id="language-label" data-i18n="language">Language</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="language" value="en" />
+                  <span>English</span>
+                </label>
+                <label>
+                  <input type="radio" name="language" value="de" />
+                  <span>Deutsch</span>
+                </label>
+              </span>
+            </div>
+            <div class="settings-row" role="radiogroup" aria-labelledby="theme-label">
+              <span id="theme-label" data-i18n="theme">Theme</span>
+              <span class="segmented">
+                <label>
+                  <input type="radio" name="theme" value="system" />
+                  <span data-i18n="theme_system">System</span>
+                </label>
+                <label>
+                  <input type="radio" name="theme" value="light" />
+                  <span data-i18n="theme_light">Light</span>
+                </label>
+                <label>
+                  <input type="radio" name="theme" value="dark" />
+                  <span data-i18n="theme_dark">Dark</span>
+                </label>
+              </span>
+            </div>
+            <form class="api-settings" id="api-settings">
+              <span class="api-heading" data-i18n="api_heading">OpenRouter for messages</span>
+              <label class="api-field">
+                <span data-i18n="api_key">API key</span>
+                <input type="password" id="api-key" class="text-input" autocomplete="off" spellcheck="false" />
+              </label>
+              <p class="api-note" data-i18n="api_note">OpenRouter receives your profile and the listing to write each message.</p>
+              <div class="api-actions">
+                <span class="api-status" id="api-status" role="status"></span>
+                <button type="submit" class="button" data-i18n="api_save">Save</button>
+              </div>
+            </form>
             <div class="settings-links">
               <a
                 class="button button-report"

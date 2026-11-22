@@ -24,7 +24,7 @@ const PAGE_TIMEOUT_MS = 30000;
 const LOGIN_TIMEOUT_MS = 30000;
 const PAGE_SIZE = 100;
 
-export const NOT_CONNECTED = "Sign in to ETH Housing in the settings first.";
+export const NOT_CONNECTED = "Sign in to ETH Housing under Accounts first.";
 
 const onPortal = (page) => page.url().startsWith(PORTAL_URL);
 

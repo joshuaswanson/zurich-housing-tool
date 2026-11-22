@@ -36,7 +36,7 @@ test("a WG-Zimmer send that fails is not marked applied", async () => {
       return elements.get(id);
     },
     t: key => key,
-    fetch: async () => ({ ok: false, status: 502, json: async () => ({ error: "Sign in to WG-Zimmer in the settings first." }) }),
+    fetch: async () => ({ ok: false, status: 502, json: async () => ({ error: "Sign in to WG-Zimmer under Accounts first." }) }),
     saveDraft: async () => {},
     track: async () => { assert.fail("A failed send is not an application"); },
     statusOf: () => "new",

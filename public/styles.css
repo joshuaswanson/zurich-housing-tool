@@ -662,6 +662,15 @@ select {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
 }
 
+.accounts-menu {
+  width: 340px;
+}
+
+.accounts-menu > .settings-section:first-child {
+  padding-top: 0;
+  border-top: none;
+}
+
 .settings-row {
   display: flex;
   align-items: center;
@@ -1303,7 +1312,6 @@ dialog textarea {
 .settings-section .account-header p,
 .settings-section #flatfox-session-status {
   grid-column: 1 / -1;
-  max-width: 34ch;
   margin: 0;
   font-size: 12px;
   white-space: normal;
@@ -1598,7 +1606,8 @@ dialog textarea:disabled {
 .button#dialog-copy::before,
 .button#scan-button::before,
 .button#batch-stop::before,
-.button#batch-profile::before {
+.button#batch-profile::before,
+#accounts > summary::before {
   content: "";
   flex: none;
   width: 14px;
@@ -1628,7 +1637,8 @@ dialog textarea:disabled {
 .button#dialog-copy,
 .button#scan-button,
 .button#batch-stop,
-.button#batch-profile {
+.button#batch-profile,
+#accounts > summary {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1702,7 +1712,8 @@ dialog textarea:disabled {
   --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Crect x="6" y="6" width="12" height="12" rx="1"/%3E%3C/svg%3E');
 }
 
-.button#batch-profile {
+.button#batch-profile,
+#accounts > summary {
   --icon: url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"%3E%3Ccircle cx="12" cy="8" r="4"/%3E%3Cpath d="M4 21a8 8 0 0 1 16 0"/%3E%3C/svg%3E');
 }
 

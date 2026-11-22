@@ -2000,9 +2000,9 @@ async function openManual(button) {
   try {
     if (l.source === "wgzimmer") {
       $("batch-dialog").close();
-      // Opens settings after the click handler that closes it on outside clicks.
+      // Opens the accounts menu after the click handler that closes it on outside clicks.
       setTimeout(() => {
-        $("settings").open = true;
+        $("accounts").open = true;
         connectWgzimmer();
       });
       return;
@@ -2778,10 +2778,15 @@ document.querySelectorAll("input[name='theme']").forEach((radio) => {
   radio.addEventListener("change", () => setTheme(radio.value));
 });
 document.addEventListener("click", (e) => {
-  if (!$("settings").contains(e.target)) $("settings").open = false;
+  for (const menu of [$("settings"), $("accounts")]) {
+    if (!menu.contains(e.target)) menu.open = false;
+  }
 });
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") $("settings").open = false;
+  if (e.key === "Escape") {
+    $("settings").open = false;
+    $("accounts").open = false;
+  }
   if (e.key === "Escape" && selecting && !document.querySelector("dialog[open]")) {
     setSelecting(false);
   }

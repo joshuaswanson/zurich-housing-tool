@@ -107,7 +107,7 @@ async function dismissCookieBanner(page) {
   } catch {}
 }
 
-export const NOT_SIGNED_IN = "Sign in to WG-Zimmer in the settings first.";
+export const NOT_SIGNED_IN = "Sign in to WG-Zimmer under Accounts first.";
 
 async function fillIfEditable(page, selector, value) {
   const field = page.locator(selector);

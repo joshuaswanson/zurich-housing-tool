@@ -34,11 +34,11 @@ Click Scan to collect WG rooms and apartments from every source. Fill in the Pro
 
 Message writing uses Apple Intelligence on macOS 26 or later. You can also install [Ollama](https://ollama.com), or add an OpenRouter API key in the settings, and pick which one writes each message. Everything else works without any of them.
 
-To send WG-Zimmer messages, sign in to WG-Zimmer in the settings. WG-Zimmer emails you a code once, and after that the app sends from your account without asking again.
+To send WG-Zimmer messages, sign in to WG-Zimmer under Accounts. WG-Zimmer emails you a code once, and after that the app sends from your account without asking again.
 
-To send Flatfox messages from your own account, sign in to Flatfox in the settings. Your password goes only to Flatfox and is not saved.
+To send Flatfox messages from your own account, sign in to Flatfox under Accounts. Your password goes only to Flatfox and is not saved.
 
-To include ETH Housing, sign in with your ETH account in the settings. The app fills in your profile from your ETH Housing account. Your password is kept in the macOS Keychain so scans can sign in again, and ETH Housing needs Google Chrome installed.
+To include ETH Housing, sign in with your ETH account under Accounts. The app fills in your profile from your ETH Housing account. Your password is kept in the macOS Keychain so scans can sign in again, and ETH Housing needs Google Chrome installed.
 
 ## Support
 

@@ -76,19 +76,21 @@ done
 iconutil -c icns "$ICONSET" -o "$RESOURCES/AppIcon.icns"
 
 sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"
-# Local builds are re-signed on every build, so macOS does not recognise
-# them and blocks the updater's background check from touching the app.
-# Only release builds check for updates on their own.
+# Only release builds check for updates on their own, so a build from this
+# repo is not replaced by the latest release.
 if [ "${RELEASE:-}" != 1 ]; then
   /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$CONTENTS/Info.plist"
 fi
-# Ad-hoc signatures change with every build, and macOS then treats the app
-# as new and drops its permissions. Local builds use the developer's own
-# signing certificate when there is one, which stays the same across builds.
-IDENTITY="-"
-if [ "${RELEASE:-}" != 1 ]; then
-  IDENTITY="$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')"
-  IDENTITY="${IDENTITY:--}"
+# macOS keeps an app's permissions only while its signing identity stays the
+# same. The app has its own self-signed certificate in the login Keychain;
+# ad-hoc signatures would change with every build. Releases require it.
+IDENTITY="$(security find-identity -p codesigning | awk '/"Zurich Housing Tool"/ { print $2; exit }')"
+if [ -z "$IDENTITY" ]; then
+  if [ "${RELEASE:-}" = 1 ]; then
+    echo "The \"Zurich Housing Tool\" signing certificate is missing from the login Keychain" >&2
+    exit 1
+  fi
+  IDENTITY="-"
 fi
 codesign --force --deep --sign "$IDENTITY" "$APP"
 DMG="build/Zurich-Housing-Tool.dmg"

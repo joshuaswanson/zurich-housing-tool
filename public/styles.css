@@ -349,6 +349,15 @@ a:hover {
   flex: none;
 }
 
+.scan #scan-button,
+.scan summary.button {
+  height: 36px;
+}
+
+#accounts > summary {
+  padding: 0 14px;
+}
+
 .scan .scan-status {
   flex: 0 1 auto;
   min-width: 0;

@@ -1777,9 +1777,23 @@ tbody tr.listing-row.is-selected {
   margin-bottom: 18px;
 }
 
+.account-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.account-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+
 .settings-section .account-header > .button {
-  grid-column: 2;
-  grid-row: 1;
+  grid-column: 1;
+  grid-row: 3;
+  justify-self: start;
 }
 
 #ethz-signin-status.is-error {

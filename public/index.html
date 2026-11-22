@@ -149,6 +149,31 @@
                 </div>
               </form>
             </div>
+            <div class="account-connection settings-section" id="wgzimmer-section">
+              <div class="account-header">
+                <div>
+                  <span class="api-heading" data-i18n="wgzimmer_account">WG-Zimmer account</span>
+                  <p class="secondary" id="wgzimmer-status" role="status"></p>
+                </div>
+                <button class="button" id="wgzimmer-connect" type="button" disabled data-i18n="wgzimmer_connect">Connect WG-Zimmer</button>
+                <button class="button" id="wgzimmer-logout" type="button" data-i18n="ethz_disconnect" hidden>Sign out</button>
+              </div>
+              <form class="flatfox-signin" id="wgzimmer-signin" hidden>
+                <label class="profile-field">
+                  <span data-i18n="flatfox_email">Email</span>
+                  <input class="text-input" type="email" id="wgzimmer-email" autocomplete="username" spellcheck="false" required />
+                </label>
+                <label class="profile-field" id="wgzimmer-code-field" hidden>
+                  <span data-i18n="wgzimmer_code">Code from WG-Zimmer's email</span>
+                  <input class="text-input" type="text" id="wgzimmer-code" inputmode="numeric" autocomplete="one-time-code" placeholder="123 456" />
+                </label>
+                <div class="api-actions">
+                  <span class="api-status" id="wgzimmer-signin-status" role="status"></span>
+                  <button class="button" type="button" id="wgzimmer-cancel" data-i18n="cancel">Cancel</button>
+                  <button class="button button-primary" type="submit" id="wgzimmer-continue" data-i18n="flatfox_continue">Continue</button>
+                </div>
+              </form>
+            </div>
             <div class="account-connection settings-section" id="ethz-section">
               <div class="account-header">
                 <div>

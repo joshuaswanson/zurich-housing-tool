@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import {
   classifyWgzimmerSendResponse,
   sendWgzimmerApplication,
-  completeWgzimmerApplication,
   validateWgzimmerApplication,
 } from "../src/sources/wgzimmer-send.mjs";
 
@@ -24,8 +23,8 @@ test("WGZimmer applications are validated before a browser is opened", () => {
     /WG-Zimmer listing URL/,
   );
   assert.throws(
-    () => validateWgzimmerApplication({ ...APPLICATION, email: "not-an-email" }),
-    /valid email/,
+    () => validateWgzimmerApplication({ ...APPLICATION, name: "" }),
+    /Name is required/,
   );
   assert.throws(
     () => validateWgzimmerApplication({ ...APPLICATION, message: "" }),
@@ -54,36 +53,32 @@ test("WGZimmer send responses require an explicit success signal", () => {
   );
 });
 
-function browserFixture({ missingForm = false } = {}) {
+function browserFixture({ missingForm = false, signedIn = true, readOnlyName = false } = {}) {
   const calls = [];
   let closed = false;
-  let closeWindow;
   const page = {
     goto: async (url, options) => {
       calls.push(["goto", url, options]);
       return { ok: () => true };
     },
-    $: async () => null,
-    waitForSelector: async (selector) => {
-
+    $: async (selector) => (selector.includes('data-mode="account"') && signedIn ? {} : null),
+    waitForSelector: async () => {
       if (missingForm) throw new Error("Timeout");
     },
     fill: async (selector, value) => calls.push(["fill", selector, value]),
-    locator: (selector) => {
-      return { scrollIntoViewIfNeeded: async () => {}, click: async () => {}, innerHTML: async () => "<p>Your message was successfully sent.</p>" };
-    },
-    waitForFunction: async () => {},
+    locator: (selector) => ({
+      count: async () => 1,
+      evaluate: async () => readOnlyName && selector === "#kontakt-name",
+      fill: async (value) => calls.push(["fill", selector, value]),
+      click: async () => calls.push(["click", selector]),
+      innerHTML: async () => "<p>Your message was successfully sent.</p>",
+    }),
     waitForNavigation: async () => ({ ok: () => true }),
-    bringToFront: async () => calls.push(["front"]),
-    once: (event, callback) => {
-      assert.equal(event, "close");
-      closeWindow = callback;
-    },
+    content: async () => "<html></html>",
   };
   return {
     calls,
     get closed() { return closed; },
-    closeWindow: () => closeWindow(),
     launcher: async (options) => {
       calls.push(["launch", options]);
       return { newPage: async () => page, close: async () => { closed = true; } };
@@ -91,21 +86,29 @@ function browserFixture({ missingForm = false } = {}) {
   };
 }
 
-test("current WGZimmer form is filled and handed over without claiming a send", async () => {
+test("a signed-in WG-Zimmer form is filled and sent in a hidden browser", async () => {
   const fixture = browserFixture();
-  const result = await sendWgzimmerApplication(APPLICATION, fixture.launcher);
-  assert.equal(result.ok, false);
-  assert.ok(result.verificationId);
-  assert.equal(fixture.closed, false);
-  assert.equal(fixture.calls[0][1].headless, false);
-  assert.equal(fixture.calls[1][2].waitUntil, "domcontentloaded");
+  assert.deepEqual(await sendWgzimmerApplication(APPLICATION, fixture.launcher), { ok: true });
+  assert.equal(fixture.closed, true);
+  assert.equal(fixture.calls[0][1].headless, true);
   assert.deepEqual(fixture.calls.filter(([type]) => type === "fill"), [
     ["fill", "#kontakt-name", "Test Person"],
-    ["fill", "#kontakt-email", "test@example.com"],
     ["fill", "#kontakt-phone", "+41 79 000 00 00"],
     ["fill", "#kontakt-text", "Hallo zusammen"],
   ]);
-  assert.deepEqual(await completeWgzimmerApplication(result.verificationId, "123456"), { ok: true });
+  assert.ok(fixture.calls.some(([type, selector]) => type === "click" && /submit/.test(selector)));
+});
+
+test("fields the account fills in are left alone", async () => {
+  const fixture = browserFixture({ readOnlyName: true });
+  await sendWgzimmerApplication(APPLICATION, fixture.launcher);
+  assert.ok(!fixture.calls.some(([type, selector]) => type === "fill" && selector === "#kontakt-name"));
+});
+
+test("without a WG-Zimmer sign-in nothing is sent", async () => {
+  const fixture = browserFixture({ signedIn: false });
+  await assert.rejects(sendWgzimmerApplication(APPLICATION, fixture.launcher), /Sign in to WG-Zimmer/);
+  assert.ok(!fixture.calls.some(([type]) => type === "click"));
   assert.equal(fixture.closed, true);
 });
 
@@ -120,12 +123,4 @@ test("current form limits reject overlong values instead of truncating drafts", 
     await assert.rejects(sendWgzimmerApplication({ ...APPLICATION, [field]: "x".repeat(length) },
       async () => { assert.fail("Invalid input must not launch a browser"); }), /too long/);
   }
-});
-
- test("cancelling verification closes the browser and invalidates the session", async () => {
-  const fixture = browserFixture();
-  const { verificationId } = await sendWgzimmerApplication(APPLICATION, fixture.launcher);
-  assert.deepEqual(await completeWgzimmerApplication(verificationId, null, true), { cancelled: true });
-  assert.equal(fixture.closed, true);
-  await assert.rejects(completeWgzimmerApplication(verificationId, "123456"), /expired/);
 });

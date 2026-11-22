@@ -289,12 +289,12 @@ test("a saved message can be read back", async () => {
 });
 
 test("sending to WGZimmer validates the profile and target before launching", async () => {
-  const missingContact = await post("/api/send-wgzimmer", {
+  const missingMessage = await post("/api/send-wgzimmer", {
     url: WG_URL,
-    message: "Hallo zusammen",
+    message: "",
   });
-  assert.equal(missingContact.status, 400);
-  assert.match(missingContact.body.error, /email/i);
+  assert.equal(missingMessage.status, 400);
+  assert.match(missingMessage.body.error, /message/i);
 
   const wrongTarget = await post("/api/send-wgzimmer", {
     url: "https://example.com/11111111-2222-4333-8444-555555555555",
@@ -488,7 +488,7 @@ test("the template is saved on its own and filled in per listing", async () => {
   assert.equal((await get("/api/template")).body.template, "Hi, is {address} still free?");
 });
 
-test("the saved message goes to new Flatfox listings in one paced batch", async () => {
+test("the template goes to new Flatfox and WG-Zimmer listings in one paced batch", async () => {
   await post("/api/search", { housing: "room" });
   const flatfoxUrl = (pk) => `https://flatfox.ch/en/flat/8004-zurich/${pk}/`;
   writeJson(path.join(dataDir, "flatfox_cache.json"), [
@@ -503,7 +503,7 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
 
   await post("/api/profile", { name: "Jane Doe", email: "jane@example.com", phone: "+41 79 000 00 00" });
   await post("/api/template", { template: "" });
-  const noTemplate = await post("/api/send-flatfox-batch", { urls });
+  const noTemplate = await post("/api/send-batch", { urls });
   assert.equal(noTemplate.status, 400);
   assert.match(noTemplate.body.error, /template/i);
 
@@ -511,7 +511,7 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
   await post("/api/track", { url: urls[2], action: "apply" });
 
   const sent = [];
-  app.locals.flatfoxBatchPauseMs = () => 0;
+  app.locals.batchPauseMs = () => 0;
   let release;
   const gate = new Promise((resolve) => (release = resolve));
   app.locals.sendFlatfox = async (application) => {
@@ -519,28 +519,35 @@ test("the saved message goes to new Flatfox listings in one paced batch", async 
     if (application.url.includes("20000002")) throw new Error("Flatfox returned HTTP 500.");
     sent.push(application);
   };
-  const started = await post("/api/send-flatfox-batch", { urls: [...urls, "https://example.com/x"] });
+  app.locals.sendWgzimmer = async (application) => {
+    await gate;
+    sent.push(application);
+  };
+  const started = await post("/api/send-batch", { urls: [...urls, WG_URL, "https://example.com/x"] });
   assert.equal(started.status, 200);
-  assert.equal(started.body.total, 2);
-  assert.equal((await post("/api/send-flatfox-batch", { urls })).status, 409);
+  assert.equal(started.body.total, 3);
+  assert.equal((await post("/api/send-batch", { urls })).status, 409);
   release();
 
   let status;
-  do status = (await get("/api/send-flatfox-batch")).body;
+  do status = (await get("/api/send-batch")).body;
   while (status.running);
-  assert.equal(status.sent.length, 1);
+  assert.equal(status.sent.length, 2);
   assert.equal(status.failed.length, 1);
+  assert.ok(sent.some((a) => a.url === WG_URL));
   assert.match(status.failed[0].error, /HTTP 500/);
-  assert.equal(sent[0].message, "Hi about A 1, 8004 Zürich");
-  assert.equal(sent[0].email, "jane@example.com");
+  const flatfoxSent = sent.find((a) => a.url.includes("20000001"));
+  assert.equal(flatfoxSent.message, "Hi about A 1, 8004 Zürich");
+  assert.equal(flatfoxSent.email, "jane@example.com");
 
   const tracker = (await get("/api/tracker")).body;
-  assert.ok(tracker.applied.some((e) => e.url === sent[0].url));
+  assert.ok(tracker.applied.some((e) => e.url === flatfoxSent.url));
+  assert.ok(tracker.applied.some((e) => e.url === WG_URL));
   assert.ok(!tracker.applied.some((e) => e.url.includes("20000002")));
   const messages = (await get("/api/applications")).body;
   assert.ok(messages.some((m) => m.content.includes("Hi about A 1")));
 
-  const again = await post("/api/send-flatfox-batch", { urls: [urls[0], urls[2]] });
+  const again = await post("/api/send-batch", { urls: [urls[0], urls[2]] });
   assert.equal(again.status, 400);
 });
 

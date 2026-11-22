@@ -45,9 +45,13 @@ import { scan as scanSources } from "./scan.js";
 import { fetchListings } from "./details.mjs";
 import {
   sendWgzimmerApplication,
-  completeWgzimmerApplication,
   validateWgzimmerApplication,
 } from "./sources/wgzimmer-send.mjs";
+import {
+  checkWgzimmerSession,
+  WgzimmerLogin,
+  persistentWgzimmerLauncher,
+} from "./sources/wgzimmer-session.mjs";
 import {
   sendFlatfoxApplication,
   validateFlatfoxApplication,
@@ -410,6 +414,10 @@ const FLATFOX_BROWSER_PROFILE_DIR = path.join(
   DATA_DIR,
   "flatfox-browser-profile",
 );
+const WGZIMMER_BROWSER_PROFILE_DIR = path.join(
+  DATA_DIR,
+  "wgzimmer-browser-profile",
+);
 
 // ── API: Public transport route to the chosen ETH or UZH location ───────
 
@@ -630,17 +638,102 @@ app.post("/api/application", (req, res) => {
   }
 });
 
-// ── API: Send a WGZimmer application ─────────────────────────────────────
+// ── API: WG-Zimmer account and sending ───────────────────────────────
 
 const wgzimmerSendsInProgress = new Set();
+let wgzimmerBrowserBusy = false;
+let wgzimmerConnected = null;
 
-app.post("/api/wgzimmer-verify", async (req, res) => {
+app.get("/api/wgzimmer-session", async (req, res) => {
+  if (wgzimmerBrowserBusy) {
+    return res.json({ connected: wgzimmerConnected === true, busy: true });
+  }
+  wgzimmerBrowserBusy = true;
   try {
-    res.json(await completeWgzimmerApplication(req.body.verificationId, req.body.code, req.body.cancel === true));
+    const status = await checkWgzimmerSession(WGZIMMER_BROWSER_PROFILE_DIR);
+    wgzimmerConnected = status.connected;
+    res.json(status);
   } catch (e) {
     res.status(502).json({ error: e.message.substring(0, 300) });
+  } finally {
+    wgzimmerBrowserBusy = false;
   }
 });
+
+const WGZIMMER_LOGIN_IDLE_MS = 10 * 60 * 1000;
+let wgzimmerLogin = null;
+let wgzimmerLoginTimer = null;
+
+async function endWgzimmerLogin() {
+  clearTimeout(wgzimmerLoginTimer);
+  const login = wgzimmerLogin;
+  wgzimmerLogin = null;
+  if (login) {
+    await login.close();
+    wgzimmerBrowserBusy = false;
+  }
+}
+
+app.post("/api/wgzimmer-session/login", async (req, res) => {
+  const { email, code } = req.body;
+  clearTimeout(wgzimmerLoginTimer);
+  try {
+    let status;
+    if (email) {
+      await endWgzimmerLogin();
+      if (wgzimmerBrowserBusy) {
+        return res.status(409).json({
+          error: "WG-Zimmer is busy with another request. Try again in a moment.",
+        });
+      }
+      wgzimmerBrowserBusy = true;
+      ensureDataDir();
+      wgzimmerLogin = new WgzimmerLogin(WGZIMMER_BROWSER_PROFILE_DIR);
+      status = await wgzimmerLogin.start(String(email).trim());
+    } else if (wgzimmerLogin) {
+      status = await wgzimmerLogin.submit({ code });
+    } else {
+      return res.status(409).json({ error: "Start again with your email." });
+    }
+    if (status.connected) {
+      wgzimmerConnected = true;
+      await endWgzimmerLogin();
+    } else {
+      wgzimmerLoginTimer = setTimeout(endWgzimmerLogin, WGZIMMER_LOGIN_IDLE_MS);
+    }
+    res.json(status);
+  } catch (e) {
+    if (wgzimmerLogin?.step) {
+      wgzimmerLoginTimer = setTimeout(endWgzimmerLogin, WGZIMMER_LOGIN_IDLE_MS);
+    } else {
+      await endWgzimmerLogin();
+    }
+    res.status(400).json({ error: e.message.split("\n")[0].substring(0, 300) });
+  }
+});
+
+app.post("/api/wgzimmer-session/cancel", async (req, res) => {
+  await endWgzimmerLogin();
+  res.json({ ok: true });
+});
+
+app.post("/api/wgzimmer-session/logout", async (req, res) => {
+  await endWgzimmerLogin();
+  if (wgzimmerBrowserBusy) {
+    return res.status(409).json({
+      error: "WG-Zimmer is busy sending a message. Try again in a moment.",
+    });
+  }
+  fs.rmSync(WGZIMMER_BROWSER_PROFILE_DIR, { recursive: true, force: true });
+  wgzimmerConnected = false;
+  res.json({ connected: false });
+});
+
+app.locals.sendWgzimmer = (application) =>
+  sendWgzimmerApplication(
+    application,
+    persistentWgzimmerLauncher(WGZIMMER_BROWSER_PROFILE_DIR),
+  );
 
 app.post("/api/send-wgzimmer", async (req, res) => {
   const profile = readJson(PROFILE_FILE, null);
@@ -648,7 +741,6 @@ app.post("/api/send-wgzimmer", async (req, res) => {
     url: req.body.url,
     message: req.body.message,
     name: profile?.name,
-    email: profile?.email,
     phone: profile?.phone,
   };
 
@@ -664,15 +756,22 @@ app.post("/api/send-wgzimmer", async (req, res) => {
       .status(409)
       .json({ error: "A message to this listing is already being sent." });
   }
+  if (wgzimmerBrowserBusy) {
+    return res.status(409).json({
+      error: "Finish the WG-Zimmer sign-in or the messages being sent first.",
+    });
+  }
 
   wgzimmerSendsInProgress.add(key);
+  wgzimmerBrowserBusy = true;
   try {
-    const result = await sendWgzimmerApplication(application);
-    res.json(result);
+    ensureDataDir();
+    res.json(await app.locals.sendWgzimmer(application));
   } catch (e) {
     res.status(502).json({ error: e.message.substring(0, 300) });
   } finally {
     wgzimmerSendsInProgress.delete(key);
+    wgzimmerBrowserBusy = false;
   }
 });
 
@@ -816,26 +915,41 @@ app.post("/api/send-flatfox", async (req, res) => {
   }
 });
 
-// ── API: Send the saved message to many Flatfox listings ────────────────
+// ── API: Send the template to many listings ─────────────────────────────
 
 // Small batches with pauses keep the sending pace close to a person's, so
-// Flatfox does not treat the account as a spammer.
-const FLATFOX_BATCH_LIMIT = 20;
-const FLATFOX_BATCH_MAX_FAILURES_IN_ROW = 3;
-app.locals.flatfoxBatchPauseMs = () => 20000 + Math.random() * 20000;
+// neither site treats the account as a spammer.
+const BATCH_LIMIT = 20;
+const BATCH_MAX_FAILURES_IN_ROW = 3;
+app.locals.batchPauseMs = () => 20000 + Math.random() * 20000;
 app.locals.sendFlatfox = (application) =>
   sendFlatfoxApplication(
     application,
     persistentFlatfoxLauncher(FLATFOX_BROWSER_PROFILE_DIR),
   );
 
-let flatfoxBatch = null;
+const BATCH_SENDERS = {
+  flatfox: {
+    validate: validateFlatfoxApplication,
+    send: (application) => app.locals.sendFlatfox(application),
+    busy: () => flatfoxBrowserBusy,
+    setBusy: (on) => (flatfoxBrowserBusy = on),
+  },
+  wgzimmer: {
+    validate: validateWgzimmerApplication,
+    send: (application) => app.locals.sendWgzimmer(application),
+    busy: () => wgzimmerBrowserBusy,
+    setBusy: (on) => (wgzimmerBrowserBusy = on),
+  },
+};
+
+let sendBatch = null;
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function batchStatus() {
-  if (!flatfoxBatch) return { running: false };
-  const { running, total, sent, failed, current, stopping } = flatfoxBatch;
+  if (!sendBatch) return { running: false };
+  const { running, total, sent, failed, current, stopping } = sendBatch;
   return { running, total, sent, failed, current, stopping };
 }
 
@@ -844,19 +958,20 @@ function appliedKeys() {
   return new Set((tracker.applied || []).map((e) => listingKey(e.url)));
 }
 
-async function runFlatfoxBatch(batch, listings, profile, template) {
+async function runBatch(batch, listings, profile, template) {
   let failuresInRow = 0;
   for (const [index, listing] of listings.entries()) {
     if (batch.stopping) break;
-    if (index > 0) await wait(app.locals.flatfoxBatchPauseMs());
-    while (flatfoxBrowserBusy && !batch.stopping) await wait(1000);
+    if (index > 0) await wait(app.locals.batchPauseMs());
+    const sender = BATCH_SENDERS[listing.source];
+    while (sender.busy() && !batch.stopping) await wait(1000);
     if (batch.stopping) break;
 
     const message = fillMessage(template, listing);
     batch.current = listing.address || listing.url;
-    flatfoxBrowserBusy = true;
+    sender.setBusy(true);
     try {
-      await app.locals.sendFlatfox({
+      await sender.send({
         url: listing.url,
         message,
         name: profile.name,
@@ -874,21 +989,21 @@ async function runFlatfoxBatch(batch, listings, profile, template) {
         error: e.message.substring(0, 300),
       });
       failuresInRow += 1;
-      if (failuresInRow >= FLATFOX_BATCH_MAX_FAILURES_IN_ROW) break;
+      if (failuresInRow >= BATCH_MAX_FAILURES_IN_ROW) break;
     } finally {
-      flatfoxBrowserBusy = false;
+      sender.setBusy(false);
     }
   }
   batch.current = null;
   batch.running = false;
 }
 
-app.get("/api/send-flatfox-batch", (req, res) => {
+app.get("/api/send-batch", (req, res) => {
   res.json(batchStatus());
 });
 
-app.post("/api/send-flatfox-batch", (req, res) => {
-  if (flatfoxBatch?.running) {
+app.post("/api/send-batch", (req, res) => {
+  if (sendBatch?.running) {
     return res.status(409).json({ error: "Messages are already being sent." });
   }
   const profile = readJson(PROFILE_FILE, {}) || {};
@@ -902,24 +1017,27 @@ app.post("/api/send-flatfox-batch", (req, res) => {
   const wanted = new Set(urls.map(listingKey));
   const applied = appliedKeys();
   const listings = loadAllListings()
-    .filter((l) => l.source === "flatfox")
+    .filter((l) => BATCH_SENDERS[l.source])
     .filter((l) => wanted.has(listingKey(l.url)))
     .filter((l) => !applied.has(listingKey(l.url)))
-    .slice(0, FLATFOX_BATCH_LIMIT);
+    .slice(0, BATCH_LIMIT);
   if (listings.length === 0) {
-    return res.status(400).json({ error: "No Flatfox listings left to send to." });
+    return res.status(400).json({ error: "No Flatfox or WG-Zimmer listings left to send to." });
   }
   try {
-    validateFlatfoxApplication({
-      ...profile,
-      url: listings[0].url,
-      message: fillMessage(template, listings[0]),
-    });
+    for (const source of new Set(listings.map((l) => l.source))) {
+      const listing = listings.find((l) => l.source === source);
+      BATCH_SENDERS[source].validate({
+        ...profile,
+        url: listing.url,
+        message: fillMessage(template, listing),
+      });
+    }
   } catch (e) {
     return res.status(400).json({ error: e.message });
   }
 
-  flatfoxBatch = {
+  sendBatch = {
     running: true,
     total: listings.length,
     sent: [],
@@ -927,12 +1045,12 @@ app.post("/api/send-flatfox-batch", (req, res) => {
     current: null,
     stopping: false,
   };
-  runFlatfoxBatch(flatfoxBatch, listings, profile, template);
+  runBatch(sendBatch, listings, profile, template);
   res.json(batchStatus());
 });
 
-app.post("/api/send-flatfox-batch/stop", (req, res) => {
-  if (flatfoxBatch?.running) flatfoxBatch.stopping = true;
+app.post("/api/send-batch/stop", (req, res) => {
+  if (sendBatch?.running) sendBatch.stopping = true;
   res.json(batchStatus());
 });
 

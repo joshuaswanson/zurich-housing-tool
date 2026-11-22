@@ -1,5 +1,4 @@
-/** Open WGZimmer's contact form for email verification and sending. */
-import { randomUUID } from "node:crypto";
+/** Send a message through the contact form on a WG-Zimmer listing. */
 import { launch } from "cloakbrowser";
 
 const WGZIMMER_HOSTS = new Set(["wgzimmer.ch", "www.wgzimmer.ch"]);
@@ -7,6 +6,7 @@ const UUID_PATTERN =
   /([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i;
 const PAGE_TIMEOUT_MS = 30000;
 const FORM_TIMEOUT_MS = 20000;
+const SEND_TIMEOUT_MS = 60000;
 
 function requiredText(value, label, maxLength) {
   const text = String(value ?? "").trim();
@@ -47,20 +47,17 @@ export function validateWgzimmerApplication(application) {
 
   const name = requiredText(application.name, "Name", 100);
   if (name.length < 2) throw new Error("Name must contain at least 2 characters.");
-  const email = requiredText(application.email, "Email", 320);
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new Error("A valid email address is required.");
-  }
 
   return {
     url: parsed.toString(),
     uuid: uuid.toLowerCase(),
     name,
-    email,
     phone: optionalPhone(application.phone),
     message: requiredText(application.message, "Message", 3000),
   };
 }
+
+const SENT_MARKER = /setLocalStorageValueByKey\s*\(\s*["']contact-/i;
 
 function pageText(html) {
   return String(html || "")
@@ -81,7 +78,7 @@ export function classifyWgzimmerSendResponse(html) {
   const source = String(html || "");
   const text = pageText(source);
 
-  if (/setLocalStorageValueByKey\s*\(\s*["']contact-/i.test(source)) {
+  if (SENT_MARKER.test(source)) {
     return { ok: true };
   }
 
@@ -113,46 +110,19 @@ async function dismissCookieBanner(page) {
   } catch {}
 }
 
-/**
- * Request an email code using the site controls, then retain this browser
- * for the verification endpoint. A code request is not a sent application.
- */
-const pending = new Map();
+export const NOT_SIGNED_IN = "Sign in to WG-Zimmer in the settings first.";
 
-export async function completeWgzimmerApplication(id, code, cancel = false) {
-  const session = pending.get(id);
-  if (!session) throw new Error("Verification expired. Start sending again.");
-  if (session.busy) throw new Error("Verification is already in progress.");
-  session.busy = true;
-  const { page, browser } = session;
-  try {
-    if (cancel) return { cancelled: true };
-    if (!/^\d{6}$/.test(String(code))) throw new Error("Enter the six-digit email code.");
-    await page.fill("#kontakt-code", String(code));
-    await page.locator('#kontakt [data-email-check]').click();
-    await page.waitForFunction(() => document.querySelector('#kontakt-email')?.readOnly, null, { timeout: 15000 });
-    const [response] = await Promise.all([
-      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: 60000 }),
-      page.locator('#kontakt button[type="submit"]').click(),
-    ]);
-    if (response && !response.ok()) throw new Error(`WG-Zimmer returned HTTP ${response.status()}.`);
-    const result = classifyWgzimmerSendResponse(await page.locator('#kontakt').innerHTML());
-    if (!result.ok) throw new Error(result.error + " Check WG-Zimmer before retrying.");
-    return result;
-  } finally {
-    pending.delete(id);
-    clearTimeout(session.timer);
-    await browser.close();
-  }
+async function fillIfEditable(page, selector, value) {
+  const field = page.locator(selector);
+  if (!(await field.count())) return;
+  if (await field.evaluate((el) => el.readOnly || el.disabled)) return;
+  await field.fill(value);
 }
 
+/** Send through the listing's contact form with the signed-in WG-Zimmer account. */
 export async function sendWgzimmerApplication(application, launcher = launch) {
   const data = validateWgzimmerApplication(application);
-  if ([...pending.values()].some(session => session.uuid === data.uuid)) {
-    throw new Error("Finish or cancel the pending verification for this listing first.");
-  }
-  const browser = await launcher({ headless: false, humanize: true });
-  let handedOver = false;
+  const browser = await launcher({ headless: true, humanize: true });
   try {
     const page = await browser.newPage();
     const response = await page.goto(data.url, {
@@ -171,30 +141,23 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
     } catch {
       throw new Error("This listing no longer has a WG-Zimmer contact form.");
     }
-    await page.fill("#kontakt-name", data.name);
-    await page.fill("#kontakt-email", data.email);
-    await page.fill("#kontakt-phone", data.phone);
+    if (!(await page.$('#kontakt [data-component="email-code"][data-mode="account"]'))) {
+      throw new Error(NOT_SIGNED_IN);
+    }
+    await fillIfEditable(page, "#kontakt-name", data.name);
+    await fillIfEditable(page, "#kontakt-phone", data.phone);
     await page.fill("#kontakt-text", data.message);
-    await page.locator("#kontakt").scrollIntoViewIfNeeded();
-    await page.bringToFront();
-    await page.locator('#kontakt [data-email-send]').click();
-    await page.waitForSelector('#kontakt [data-email-code]:visible', { timeout: 45000 });
-    const verificationId = randomUUID();
-    const timer = setTimeout(() => {
-      pending.delete(verificationId);
-      void browser.close().catch(() => {});
-    }, 10 * 60 * 1000);
-    timer.unref();
-    pending.set(verificationId, { page, browser, timer, uuid: data.uuid, busy: false });
-    page.once("close", () => {
-      pending.delete(verificationId);
-      clearTimeout(timer);
-      void browser.close().catch(() => {});
-    });
-    handedOver = true;
-    return { ok: false, verificationId };
-
+    const [sent] = await Promise.all([
+      page.waitForNavigation({ waitUntil: "domcontentloaded", timeout: SEND_TIMEOUT_MS }),
+      page.locator('#kontakt button[type="submit"]').click(),
+    ]);
+    if (sent && !sent.ok()) throw new Error(`WG-Zimmer returned HTTP ${sent.status()}.`);
+    const html = await page.content();
+    const form = await page.locator("#kontakt").innerHTML().catch(() => "");
+    const result = SENT_MARKER.test(html) ? { ok: true } : classifyWgzimmerSendResponse(form);
+    if (!result.ok) throw new Error(result.error);
+    return result;
   } finally {
-    if (!handedOver) await browser.close();
+    await browser.close();
   }
 }

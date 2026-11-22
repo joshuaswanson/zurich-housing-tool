@@ -1075,45 +1075,6 @@ function contactUrl(listing) {
   return listing.url;
 }
 
-async function verifyWgzimmer(data) {
-  if (!data.verificationId) return data;
-  const code = await new Promise(resolve => {
-    const dialog = document.createElement("dialog");
-    const form = document.createElement("form");
-    form.method = "dialog";
-    const label = document.createElement("label");
-    label.textContent = t("wgzimmer_code");
-    const input = document.createElement("input");
-    input.inputMode = "numeric";
-    input.autocomplete = "one-time-code";
-    input.pattern = "[0-9]{6}";
-    input.maxLength = 6;
-    input.required = true;
-    label.append(input);
-    const send = document.createElement("button");
-    send.textContent = t("send_wgzimmer");
-    const cancel = document.createElement("button");
-    cancel.type = "button";
-    cancel.textContent = t("wgzimmer_cancel");
-    cancel.onclick = () => dialog.close();
-    form.onsubmit = event => { event.preventDefault(); dialog.returnValue = input.value; dialog.close(); };
-    form.append(label, send, cancel);
-    dialog.append(form);
-    dialog.addEventListener("close", () => { resolve(dialog.returnValue || null); dialog.remove(); }, { once: true });
-    document.body.append(dialog);
-    dialog.showModal();
-    input.focus();
-  });
-  const response = await fetch("/api/wgzimmer-verify", {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ verificationId: data.verificationId, code, cancel: !code }),
-  });
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error);
-  if (result.cancelled) throw new Error(t("wgzimmer_cancelled"));
-  return result;
-}
-
 async function sendDirectDraft(listing, message) {
   const source = listing.source;
   const button = $("dialog-send");
@@ -1129,20 +1090,7 @@ async function sendDirectDraft(listing, message) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-    if (source === "wgzimmer") {
-      const verified = await verifyWgzimmer(data);
-      if (!verified.ok && !verified.requiresCompletion) throw new Error("WG-Zimmer did not confirm sending.");
-    }
     await saveDraft();
-    if (data.requiresCompletion) {
-      button.disabled = false;
-      button.textContent = t(`send_${source}`);
-      $("dialog-hint").textContent = t("wgzimmer_complete_in_browser");
-      $("dialog-hint").hidden = false;
-      $("dialog-applied").textContent = t("act_apply");
-      $("dialog-applied").hidden = statusOf(listing.url) === "applied";
-      return;
-    }
     await track(listing.url, "apply");
     button.textContent = t(`sent_${source}`);
     $("dialog-hint").textContent = t(`sent_${source}`);
@@ -1157,7 +1105,6 @@ async function sendDirectDraft(listing, message) {
   }
 }
 
-// WGZimmer opens a visible form for email verification; Flatfox sends directly.
 async function handOverDraft() {
   const listing = draftListing();
   const message = $("dialog-editor").value;
@@ -1400,6 +1347,101 @@ function cancelFlatfox() {
   $("flatfox-password").value = "";
   showFlatfoxStep(null);
   fetch("/api/flatfox-session/cancel", { method: "POST" }).catch(() => {});
+}
+
+// WG-Zimmer signs in with a code it emails, and no password.
+
+let wgzimmerSession = { checking: true, connected: false };
+let wgzimmerStep = null;
+
+function renderWgzimmerSession() {
+  $("wgzimmer-status").textContent = wgzimmerSession.checking
+    ? t("flatfox_checking")
+    : wgzimmerSession.error
+      ? `${t("wgzimmer_login_failed")}: ${wgzimmerSession.error}`
+      : t(wgzimmerSession.connected ? "wgzimmer_connected" : "wgzimmer_disconnected");
+  $("wgzimmer-connect").hidden = wgzimmerStep !== null || wgzimmerSession.connected;
+  $("wgzimmer-connect").disabled = wgzimmerSession.checking || wgzimmerSession.busy;
+  $("wgzimmer-logout").hidden = !wgzimmerSession.connected;
+}
+
+async function loadWgzimmerSession() {
+  wgzimmerSession = { checking: true, connected: false };
+  renderWgzimmerSession();
+  try {
+    const res = await fetch("/api/wgzimmer-session");
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    wgzimmerSession = { checking: false, ...data };
+  } catch (e) {
+    wgzimmerSession = { checking: false, connected: false, error: e.message };
+  }
+  renderWgzimmerSession();
+}
+
+function setWgzimmerStatus(text, isError = false) {
+  const status = $("wgzimmer-signin-status");
+  status.textContent = text;
+  status.classList.toggle("is-error", isError);
+}
+
+function showWgzimmerStep(step) {
+  wgzimmerStep = step;
+  $("wgzimmer-signin").hidden = step === null;
+  $("wgzimmer-email").readOnly = step !== "email";
+  $("wgzimmer-code-field").hidden = step !== "code";
+  setWgzimmerStatus(step === "code" ? t("wgzimmer_code_sent") : "");
+  renderWgzimmerSession();
+  const field = { email: "wgzimmer-email", code: "wgzimmer-code" }[step];
+  if (field) $(field).focus();
+}
+
+function connectWgzimmer() {
+  const profileEmail = $("profile-fields").querySelector("input[name='email']")?.value.trim();
+  if (!$("wgzimmer-email").value && profileEmail) $("wgzimmer-email").value = profileEmail;
+  $("wgzimmer-code").value = "";
+  showWgzimmerStep("email");
+}
+
+async function continueWgzimmer(e) {
+  e.preventDefault();
+  const payload =
+    wgzimmerStep === "email"
+      ? { email: $("wgzimmer-email").value.trim() }
+      : { code: $("wgzimmer-code").value.replace(/\s/g, "") };
+  $("wgzimmer-continue").disabled = true;
+  setWgzimmerStatus(t("wgzimmer_waiting"));
+  try {
+    const res = await fetch("/api/wgzimmer-session/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (res.status === 409) showWgzimmerStep("email");
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    if (data.connected) {
+      wgzimmerSession = { checking: false, connected: true };
+      showWgzimmerStep(null);
+    } else {
+      showWgzimmerStep(data.step);
+    }
+  } catch (err) {
+    setWgzimmerStatus(err.message, true);
+  } finally {
+    $("wgzimmer-continue").disabled = false;
+  }
+}
+
+async function signOutWgzimmer() {
+  if (!(await postJson("/api/wgzimmer-session/logout", {}))) return;
+  wgzimmerSession = { checking: false, connected: false };
+  renderWgzimmerSession();
+}
+
+function cancelWgzimmer() {
+  showWgzimmerStep(null);
+  fetch("/api/wgzimmer-session/cancel", { method: "POST" }).catch(() => {});
 }
 
 // Each field gets a width on a twelve-column grid that suits its answer.
@@ -1698,15 +1740,15 @@ async function generateMessage() {
 
 // Sending to many listings
 
-// Flatfox gets at most this many automatic messages per round, so the
-// account is not flagged as a spammer.
-const FLATFOX_ROUND = 20;
+// At most this many automatic messages go out per round, so the accounts are
+// not flagged as spammers.
+const SEND_ROUND = 20;
 const BATCH_POLL_MS = 2000;
 let batchListings = [];
 let manualListings = [];
 
-// Selecting listings to send the template to. Flatfox listings are sent by
-// the app, the others are opened one by one from the send window.
+// Selecting listings to send the template to. Flatfox and WG-Zimmer listings
+// are sent by the app, the others are opened one by one from the send window.
 let selecting = false;
 const selected = new Set();
 let lastSelectedId = null;
@@ -1820,7 +1862,7 @@ async function openBatch(listings) {
   $("batch-dialog").showModal();
 
   try {
-    const status = await (await fetch("/api/send-flatfox-batch")).json();
+    const status = await (await fetch("/api/send-batch")).json();
     if (status.running) {
       $("batch-title").textContent = t("batch_title", { n: status.total });
       $("batch-intro").textContent = "";
@@ -1836,14 +1878,16 @@ async function openBatch(listings) {
     return;
   }
 
-  batchListings = listings.filter((l) => l.source === "flatfox");
-  manualListings = listings.filter((l) => l.source !== "flatfox");
-  const n = Math.min(batchListings.length, FLATFOX_ROUND);
+  const auto = (l) =>
+    l.source === "flatfox" || (l.source === "wgzimmer" && wgzimmerSession.connected);
+  batchListings = listings.filter(auto);
+  manualListings = listings.filter((l) => !auto(l));
+  const n = Math.min(batchListings.length, SEND_ROUND);
   $("batch-title").textContent = t("batch_title", { n: listings.length });
   $("batch-intro").textContent = !n
     ? ""
-    : batchListings.length > FLATFOX_ROUND
-      ? `${t("batch_intro")} ${t("batch_round", { n: FLATFOX_ROUND, rest: batchListings.length - FLATFOX_ROUND })}`
+    : batchListings.length > SEND_ROUND
+      ? `${t("batch_intro")} ${t("batch_round", { n: SEND_ROUND, rest: batchListings.length - SEND_ROUND })}`
       : t("batch_intro");
   $("batch-intro").hidden = !n;
   $("batch-list").innerHTML = batchListings
@@ -1875,7 +1919,7 @@ function batchItem(l, list, index) {
 }
 
 function manualActionKey(l) {
-  if (l.source === "wgzimmer") return "manual_open_form";
+  if (l.source === "wgzimmer") return "manual_wgzimmer_signin";
   if (l.contactEmail) return "manual_open_email";
   return "manual_open_listing";
 }
@@ -1888,31 +1932,23 @@ async function openManual(button) {
   button.disabled = true;
   try {
     if (l.source === "wgzimmer") {
-      const res = await fetch("/api/send-wgzimmer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: l.url, message }),
+      $("batch-dialog").close();
+      // Opens settings after the click handler that closes it on outside clicks.
+      setTimeout(() => {
+        $("settings").open = true;
+        connectWgzimmer();
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      const result = await verifyWgzimmer(data);
-      if (!result.ok) throw new Error("WG-Zimmer did not confirm sending.");
-      await postJson("/api/application", { url: l.url, message });
-      await track(l.url, "apply");
-      button.textContent = t("status_applied");
-      delete button.dataset.manual;
       return;
+    }
+    navigator.clipboard.writeText(message);
+    if (l.contactEmail) {
+      const subject = l.description.split("\n")[0].slice(0, 80);
+      window.location.href =
+        `mailto:${l.contactEmail}` +
+        `?subject=${encodeURIComponent(subject)}` +
+        `&body=${encodeURIComponent(message)}`;
     } else {
-      navigator.clipboard.writeText(message);
-      if (l.contactEmail) {
-        const subject = l.description.split("\n")[0].slice(0, 80);
-        window.location.href =
-          `mailto:${l.contactEmail}` +
-          `?subject=${encodeURIComponent(subject)}` +
-          `&body=${encodeURIComponent(message)}`;
-      } else {
-        window.open(l.url, "_blank", "noopener");
-      }
+      window.open(l.url, "_blank", "noopener");
     }
     await postJson("/api/application", { url: l.url, message });
     button.dataset.applied = button.dataset.manual;
@@ -1937,11 +1973,11 @@ async function markManualApplied(button) {
 async function startBatch() {
   $("batch-send").disabled = true;
   try {
-    const res = await fetch("/api/send-flatfox-batch", {
+    const res = await fetch("/api/send-batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        urls: batchListings.slice(0, FLATFOX_ROUND).map((l) => l.url),
+        urls: batchListings.slice(0, SEND_ROUND).map((l) => l.url),
       }),
     });
     const data = await res.json();
@@ -1962,7 +1998,7 @@ async function watchBatch() {
   let status;
   do {
     try {
-      status = await (await fetch("/api/send-flatfox-batch")).json();
+      status = await (await fetch("/api/send-batch")).json();
     } catch {
       break;
     }
@@ -1996,7 +2032,7 @@ function renderBatchStatus(status) {
 
 async function stopBatch() {
   $("batch-stop").disabled = true;
-  await postJson("/api/send-flatfox-batch/stop", {});
+  await postJson("/api/send-batch/stop", {});
 }
 
 function openProfileFromBatch() {
@@ -2810,6 +2846,10 @@ $("flatfox-login").addEventListener("click", connectFlatfox);
 $("flatfox-signin").addEventListener("submit", continueFlatfox);
 $("flatfox-cancel").addEventListener("click", cancelFlatfox);
 $("flatfox-logout").addEventListener("click", signOutFlatfox);
+$("wgzimmer-connect").addEventListener("click", connectWgzimmer);
+$("wgzimmer-signin").addEventListener("submit", continueWgzimmer);
+$("wgzimmer-cancel").addEventListener("click", cancelWgzimmer);
+$("wgzimmer-logout").addEventListener("click", signOutWgzimmer);
 $("message-dialog").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) e.currentTarget.close();
 });
@@ -2876,6 +2916,7 @@ async function init() {
   loadProfile();
   loadTemplate();
   loadFlatfoxSession();
+  loadWgzimmerSession();
   loadEthzSession();
   loadScanStatus();
   load();

@@ -61,7 +61,11 @@ function browserFixture({ missingForm = false, signedIn = true, readOnlyName = f
       calls.push(["goto", url, options]);
       return { ok: () => true };
     },
-    $: async (selector) => (selector.includes('data-mode="account"') && signedIn ? {} : null),
+    $: async (selector) => {
+      if (selector === "#kontakt-email[readonly]") return signedIn ? {} : null;
+      if (selector === "#kontakt [data-email-send]") return signedIn ? null : {};
+      return null;
+    },
     waitForSelector: async () => {
       if (missingForm) throw new Error("Timeout");
     },

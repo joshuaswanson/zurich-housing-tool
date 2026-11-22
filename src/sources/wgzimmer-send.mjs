@@ -141,9 +141,11 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
     } catch {
       throw new Error("This listing no longer has a WG-Zimmer contact form.");
     }
-    if (!(await page.$('#kontakt [data-component="email-code"][data-mode="account"]'))) {
-      throw new Error(NOT_SIGNED_IN);
-    }
+    // Signed in, the form shows the account's address locked and has no code step.
+    const signedIn =
+      (await page.$("#kontakt-email[readonly]")) &&
+      !(await page.$("#kontakt [data-email-send]"));
+    if (!signedIn) throw new Error(NOT_SIGNED_IN);
     await fillIfEditable(page, "#kontakt-name", data.name);
     await fillIfEditable(page, "#kontakt-phone", data.phone);
     await page.fill("#kontakt-text", data.message);

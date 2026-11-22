@@ -366,6 +366,30 @@ a:hover {
   color: var(--danger);
 }
 
+.scan .scan-progress {
+  flex: 0 0 120px;
+  height: 6px;
+  appearance: none;
+  border: none;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--line);
+}
+
+.scan-progress::-webkit-progress-bar {
+  background: var(--line);
+}
+
+.scan-progress::-webkit-progress-value {
+  background: var(--accent);
+  border-radius: 3px;
+  transition: width 0.25s linear;
+}
+
+.scan-progress[hidden] {
+  display: none;
+}
+
 /* Layout */
 
 .layout {

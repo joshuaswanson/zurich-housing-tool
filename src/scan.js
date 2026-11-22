@@ -17,6 +17,7 @@ import {
   ensureDataDir,
   loadSeen,
   saveSeen,
+  readJson,
 } from "./lib.js";
 import { scrapeWgzimmer } from "./sources/wgzimmer-scrape.mjs";
 import { scrapeRonorp } from "./sources/ronorp-scrape.mjs";
@@ -147,36 +148,60 @@ const SOURCES = {
   ethz: scanEthz,
 };
 
+// Expected length of a step that has not run before.
+const DEFAULT_STEP_MS = 15000;
+
+/** The scan's steps in order, one per source and search. */
+async function scanSteps() {
+  const signedIn = Boolean(await ethzCredentials());
+  return Object.entries(SEARCHES).flatMap(([type, search]) =>
+    search.sources
+      .filter((name) => name !== "ethz" || signedIn)
+      .map((name) => ({ type, search, name, key: `${type}:${name}` })),
+  );
+}
+
 /**
  * Scan every source of both searches and return the scan status that was
  * written. A source that fails for either search counts as failed.
+ * onProgress gets the steps with how long each took last time, the current
+ * step and how many listings were found so far.
  */
-export async function scan() {
+export async function scan({ onProgress = () => {} } = {}) {
   ensureDataDir();
   ethzScan = null;
   const sources = {};
   const found = [];
-  for (const [type, search] of Object.entries(SEARCHES)) {
-    for (const name of search.sources) {
-      try {
-        const listings = await SOURCES[name](search);
-        if (listings === NOT_SIGNED_IN) continue;
-        console.log(`${name} (${type}): ${listings.length} listings`);
-        found.push(...listings);
-        if (sources[name]?.ok !== false) {
-          sources[name] = {
-            ok: true,
-            count: (sources[name]?.count || 0) + listings.length,
-          };
-        }
-      } catch (e) {
-        console.log(`${name} (${type}): ${e.message}`);
-        sources[name] = { ok: false, error: e.message.split("\n")[0] };
+  const previous = readJson(SCAN_STATUS_FILE, null)?.durations || {};
+  const durations = {};
+  const steps = await scanSteps();
+  const plan = steps.map(({ type, name, key }) => ({
+    type,
+    source: name,
+    expectedMs: previous[key] || DEFAULT_STEP_MS,
+  }));
+  for (const [index, { type, search, name, key }] of steps.entries()) {
+    onProgress({ steps: plan, current: index, startedAt: Date.now(), found: found.length });
+    const started = Date.now();
+    try {
+      const listings = await SOURCES[name](search);
+      if (listings === NOT_SIGNED_IN) continue;
+      console.log(`${name} (${type}): ${listings.length} listings`);
+      found.push(...listings);
+      if (sources[name]?.ok !== false) {
+        sources[name] = {
+          ok: true,
+          count: (sources[name]?.count || 0) + listings.length,
+        };
       }
+    } catch (e) {
+      console.log(`${name} (${type}): ${e.message}`);
+      sources[name] = { ok: false, error: e.message.split("\n")[0] };
     }
+    durations[key] = Date.now() - started;
   }
 
-  const status = { finishedAt: new Date().toISOString(), sources };
+  const status = { finishedAt: new Date().toISOString(), sources, durations };
   fs.writeFileSync(SCAN_STATUS_FILE, JSON.stringify(status, null, 2));
 
   const seen = loadSeen();

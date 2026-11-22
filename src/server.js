@@ -91,6 +91,7 @@ app.get("/api/tracker", (req, res) => {
 // ── API: Trigger scan ─────────────────────────────────────────────────────
 
 let scanInProgress = false;
+let scanProgress = null;
 
 // The detail pages are fetched one per second, after the scan has answered.
 const DETAILS_PER_SCAN = 60;
@@ -135,8 +136,9 @@ app.post("/api/scan", async (req, res) => {
     return res.status(409).json({ error: "A scan is already running." });
   }
   scanInProgress = true;
+  scanProgress = null;
   try {
-    const status = await scanSources();
+    const status = await scanSources({ onProgress: (progress) => (scanProgress = progress) });
     pruneExcluded(status);
     fetchWgzimmerDetailsInBackground();
     res.json({ ok: true, status: scanStatus() });
@@ -144,7 +146,16 @@ app.post("/api/scan", async (req, res) => {
     res.status(500).json({ error: e.message.substring(0, 100) });
   } finally {
     scanInProgress = false;
+    scanProgress = null;
   }
+});
+
+app.get("/api/scan-progress", (req, res) => {
+  res.json(
+    scanInProgress
+      ? { running: true, now: Date.now(), ...scanProgress }
+      : { running: false },
+  );
 });
 
 /**

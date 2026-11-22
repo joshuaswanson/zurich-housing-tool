@@ -1004,6 +1004,70 @@ async function loadScanStatus() {
   } catch {}
 }
 
+// The bar moves by how long each step took in the last scan, so a slow site
+// takes up as much of the bar as it takes time.
+function scanFraction(progress, elapsedMs) {
+  const expected = progress.steps.map((s) => s.expectedMs);
+  const total = expected.reduce((a, b) => a + b, 0);
+  const before = expected.slice(0, progress.current).reduce((a, b) => a + b, 0);
+  const current = expected[progress.current] || 0;
+  const done = before + Math.min(elapsedMs, current * 0.95);
+  return { fraction: total ? done / total : 0, remainingMs: Math.max(0, total - done) };
+}
+
+function timeLeft(ms) {
+  const minutes = Math.round(ms / 60000);
+  return minutes >= 1 ? counted("scan_minutes_left", minutes) : t("scan_under_a_minute");
+}
+
+let scanProgress = null;
+let scanProgressTimer = null;
+
+function renderScanProgress() {
+  const bar = $("scan-progress");
+  const progress = scanProgress;
+  if (!progress?.running || !progress.steps) {
+    bar.removeAttribute("value");
+    return;
+  }
+  const step = progress.steps[progress.current];
+  const elapsed = Date.now() - progress.receivedAt + (progress.now - progress.startedAt);
+  const { fraction, remainingMs } = scanFraction(progress, elapsed);
+  bar.value = fraction;
+  $("scan-status").textContent = [
+    t("scan_step", {
+      site: sourceLabel(step.source),
+      kind: t(`scan_kind_${step.type}`),
+      n: progress.current + 1,
+      total: progress.steps.length,
+    }),
+    progress.found ? counted("scan_found", progress.found) : "",
+    timeLeft(remainingMs),
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+async function pollScanProgress() {
+  try {
+    const progress = await (await fetch("/api/scan-progress")).json();
+    scanProgress = { ...progress, receivedAt: Date.now() };
+  } catch {}
+}
+
+function watchScanProgress(on) {
+  clearInterval(scanProgressTimer);
+  scanProgress = null;
+  $("scan-progress").hidden = !on;
+  $("scan-progress").removeAttribute("value");
+  if (!on) return;
+  let ticks = 0;
+  scanProgressTimer = setInterval(() => {
+    if (ticks++ % 4 === 0) pollScanProgress();
+    renderScanProgress();
+  }, 250);
+}
+
 async function scan() {
   const button = $("scan-button");
   const status = $("scan-status");
@@ -1011,6 +1075,7 @@ async function scan() {
   button.textContent = t("scanning");
   status.classList.remove("is-error");
   status.textContent = t("scan_wait");
+  watchScanProgress(true);
 
   try {
     const res = await fetch("/api/scan", { method: "POST" });
@@ -1025,6 +1090,7 @@ async function scan() {
     status.textContent = t("scan_failed", { error: e.message });
   }
 
+  watchScanProgress(false);
   button.disabled = false;
   button.textContent = t("scan");
 }

@@ -47,13 +47,13 @@ test("WGZimmer send responses require an explicit success signal", () => {
     classifyWgzimmerSendResponse("<p>reCAPTCHA error. Nachricht nicht gesendet.</p>").error,
     /reCAPTCHA/i,
   );
-  assert.match(
-    classifyWgzimmerSendResponse("<p>The listing page reloaded.</p>").error,
-    /did not confirm/i,
+  assert.deepEqual(
+    classifyWgzimmerSendResponse("<p>The listing page reloaded.</p>"),
+    { ok: false, unconfirmed: true },
   );
 });
 
-function browserFixture({ missingForm = false, signedIn = true, readOnlyName = false } = {}) {
+function browserFixture({ missingForm = false, signedIn = true, readOnlyName = false, reply = "<p>Your message was successfully sent.</p>", keptMessage = "" } = {}) {
   const calls = [];
   let closed = false;
   const page = {
@@ -75,10 +75,11 @@ function browserFixture({ missingForm = false, signedIn = true, readOnlyName = f
       evaluate: async () => readOnlyName && selector === "#kontakt-name",
       fill: async (value) => calls.push(["fill", selector, value]),
       click: async () => calls.push(["click", selector]),
-      innerHTML: async () => "<p>Your message was successfully sent.</p>",
+      innerHTML: async () => reply,
     }),
     waitForNavigation: async () => ({ ok: () => true }),
     content: async () => "<html></html>",
+    inputValue: async () => keptMessage,
   };
   return {
     calls,
@@ -127,4 +128,14 @@ test("current form limits reject overlong values instead of truncating drafts", 
     await assert.rejects(sendWgzimmerApplication({ ...APPLICATION, [field]: "x".repeat(length) },
       async () => { assert.fail("Invalid input must not launch a browser"); }), /too long/);
   }
+});
+
+test("a reply without a clear answer is reported as unconfirmed", async () => {
+  const fixture = browserFixture({ reply: "<p>Thanks.</p>" });
+  assert.deepEqual(await sendWgzimmerApplication(APPLICATION, fixture.launcher), { ok: false, unconfirmed: true });
+});
+
+test("a form that comes back still holding the message was not sent", async () => {
+  const fixture = browserFixture({ reply: "<p>Please check the form.</p>", keptMessage: "Hallo zusammen" });
+  await assert.rejects(sendWgzimmerApplication(APPLICATION, fixture.launcher), /did not accept/);
 });

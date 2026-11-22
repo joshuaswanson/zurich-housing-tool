@@ -522,6 +522,7 @@ test("the template goes to new Flatfox and WG-Zimmer listings in one paced batch
   app.locals.sendWgzimmer = async (application) => {
     await gate;
     sent.push(application);
+    return { ok: true };
   };
   const started = await post("/api/send-batch", { urls: [...urls, WG_URL, "https://example.com/x"] });
   assert.equal(started.status, 200);
@@ -549,6 +550,34 @@ test("the template goes to new Flatfox and WG-Zimmer listings in one paced batch
 
   const again = await post("/api/send-batch", { urls: [urls[0], urls[2]] });
   assert.equal(again.status, 400);
+});
+
+test("a batch stops at a WG-Zimmer send that was not confirmed and counts it as applied", async () => {
+  const flatfoxUrl = (await get("/api/listings")).body.find((l) => l.source === "flatfox").url;
+  await post("/api/track", { url: WG_URL, action: "untrack" });
+  await post("/api/track", { url: flatfoxUrl, action: "untrack" });
+  await post("/api/template", { template: "Hi about {address}" });
+  app.locals.batchPauseMs = () => 0;
+  const tried = [];
+  app.locals.sendWgzimmer = async (application) => {
+    tried.push(application.url);
+    return { ok: false, unconfirmed: true };
+  };
+  app.locals.sendFlatfox = async (application) => tried.push(application.url);
+
+  const order = (await get("/api/listings")).body
+    .filter((l) => l.url === WG_URL || l.url === flatfoxUrl)
+    .map((l) => l.url);
+  const started = await post("/api/send-batch", { urls: [WG_URL, flatfoxUrl] });
+  assert.equal(started.status, 200);
+  let status;
+  do status = (await get("/api/send-batch")).body;
+  while (status.running);
+
+  assert.deepEqual(status.unconfirmed.map((u) => u.url), [WG_URL]);
+  assert.equal(tried[tried.length - 1], WG_URL);
+  assert.equal(tried.length, order.indexOf(WG_URL) + 1);
+  assert.ok((await get("/api/tracker")).body.applied.some((e) => e.url === WG_URL));
 });
 
 test("Ollama lists installed models and writes with the chosen one", async () => {

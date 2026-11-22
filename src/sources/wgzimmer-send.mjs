@@ -97,10 +97,7 @@ export function classifyWgzimmerSendResponse(html) {
     return { ok: true };
   }
 
-  return {
-    ok: false,
-    error: "WG-Zimmer did not confirm that the message was sent.",
-  };
+  return { ok: false, unconfirmed: true };
 }
 
 async function dismissCookieBanner(page) {
@@ -157,7 +154,15 @@ export async function sendWgzimmerApplication(application, launcher = launch) {
     const html = await page.content();
     const form = await page.locator("#kontakt").innerHTML().catch(() => "");
     const result = SENT_MARKER.test(html) ? { ok: true } : classifyWgzimmerSendResponse(form);
-    if (!result.ok) throw new Error(result.error);
+    if (result.error) throw new Error(result.error);
+    // A form that comes back still holding the message was not accepted.
+    const kept = await page.inputValue("#kontakt-text").catch(() => "");
+    if (!result.ok && kept.trim() === data.message.trim()) {
+      throw new Error("WG-Zimmer did not accept the message. Check the listing on WG-Zimmer.");
+    }
+    if (result.unconfirmed) {
+      console.log(`WG-Zimmer reply after sending: ${pageText(form).slice(0, 1500)}`);
+    }
     return result;
   } finally {
     await browser.close();

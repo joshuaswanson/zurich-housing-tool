@@ -1160,7 +1160,7 @@ async function sendDirectDraft(listing, message) {
     await saveDraft();
     await track(listing.url, "apply");
     button.textContent = t(`sent_${source}`);
-    $("dialog-hint").textContent = t(`sent_${source}`);
+    $("dialog-hint").textContent = t(data.unconfirmed ? "wgzimmer_unconfirmed" : `sent_${source}`);
     $("dialog-hint").hidden = false;
     $("dialog-applied").hidden = true;
   } catch (e) {
@@ -2089,12 +2089,16 @@ function renderBatchStatus(status) {
       : status.current
         ? t("batch_progress", { ...counts, current: status.current })
         : t("batch_waiting", counts);
-  $("batch-failed").innerHTML = status.failed
-    .map(
+  $("batch-failed").innerHTML = [
+    ...status.failed.map(
       (f) =>
         `<li><strong>${t("batch_failed")}</strong> ${esc(f.address || f.url)}: ${esc(f.error)}</li>`,
-    )
-    .join("");
+    ),
+    ...(status.unconfirmed || []).map(
+      (f) =>
+        `<li><strong>${t("batch_unconfirmed")}</strong> ${esc(f.address || f.url)}: ${esc(t("wgzimmer_unconfirmed"))} ${esc(t("batch_unconfirmed_stop"))}</li>`,
+    ),
+  ].join("");
 }
 
 async function stopBatch() {

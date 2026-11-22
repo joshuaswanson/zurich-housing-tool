@@ -968,8 +968,8 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function batchStatus() {
   if (!sendBatch) return { running: false };
-  const { running, total, sent, failed, current, stopping } = sendBatch;
-  return { running, total, sent, failed, current, stopping };
+  const { running, total, sent, failed, unconfirmed, current, stopping } = sendBatch;
+  return { running, total, sent, failed, unconfirmed, current, stopping };
 }
 
 function appliedKeys() {
@@ -990,7 +990,7 @@ async function runBatch(batch, listings, profile, template) {
     batch.current = listing.address || listing.url;
     sender.setBusy(true);
     try {
-      await sender.send({
+      const result = await sender.send({
         url: listing.url,
         message,
         name: profile.name,
@@ -999,6 +999,12 @@ async function runBatch(batch, listings, profile, template) {
       });
       saveApplication(listing.url, message);
       trackListing(listing.url, "apply", listing);
+      // A send the site did not confirm may still have gone out, so it counts
+      // as applied and the batch stops before sending more the same way.
+      if (result?.unconfirmed) {
+        batch.unconfirmed.push({ url: listing.url, address: listing.address });
+        break;
+      }
       batch.sent.push(listing.url);
       failuresInRow = 0;
     } catch (e) {
@@ -1061,6 +1067,7 @@ app.post("/api/send-batch", (req, res) => {
     total: listings.length,
     sent: [],
     failed: [],
+    unconfirmed: [],
     current: null,
     stopping: false,
   };

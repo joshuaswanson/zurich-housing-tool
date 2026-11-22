@@ -538,6 +538,7 @@ app.get("/api/ethz-session", async (req, res) => {
 
 /** Fill profile fields that are still empty from the portal account. */
 function importProfile(account) {
+  if (!account) return [];
   const profile = readJson(PROFILE_FILE, null) || {};
   const imported = [];
   for (const [field, value] of Object.entries(profileFromAccount(account))) {
@@ -564,10 +565,16 @@ app.post("/api/ethz-session/login", async (req, res) => {
     ensureDataDir();
     const { account, ads } = await app.locals.ethzPortal(
       { username, password },
-      async (page) => ({
-        account: await fetchEthzAccount(page),
-        ads: await fetchEthzAdvertisements(page),
-      }),
+      async (page) => {
+        const [account, ads] = await Promise.all([
+          fetchEthzAccount(page).catch((e) => {
+            console.log(`ETH Housing account unavailable (${e.message})`);
+            return null;
+          }),
+          fetchEthzAdvertisements(page),
+        ]);
+        return { account, ads };
+      },
     );
     await saveEthzCredentials({ username, password });
     fs.writeFileSync(ETHZ_CACHE_FILE, JSON.stringify(ads, null, 2));

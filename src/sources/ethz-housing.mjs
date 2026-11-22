@@ -28,13 +28,20 @@ export const NOT_CONNECTED = "Sign in to ETH Housing in the settings first.";
 
 const onPortal = (page) => page.url().startsWith(PORTAL_URL);
 
-/** Open the portal, signing in with the credentials when ETH asks for them. */
+/**
+ * Open the portal, signing in with the credentials when ETH asks for them.
+ * The portal page keeps loading its own data, which can hang when ETH's
+ * services are slow, so only the page itself is waited for.
+ */
 async function openPortal(page, credentials) {
   await page.goto(`${PORTAL_URL}account`, {
-    waitUntil: "networkidle",
+    waitUntil: "domcontentloaded",
     timeout: PAGE_TIMEOUT_MS,
   });
   if (onPortal(page)) return;
+  await page
+    .waitForSelector(USERNAME_FIELD, { timeout: PAGE_TIMEOUT_MS })
+    .catch(() => {});
   if (!new URL(page.url()).hostname.endsWith(LOGIN_HOST)) {
     throw new Error("ETH Housing did not open its login page.");
   }
@@ -61,7 +68,6 @@ async function openPortal(page, credentials) {
       message.trim() || "ETH did not accept the user name or password.",
     );
   }
-  await page.waitForLoadState("networkidle", { timeout: PAGE_TIMEOUT_MS });
 }
 
 async function api(page, path) {

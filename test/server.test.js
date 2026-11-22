@@ -696,6 +696,28 @@ test("signing in to the ETH Housing Office imports offers and fills empty profil
   assert.ok(!(await get("/api/listings")).body.some((l) => l.source === "ethz"));
 });
 
+test("signing in to ETH Housing works while its account service is down", async () => {
+  const { keychain } = await import("../src/ethz-session.mjs");
+  const secrets = new Map();
+  Object.assign(keychain, {
+    saveSecret: async (service, account, secret) => secrets.set(account, secret),
+    readSecret: async (service, account) => secrets.get(account) ?? null,
+    deleteSecret: async (service, account) => secrets.delete(account),
+  });
+  app.locals.ethzPortal = async (credentials, fn) =>
+    fn({
+      evaluate: async (_, url) =>
+        url.includes("/accounts")
+          ? { status: 500, body: null }
+          : { status: 200, body: { "search-results": { advertisements: [], "total-count": 0 } } },
+    });
+  const login = await post("/api/ethz-session/login", { username: "jdoe", password: "secret" });
+  assert.equal(login.status, 200);
+  assert.deepEqual(login.body.imported, []);
+  assert.equal(secrets.get("jdoe"), "secret");
+  await post("/api/ethz-session/logout", {});
+});
+
 test("routes use a weekday morning and keep the quickest connection", async () => {
   const { commuteStart } = await import("../src/server.js");
   assert.deepEqual(commuteStart(new Date(2026, 10, 20)), { date: "11/23/2026", time: "08:00" });

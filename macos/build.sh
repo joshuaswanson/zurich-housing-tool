@@ -82,7 +82,15 @@ sed "s/VERSION/$VERSION/g" macos/Info.plist > "$CONTENTS/Info.plist"
 if [ "${RELEASE:-}" != 1 ]; then
   /usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$CONTENTS/Info.plist"
 fi
-codesign --force --deep --sign - "$APP"
+# Ad-hoc signatures change with every build, and macOS then treats the app
+# as new and drops its permissions. Local builds use the developer's own
+# signing certificate when there is one, which stays the same across builds.
+IDENTITY="-"
+if [ "${RELEASE:-}" != 1 ]; then
+  IDENTITY="$(security find-identity -v -p codesigning | awk -F'"' '/Apple Development/ { print $2; exit }')"
+  IDENTITY="${IDENTITY:--}"
+fi
+codesign --force --deep --sign "$IDENTITY" "$APP"
 DMG="build/Zurich-Housing-Tool.dmg"
 STAGING="$CACHE/dmg"
 rm -rf "$STAGING" "$DMG"

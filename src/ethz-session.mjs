@@ -17,10 +17,12 @@ export function ethzUsername() {
   return readJson(ETHZ_SESSION_FILE, {})?.username || null;
 }
 
+/** The saved user name and password, or null when either is missing. */
 export async function ethzCredentials() {
   const username = ethzUsername();
   if (!username) return null;
-  return { username, password: await keychain.readSecret(ETHZ_KEYCHAIN_SERVICE, username) };
+  const password = await keychain.readSecret(ETHZ_KEYCHAIN_SERVICE, username);
+  return password ? { username, password } : null;
 }
 
 export async function saveEthzCredentials({ username, password }) {

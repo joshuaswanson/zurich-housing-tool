@@ -36,6 +36,7 @@ import {
   withEthzPortal,
 } from "./sources/ethz-housing.mjs";
 import {
+  ethzCredentials,
   ethzUsername,
   forgetEthzCredentials,
   saveEthzCredentials,
@@ -519,9 +520,9 @@ app.locals.ethzPortal = (credentials, fn) =>
   withEthzPortal(ETHZ_BROWSER_PROFILE_DIR, credentials, fn);
 let ethzBusy = false;
 
-app.get("/api/ethz-session", (req, res) => {
-  const username = ethzUsername();
-  res.json({ connected: Boolean(username), username });
+app.get("/api/ethz-session", async (req, res) => {
+  const credentials = await ethzCredentials();
+  res.json({ connected: Boolean(credentials), username: ethzUsername() });
 });
 
 /** Fill profile fields that are still empty from the portal account. */

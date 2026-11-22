@@ -9,7 +9,7 @@ A macOS app that scrapes the major Swiss housing platforms, filters and maps the
 
 ## Features
 
-- **Listings from five sources**: [WG-Zimmer](https://wgzimmer.ch), [Flatfox](https://flatfox.ch), [Ron Orp](https://ronorp.net), [Students.ch](https://www.students.ch/wohnen), and [ETH Housing](https://idapps.ethz.ch/accommodation-web/) for ETH and UZH members, in one list
+- **Listings from five sources**: [ETH Housing](https://idapps.ethz.ch/accommodation-web/) for ETH and UZH members, [Flatfox](https://flatfox.ch), [Ron Orp](https://ronorp.net), [Students.ch](https://www.students.ch/wohnen), and [WG-Zimmer](https://wgzimmer.ch), in one list
 - **Rooms or apartments**: Look for a room in a shared flat, or for a whole apartment or house
 - **Application messages**: A language model writes a message for each listing from your profile and the listing's description, in German or English, on your Mac or through OpenRouter
 - **Templates**: Write one message and pick it for any listing, with the address filled in

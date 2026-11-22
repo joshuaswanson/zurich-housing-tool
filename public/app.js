@@ -2,11 +2,11 @@ const ROWS_PER_PAGE = 200;
 let rowLimit = ROWS_PER_PAGE;
 let filteredListings = [];
 const SOURCE_SITES = [
-  "WG-Zimmer",
+  "ETH Housing",
   "Flatfox",
   "Ron Orp",
   "Students.ch",
-  "ETH Housing",
+  "WG-Zimmer",
 ];
 
 let target = { lat: 47.3764, lng: 8.5483, label: "ETH Zentrum" };
@@ -389,11 +389,11 @@ function listingRow(l, { reason = "" } = {}) {
 let excludedListings = [];
 
 const SOURCE_HOSTS = {
-  "wgzimmer.ch": "wgzimmer",
+  "ethz.ch": "ethz",
   "flatfox.ch": "flatfox",
   "ronorp.net": "ronorp",
   "students.ch": "students",
-  "ethz.ch": "ethz",
+  "wgzimmer.ch": "wgzimmer",
 };
 
 function sourceOf(url) {
@@ -445,11 +445,11 @@ function findListing(id) {
 }
 
 const SOURCE_NAMES = {
+  ethz: "ETH Housing",
   flatfox: "Flatfox",
-  wgzimmer: "WG-Zimmer",
   ronorp: "Ron Orp",
   students: "Students.ch",
-  ethz: "ETH Housing",
+  wgzimmer: "WG-Zimmer",
 };
 
 function sourceLabel(source) {
@@ -967,7 +967,8 @@ function renderScanStatus(scanStatus, newCount = 0) {
   }
   const failedSources = Object.entries(scanStatus.sources)
     .filter(([, result]) => !result.ok)
-    .map(([source]) => source);
+    .map(([source]) => source)
+    .sort((a, b) => sourceLabel(a).localeCompare(sourceLabel(b)));
   status.classList.toggle("is-error", failedSources.length > 0);
   status.textContent =
     t("last_scan", { when: timeAgo(scanStatus.finishedAt) }) +
@@ -2116,15 +2117,15 @@ function buildMapStyle() {
   const sourceColor = [
     "match",
     ["get", "source"],
-    "flatfox",
-    cssVar("--src-flatfox"),
-    "wgzimmer",
-    cssVar("--src-wgzimmer"),
-    "students",
-    cssVar("--src-students"),
     "ethz",
     cssVar("--src-ethz"),
+    "flatfox",
+    cssVar("--src-flatfox"),
+    "ronorp",
     cssVar("--src-ronorp"),
+    "students",
+    cssVar("--src-students"),
+    cssVar("--src-wgzimmer"),
   ];
   const placeLabel = (id, classes, minzoom, font, size) => ({
     id,

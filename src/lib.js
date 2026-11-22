@@ -57,7 +57,7 @@ export const SEARCH_FILE = path.join(DATA_DIR, "search.json");
 export const SEARCHES = {
   room: {
     maxPrice: 3000,
-    sources: ["flatfox", "wgzimmer", "ronorp", "students", "ethz"],
+    sources: ["ethz", "flatfox", "ronorp", "students", "wgzimmer"],
     flatfoxCategories: ["SHARED"],
     ronorpSubcategories: ["144"],
     ethzTypes: [1, 2],
@@ -66,7 +66,7 @@ export const SEARCHES = {
   },
   apartment: {
     maxPrice: 6000,
-    sources: ["flatfox", "ronorp", "ethz"],
+    sources: ["ethz", "flatfox", "ronorp"],
     flatfoxCategories: ["APARTMENT", "HOUSE"],
     ronorpSubcategories: ["142", "141", "143"],
     ethzTypes: [3, 4],

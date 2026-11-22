@@ -174,11 +174,11 @@ export function pruneExcluded(status) {
 }
 
 const SOURCE_DOMAINS = {
-  wgzimmer: "wgzimmer.ch",
+  ethz: "ethz.ch",
   flatfox: "flatfox.ch",
   ronorp: "ronorp.net",
   students: "students.ch",
-  ethz: "ethz.ch",
+  wgzimmer: "wgzimmer.ch",
 };
 
 function sourceOfUrl(url) {
